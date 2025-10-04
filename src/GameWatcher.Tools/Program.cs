@@ -18,6 +18,7 @@ internal class Program
         {
             var misses = GetArg(args, "--misses") ?? "data/misses.json";
             var mapPath = GetArg(args, "--map") ?? "assets/maps/dialogue.en.json";
+            var speakersPath = GetArg(args, "--speakers") ?? "assets/maps/speakers.json";
             var voicesDir = GetArg(args, "--voices") ?? "assets/voices";
             var personaPath = GetArg(args, "--persona") ?? "assets/voices/persona.json";
             var max = int.TryParse(GetArg(args, "--max"), out var n) ? n : int.MaxValue;
@@ -37,8 +38,8 @@ internal class Program
                 return 2;
             }
 
-            var persona = VoicePersona.Load(personaPath);
-            var client = dry ? null : new OpenAiTtsClient(apiKey!, persona.Model, persona.Voice);
+            var defaultPersona = VoicePersona.Load(personaPath);
+            var speakerMap = new SpeakerMap(speakersPath);
 
             Directory.CreateDirectory(Path.GetDirectoryName(mapPath)!);
             Directory.CreateDirectory(voicesDir);
@@ -58,7 +59,11 @@ internal class Program
                 var file = $"line_{nextNum:0000}.wav";
                 var outPath = Path.Combine(voicesDir, file);
 
-                Console.WriteLine($"Generate: {file} <= {key}");
+                var speaker = speakerMap.Resolve(key);
+                var personaForSpeaker = speaker == "default" ? defaultPersona : VoicePersona.Load(Path.Combine(voicesDir, "personas", speaker + ".json"));
+                var client = dry ? null : new OpenAiTtsClient(apiKey!, personaForSpeaker.Model, personaForSpeaker.Voice);
+
+                Console.WriteLine($"Generate: {file} <= [{speaker}] {key}");
                 if (!dry)
                 {
                     var audio = await client!.SynthesizeWavAsync(key);
@@ -135,4 +140,3 @@ internal class Program
         public string normalized { get; set; } = string.Empty;
     }
 }
-

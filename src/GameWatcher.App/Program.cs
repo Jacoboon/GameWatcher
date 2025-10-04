@@ -6,6 +6,7 @@ using GameWatcher.App.Mapping;
 using GameWatcher.App.Audio;
 using GameWatcher.App.Catalog;
 using GameWatcher.App.Events;
+using GameWatcher.App.Author;
 
 static string FindRepoRoot()
 {
@@ -23,6 +24,7 @@ var templatesDir = Path.Combine(root, "assets", "templates");
 var mapsDir = Path.Combine(root, "assets", "maps");
 var voicesDir = Path.Combine(root, "assets", "voices");
 var dataDir = Path.Combine(root, "data");
+var speakersPath = Path.Combine(mapsDir, "speakers.json");
 var testImage = Path.Combine(templatesDir, "FF-TextBox-Position.png");
 
 if (!File.Exists(testImage))
@@ -69,6 +71,8 @@ try
     var catalog = new CatalogService(dataDir);
     var emitter = new EventEmitter(dataDir);
     var id = catalog.ComputeId(norm);
+    var speakerResolver = new SpeakerResolver(speakersPath);
+    var speaker = speakerResolver.Resolve(norm);
     if (mapping.TryResolve(norm, out var audio))
     {
         Console.WriteLine($"Mapped to: {audio}");
@@ -83,6 +87,7 @@ try
             Normalized = norm,
             Raw = raw,
             Rect = new[] { rect.X, rect.Y, rect.Width, rect.Height },
+            Speaker = speaker,
             Audio = Path.GetFileName(audio),
             Timestamp = DateTimeOffset.UtcNow
         });
@@ -99,6 +104,7 @@ try
             Normalized = norm,
             Raw = raw,
             Rect = new[] { rect.X, rect.Y, rect.Width, rect.Height },
+            Speaker = speaker,
             Audio = null,
             Timestamp = DateTimeOffset.UtcNow
         });

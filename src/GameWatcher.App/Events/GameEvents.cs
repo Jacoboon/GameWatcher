@@ -14,7 +14,7 @@ internal sealed class DialogueEvent : GameEvent
     [JsonPropertyName("normalized")] public string Normalized { get; init; } = string.Empty;
     [JsonPropertyName("raw")] public string Raw { get; init; } = string.Empty;
     [JsonPropertyName("rect")] public int[] Rect { get; init; } = Array.Empty<int>(); // x,y,w,h
+    [JsonPropertyName("speaker")] public string Speaker { get; init; } = "default";
     [JsonPropertyName("audio")] public string? Audio { get; init; } // filename or null
     [JsonPropertyName("hasAudio")] public bool HasAudio => !string.IsNullOrWhiteSpace(Audio);
 }
-
