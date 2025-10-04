@@ -9,4 +9,7 @@
   <ItemGroup>
     <ProjectReference Include="..\GameWatcher.Core\GameWatcher.Core.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="NAudio" Version="2.2.1" />
+  </ItemGroup>
 </Project>

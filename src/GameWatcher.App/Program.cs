@@ -2,6 +2,10 @@ using System.Drawing;
 using GameWatcher.App.Ocr;
 using GameWatcher.App.Text;
 using GameWatcher.App.Vision;
+using GameWatcher.App.Mapping;
+using GameWatcher.App.Audio;
+using GameWatcher.App.Catalog;
+using GameWatcher.App.Events;
 
 static string FindRepoRoot()
 {
@@ -16,6 +20,9 @@ static string FindRepoRoot()
 
 var root = FindRepoRoot();
 var templatesDir = Path.Combine(root, "assets", "templates");
+var mapsDir = Path.Combine(root, "assets", "maps");
+var voicesDir = Path.Combine(root, "assets", "voices");
+var dataDir = Path.Combine(root, "data");
 var testImage = Path.Combine(templatesDir, "FF-TextBox-Position.png");
 
 if (!File.Exists(testImage))
@@ -50,10 +57,52 @@ Console.WriteLine($"Saved crop: {outCrop}");
 var ocr = new TesseractCliOcrEngine();
 try
 {
+    // Preprocess for OCR and catalog
+    using var pre = ImagePreprocessor.GrayscaleUpscaleThreshold(crop);
     var raw = await ocr.ReadTextAsync(crop);
     var norm = new SimpleNormalizer().Normalize(raw);
     Console.WriteLine("--- OCR Raw ---\n" + raw);
     Console.WriteLine("--- OCR Normalized ---\n" + norm);
+
+    // Map to audio and play if found
+    var mapping = new DialogMapping(mapsDir, voicesDir);
+    var catalog = new CatalogService(dataDir);
+    var emitter = new EventEmitter(dataDir);
+    var id = catalog.ComputeId(norm);
+    if (mapping.TryResolve(norm, out var audio))
+    {
+        Console.WriteLine($"Mapped to: {audio}");
+        using var player = new PlaybackAgent();
+        await player.PlayAsync(audio);
+        Console.WriteLine("Playback complete.");
+        catalog.Record(norm, raw, rect, audioFile: Path.GetFileName(audio), crop: crop, preprocessed: pre);
+        emitter.Emit(new DialogueEvent
+        {
+            Type = "dialogue",
+            Id = id,
+            Normalized = norm,
+            Raw = raw,
+            Rect = new[] { rect.X, rect.Y, rect.Width, rect.Height },
+            Audio = Path.GetFileName(audio),
+            Timestamp = DateTimeOffset.UtcNow
+        });
+    }
+    else
+    {
+        Console.WriteLine("No audio mapping found.");
+        Console.WriteLine($"Add a mapping to {Path.Combine(mapsDir, "dialogue.en.json")}");
+        catalog.Record(norm, raw, rect, audioFile: null, crop: crop, preprocessed: pre);
+        emitter.Emit(new DialogueEvent
+        {
+            Type = "dialogue",
+            Id = id,
+            Normalized = norm,
+            Raw = raw,
+            Rect = new[] { rect.X, rect.Y, rect.Width, rect.Height },
+            Audio = null,
+            Timestamp = DateTimeOffset.UtcNow
+        });
+    }
 }
 catch (Exception ex)
 {
