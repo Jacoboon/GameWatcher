@@ -189,5 +189,64 @@ namespace SimpleLoop
                 Console.WriteLine();
             }
         }
+
+        /// <summary>
+        /// Get all dialogue entries for GUI display
+        /// </summary>
+        public IEnumerable<DialogueEntry> GetAllEntries()
+        {
+            lock (_lockObject)
+            {
+                return _entries.Values.ToList(); // Return a copy to avoid threading issues
+            }
+        }
+        
+        /// <summary>
+        /// Remove a dialogue entry by its text content
+        /// </summary>
+        public bool RemoveDialogue(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return false;
+
+            lock (_lockObject)
+            {
+                // Find the entry with matching text
+                var entryToRemove = _entries.Values.FirstOrDefault(e => e.Text == text.Trim());
+                if (entryToRemove != null)
+                {
+                    var removed = _entries.Remove(entryToRemove.Id);
+                    if (removed)
+                    {
+                        SaveCatalog();
+                    }
+                    return removed;
+                }
+                
+                return false;
+            }
+        }
+        
+        /// <summary>
+        /// Remove a dialogue entry by its ID
+        /// </summary>
+        public bool RemoveDialogueById(string entryId)
+        {
+            if (string.IsNullOrWhiteSpace(entryId)) return false;
+
+            lock (_lockObject)
+            {
+                var removed = _entries.Remove(entryId);
+                if (removed)
+                {
+                    SaveCatalog();
+                }
+                return removed;
+            }
+        }
+        
+        /// <summary>
+        /// Get dialogue entry count
+        /// </summary>
+        public int Count => _entries.Count;
     }
 }

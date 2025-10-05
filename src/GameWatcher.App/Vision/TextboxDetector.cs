@@ -120,17 +120,27 @@ internal sealed class TextboxDetector : ITextboxDetector
                 if (rect.Width < 10 || rect.Height < 10) continue;
 
                 double avg = (sTL + sTR + sBL + sBR) / 4.0;
-                if (!LooksLikeBlueTextbox(frame, rect) || !HasWhiteTextStrokes(frame, rect))
+                
+                // Additional geometric constraints for FF1 textbox
+                if (!IsValidFF1TextboxGeometry(rect, frame.Width, frame.Height))
                 {
-                    // Reject candidates that don't look like the FF blue dialogue fill
+                    Console.WriteLine($"[TEXTBOX] Scale {scale:F3} rejected - invalid geometry");
                     continue;
                 }
-                    if (avg > bestScore)
-                    {
-                        bestScore = avg;
-                        bestRect = rect;
-                        bestMatch = (pTL, pTR, pBL, pBR, avg, tr.Size);
-                    }
+                
+                if (!LooksLikeBlueTextbox(frame, rect) || !HasWhiteTextStrokes(frame, rect))
+                {
+                    Console.WriteLine($"[TEXTBOX] Scale {scale:F3} rejected - failed appearance validation");
+                    continue;
+                }
+                
+                // Only accept if significantly better than current best (avoid micro-variations)
+                if (avg > bestScore + 0.01) // Require meaningful improvement
+                {
+                    bestScore = avg;
+                    bestRect = rect;
+                    bestMatch = (pTL, pTR, pBL, pBR, avg, tr.Size);
+                }
                 }
                 catch (Exception ex)
                 {
@@ -161,24 +171,25 @@ internal sealed class TextboxDetector : ITextboxDetector
     {
         try
         {
-            // Basic size/aspect sanity
+            // Basic size/aspect sanity - stricter constraints
             double w = rect.Width, h = rect.Height;
             double ar = w / Math.Max(1.0, h);
             double wFrac = w / frame.Width;
             double hFrac = h / frame.Height;
-            if (ar < 3.5 || ar > 5.8) return false;        // tighter aspect band
-            if (wFrac < 0.45 || wFrac > 0.85) return false; // not tiny or entire screen
-            if (hFrac < 0.16 || hFrac > 0.28) return false; // typical textbox height band
+            if (ar < 4.0 || ar > 5.5) return false;        // stricter aspect ratio for FF1 textbox
+            if (wFrac < 0.50 || wFrac > 0.80) return false; // more constrained width
+            if (hFrac < 0.18 || hFrac > 0.26) return false; // more constrained height
 
-            // Color check: inside should be predominately blue (B >> R,G) not green grass
-            var inner = rect.Inset(Math.Max(2, (int)Math.Round(Math.Min(rect.Width, rect.Height) * 0.06)),
-                                   Math.Max(2, (int)Math.Round(Math.Min(rect.Width, rect.Height) * 0.06)));
+            // Color check: inside should be predominately FF1 blue (#4169E1 or similar)
+            var inner = rect.Inset(Math.Max(2, (int)Math.Round(Math.Min(rect.Width, rect.Height) * 0.08)),
+                                   Math.Max(2, (int)Math.Round(Math.Min(rect.Width, rect.Height) * 0.08)));
             if (inner.Width <= 0 || inner.Height <= 0) return false;
 
-            int stepsX = Math.Max(8, inner.Width / 80);
-            int stepsY = Math.Max(4, inner.Height / 60);
-            int blueish = 0, greenish = 0, total = 0;
-            int blueTop = 0, blueBot = 0, totalTop = 0, totalBot = 0;
+            int stepsX = Math.Max(12, inner.Width / 60); // More sampling points
+            int stepsY = Math.Max(6, inner.Height / 40);
+            int strongBlue = 0, blueish = 0, nonBlue = 0, total = 0;
+            double totalBrightness = 0;
+            
             for (int yi = 0; yi < stepsY; yi++)
             {
                 int y = inner.Y + (int)Math.Round((yi + 0.5) * inner.Height / stepsY);
@@ -186,26 +197,111 @@ internal sealed class TextboxDetector : ITextboxDetector
                 {
                     int x = inner.X + (int)Math.Round((xi + 0.5) * inner.Width / stepsX);
                     var c = frame.GetPixel(x, y);
-                    if (c.B > c.R + 25 && c.B > c.G + 25) blueish++;
-                    if (c.G > c.B + 15 && c.G > c.R + 15) greenish++;
+                    
+                    // Strong FF1 blue check: Blue dominant and in right range
+                    if (c.B >= 180 && c.B > c.R + 40 && c.B > c.G + 40) 
+                    {
+                        strongBlue++;
+                    }
+                    // Weaker blue check
+                    else if (c.B > c.R + 20 && c.B > c.G + 20 && c.B >= 120) 
+                    {
+                        blueish++;
+                    }
+                    else
+                    {
+                        nonBlue++;
+                    }
+                    
+                    totalBrightness += (c.R + c.G + c.B) / 3.0;
                     total++;
-                    if (yi < stepsY / 2) { if (c.B > c.R + 25 && c.B > c.G + 25) blueTop++; totalTop++; } else { if (c.B > c.R + 25 && c.B > c.G + 25) blueBot++; totalBot++; }
                 }
             }
+            
             if (total == 0) return false;
-            double blueRatio = blueish / (double)total;
-            double greenRatio = greenish / (double)total;
-            if (blueRatio < 0.60) return false;   // mostly blue interior
-            if (greenRatio > 0.20) return false;  // not predominantly green
-
-            // Gradient sanity: bottom tends brighter blue than top (not strict but helpful)
-            if (totalTop > 0 && totalBot > 0)
-            {
-                double rTop = blueTop / (double)totalTop;
-                double rBot = blueBot / (double)totalBot;
-                if (rBot < rTop - 0.05) return false;
-            }
+            
+            double strongBlueRatio = strongBlue / (double)total;
+            double totalBlueRatio = (strongBlue + blueish) / (double)total;
+            double avgBrightness = totalBrightness / total;
+            
+            // Must have strong FF1 blue presence
+            if (strongBlueRatio < 0.40) return false;   // At least 40% strong blue
+            if (totalBlueRatio < 0.75) return false;    // At least 75% blue-ish total
+            if (avgBrightness < 80 || avgBrightness > 200) return false; // Right brightness range
+            
+            // Check for consistent blue pattern (not random blue pixels in scenery)
+            if (HasConsistentBluePattern(frame, inner) == false) return false;
+            
             return true;
+        }
+        catch { return false; }
+    }
+    
+    private static bool HasConsistentBluePattern(Bitmap frame, Rectangle rect)
+    {
+        try
+        {
+            // Check that blue pixels form a consistent filled region, not scattered
+            int centerX = rect.X + rect.Width / 2;
+            int centerY = rect.Y + rect.Height / 2;
+            int quarterWidth = rect.Width / 4;
+            int quarterHeight = rect.Height / 4;
+            
+            // Sample a cross pattern through the center
+            int blueInCross = 0, totalInCross = 0;
+            
+            // Horizontal line through center
+            for (int x = rect.X + quarterWidth; x < rect.Right - quarterWidth; x += 4)
+            {
+                var c = frame.GetPixel(x, centerY);
+                if (c.B > c.R + 20 && c.B > c.G + 20 && c.B >= 120) blueInCross++;
+                totalInCross++;
+            }
+            
+            // Vertical line through center  
+            for (int y = rect.Y + quarterHeight; y < rect.Bottom - quarterHeight; y += 4)
+            {
+                var c = frame.GetPixel(centerX, y);
+                if (c.B > c.R + 20 && c.B > c.G + 20 && c.B >= 120) blueInCross++;
+                totalInCross++;
+            }
+            
+            if (totalInCross == 0) return false;
+            double crossBlueRatio = blueInCross / (double)totalInCross;
+            
+            // Center cross should be predominantly blue for a real textbox
+            return crossBlueRatio >= 0.80;
+        }
+        catch { return false; }
+    }
+    
+    private static bool IsValidFF1TextboxGeometry(Rectangle rect, int frameWidth, int frameHeight)
+    {
+        try
+        {
+            // FF1 textboxes have very specific positioning and size characteristics
+            double wRatio = rect.Width / (double)frameWidth;
+            double hRatio = rect.Height / (double)frameHeight;
+            double xRatio = rect.X / (double)frameWidth;
+            double yRatio = rect.Y / (double)frameHeight;
+            
+            // FF1 textbox typically appears in specific screen regions
+            // Top area (0.05-0.15 from top) or bottom area (0.65-0.85 from top) 
+            bool validVerticalPosition = (yRatio >= 0.05 && yRatio <= 0.20) || 
+                                        (yRatio >= 0.65 && yRatio <= 0.85);
+            
+            // Horizontally centered with some tolerance
+            double centerXRatio = (rect.X + rect.Width / 2.0) / frameWidth;
+            bool reasonablyCentered = centerXRatio >= 0.35 && centerXRatio <= 0.65;
+            
+            // Size constraints - FF1 textboxes are substantial but not huge
+            bool validSize = wRatio >= 0.45 && wRatio <= 0.75 && 
+                           hRatio >= 0.15 && hRatio <= 0.30;
+            
+            // Minimum absolute size (avoid tiny false positives)
+            bool minimumSize = rect.Width >= 400 && rect.Height >= 120;
+            
+            return validVerticalPosition && reasonablyCentered && validSize && minimumSize;
         }
         catch { return false; }
     }
@@ -214,24 +310,60 @@ internal sealed class TextboxDetector : ITextboxDetector
     {
         try
         {
-            var inner = rect.Inset(Math.Max(2, rect.Width / 40), Math.Max(2, rect.Height / 6)); // avoid borders
+            // More focused sampling on text regions (avoid extreme edges)
+            var inner = rect.Inset(Math.Max(4, rect.Width / 25), Math.Max(4, rect.Height / 8));
             if (inner.Width <= 0 || inner.Height <= 0) return false;
-            int stepX = Math.Max(2, inner.Width / 320); // sample ~320 points across width
-            int stepY = Math.Max(2, inner.Height / 120);
-            int whiteish = 0, total = 0;
+            
+            int stepX = Math.Max(1, inner.Width / 400); // Higher resolution sampling
+            int stepY = Math.Max(1, inner.Height / 150);
+            int brightWhite = 0, nearWhite = 0, total = 0;
+            int textLikeStructures = 0;
+            
             for (int y = inner.Y; y < inner.Bottom; y += stepY)
             {
+                int rowWhites = 0, rowTotal = 0;
                 for (int x = inner.X; x < inner.Right; x += stepX)
                 {
                     var c = frame.GetPixel(x, y);
-                    // bright/near-white
-                    if (c.R > 220 && c.G > 220 && c.B > 220) whiteish++;
+                    
+                    // Pure white text pixels
+                    if (c.R >= 240 && c.G >= 240 && c.B >= 240) 
+                    {
+                        brightWhite++;
+                        rowWhites++;
+                    }
+                    // Light gray/anti-aliased text
+                    else if (c.R >= 200 && c.G >= 200 && c.B >= 200 && 
+                             Math.Abs(c.R - c.G) < 20 && Math.Abs(c.G - c.B) < 20)
+                    {
+                        nearWhite++;
+                        rowWhites++;
+                    }
+                    
+                    rowTotal++;
                     total++;
                 }
+                
+                // Count rows that have reasonable text density (not too sparse, not too dense)
+                if (rowTotal > 0)
+                {
+                    double rowWhiteRatio = rowWhites / (double)rowTotal;
+                    if (rowWhiteRatio >= 0.05 && rowWhiteRatio <= 0.60) // 5-60% white in row
+                    {
+                        textLikeStructures++;
+                    }
+                }
             }
+            
             if (total == 0) return false;
-            double ratio = whiteish / (double)total;
-            return ratio >= 0.004 && ratio <= 0.25; // ~0.4%–25% of samples are bright text
+            
+            double whiteRatio = (brightWhite + nearWhite) / (double)total;
+            int totalRows = (inner.Height + stepY - 1) / stepY;
+            double textStructureRatio = totalRows > 0 ? textLikeStructures / (double)totalRows : 0;
+            
+            // Must have reasonable white text content and text-like row structure
+            return whiteRatio >= 0.02 && whiteRatio <= 0.35 &&    // 2-35% white pixels
+                   textStructureRatio >= 0.10;                     // At least 10% of rows have text-like density
         }
         catch { return false; }
     }

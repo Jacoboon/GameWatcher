@@ -111,6 +111,14 @@ namespace SimpleLoop
             
             return score;
         }
+        
+        /// <summary>
+        /// Override ToString for better display in UI controls
+        /// </summary>
+        public override string ToString()
+        {
+            return $"{Name} ({CharacterType})";
+        }
     }
     
     /// <summary>
