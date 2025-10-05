@@ -22,8 +22,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 {
     private DialogueCatalog? _dialogueCatalog;
     private SpeakerCatalog? _speakerCatalog;
-    private DispatcherTimer? _captureTimer;
     private bool _isCapturing = false;
+    
+    // NEW: CaptureService integration
+    private CaptureService? _captureService;
+    private DispatcherTimer? _statsUpdateTimer;
     
     // Observable collections for data binding
     public ObservableCollection<DialogueEntry> DialogueEntries { get; } = new();
@@ -47,6 +50,7 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         DataContext = this;
         
         InitializeCatalogs();
+        InitializeCaptureService();
         SetupUI();
         LoadData();
     }
@@ -84,6 +88,37 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             Console.WriteLine($"Error initializing catalogs: {ex}");
             StatusText.Text = $"Error: {ex.Message}";
             MessageBox.Show($"Failed to initialize catalogs: {ex.Message}\n\nTrying to load from: {AppDomain.CurrentDomain.BaseDirectory}", "Error", 
+                           MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+    
+    private void InitializeCaptureService()
+    {
+        try
+        {
+            _captureService = new CaptureService();
+            
+            // Subscribe to capture service events
+            _captureService.ProgressReported += OnCaptureProgressReported;
+            _captureService.DialogueDetected += OnDialogueDetected;
+            
+            // Setup stats update timer (every second)
+            _statsUpdateTimer = new DispatcherTimer();
+            _statsUpdateTimer.Interval = TimeSpan.FromSeconds(1);
+            _statsUpdateTimer.Tick += UpdateLiveStats;
+            
+            // Setup log refresh timer (every 2 seconds for file-based logs)
+            var logUpdateTimer = new DispatcherTimer();
+            logUpdateTimer.Interval = TimeSpan.FromSeconds(2);
+            logUpdateTimer.Tick += UpdateLogDisplay;
+            logUpdateTimer.Start();
+            
+            StatusText.Text = "Capture service initialized";
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"Error initializing capture service: {ex.Message}";
+            MessageBox.Show($"Failed to initialize capture service: {ex.Message}", "Error", 
                            MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
@@ -190,27 +225,35 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     #region Capture Control Events
 
-    private void StartCaptureButton_Click(object sender, RoutedEventArgs e)
+    private async void StartCaptureButton_Click(object sender, RoutedEventArgs e)
     {
-        if (_isCapturing) return;
+        if (_isCapturing || _captureService == null) return;
 
         try
         {
-            // TODO: Start SimpleLoop capture engine in background
-            _isCapturing = true;
-            StartCaptureButton.IsEnabled = false;
-            StopCaptureButton.IsEnabled = true;
-            StatusText.Text = "Capturing...";
-            StatusText.Foreground = new SolidColorBrush(Color.FromRgb(255, 165, 0)); // Orange
+            // Start the capture service
+            var started = await _captureService.StartCaptureAsync();
             
-            LiveLogTextBox.AppendText($"[{DateTime.Now:HH:mm:ss}] Starting SimpleLoop capture engine...\n");
-            LiveLogTextBox.ScrollToEnd();
-            
-            // Start performance monitoring timer
-            _captureTimer = new DispatcherTimer();
-            _captureTimer.Interval = TimeSpan.FromSeconds(1);
-            _captureTimer.Tick += UpdateLiveStats;
-            _captureTimer.Start();
+            if (started)
+            {
+                _isCapturing = true;
+                StartCaptureButton.IsEnabled = false;
+                StopCaptureButton.IsEnabled = true;
+                StatusText.Text = "Capturing...";
+                StatusText.Foreground = new SolidColorBrush(Color.FromRgb(255, 165, 0)); // Orange
+                CaptureStatusText.Text = "Capturing";
+                CaptureStatusText.Foreground = new SolidColorBrush(Color.FromRgb(255, 165, 0)); // Orange
+                
+                // Log will be updated by the file-based refresh timer
+                
+                // Start stats update timer
+                _statsUpdateTimer?.Start();
+            }
+            else
+            {
+                MessageBox.Show("Failed to start capture service. Check the log for details.", "Error",
+                               MessageBoxButton.OK, MessageBoxImage.Error);
+            }
         }
         catch (Exception ex)
         {
@@ -220,20 +263,23 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }
 
-    private void StopCaptureButton_Click(object sender, RoutedEventArgs e)
+    private async void StopCaptureButton_Click(object sender, RoutedEventArgs e)
     {
-        if (!_isCapturing) return;
+        if (!_isCapturing || _captureService == null) return;
 
         try
         {
-            // TODO: Stop SimpleLoop capture engine
-            ResetCaptureUI();
+            var stopped = await _captureService.StopCaptureAsync();
             
-            LiveLogTextBox.AppendText($"[{DateTime.Now:HH:mm:ss}] Capture stopped by user\n");
-            LiveLogTextBox.ScrollToEnd();
-            
-            // Refresh data after capture session
-            LoadData();
+            if (stopped)
+            {
+                ResetCaptureUI();
+                
+                // Log will be updated by the file-based refresh timer
+                
+                // Refresh data after capture session
+                LoadData();
+            }
         }
         catch (Exception ex)
         {
@@ -249,25 +295,64 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         StopCaptureButton.IsEnabled = false;
         StatusText.Text = "Ready";
         StatusText.Foreground = new SolidColorBrush(Color.FromRgb(144, 238, 144)); // Light green
+        CaptureStatusText.Text = "Ready";
+        CaptureStatusText.Foreground = new SolidColorBrush(Color.FromRgb(144, 238, 144)); // Light green
         
-        _captureTimer?.Stop();
+        _statsUpdateTimer?.Stop();
     }
 
     private void UpdateLiveStats(object? sender, EventArgs e)
     {
-        if (!_isCapturing) return;
+        if (!_isCapturing || _captureService == null) return;
 
-        // TODO: Get real stats from SimpleLoop engine
-        // For now, simulate some values
-        var runtime = DateTime.Now.Subtract(DateTime.Now.Date);
-        RuntimeText.Text = $"{runtime:mm\\:ss}";
-        
-        // These would be real values from the capture engine
-        FpsText.Text = "14.9";
-        FrameCountText.Text = "1234";
-        ProcessedText.Text = "67";
-        TextboxFoundText.Text = "12";
-        PerformanceText.Text = "2.1ms";
+        try
+        {
+            // Get real stats from capture service
+            var stats = _captureService.GetStatistics();
+            
+            // Update UI with real values
+            Dispatcher.Invoke(() =>
+            {
+                RuntimeText.Text = $"{stats.Runtime:mm\\:ss}";
+                FpsText.Text = stats.ActualFps.ToString("F1");
+                FrameCountText.Text = stats.FrameCount.ToString();
+                ProcessedText.Text = stats.ProcessedFrames.ToString();
+                TextboxFoundText.Text = stats.TextboxesFound.ToString();
+                PerformanceText.Text = $"{stats.AverageProcessingTimeMs:F1}ms";
+                AvgTimeText.Text = $"{stats.AverageProcessingTimeMs:F1}ms";
+                
+                // Also update status bar and live displays
+                StatusFps.Text = stats.ActualFps.ToString("F1");
+                StatusRuntime.Text = $"{stats.Runtime:mm\\:ss}";
+                LiveFpsDisplay.Text = stats.ActualFps.ToString("F1");
+                LiveTextboxDisplay.Text = stats.TextboxesFound.ToString();
+                
+                // Update dialogue and speaker counts from stats
+                DialogueCountText.Text = stats.DialogueCount.ToString();
+                SpeakerCountText.Text = stats.SpeakerCount.ToString();
+                StatusDialogueCount.Text = stats.DialogueCount.ToString();
+                StatusSpeakerCount.Text = stats.SpeakerCount.ToString();
+            });
+        }
+        catch (Exception ex)
+        {
+            // Log error but don't show message box (would interrupt capture)
+            Console.WriteLine($"Error updating live stats: {ex.Message}");
+        }
+    }
+
+    private void ClearLogButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            LiveLogTextBox.Clear();
+            LiveLogTextBox.Text = $"[{DateTime.Now:HH:mm:ss}] Log display cleared by user\n";
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Error clearing log: {ex.Message}", "Error", 
+                           MessageBoxButton.OK, MessageBoxImage.Warning);
+        }
     }
 
     #endregion
@@ -449,6 +534,84 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         this.Topmost = false;
     }
 
+    #endregion
+
+    #region Capture Service Event Handlers
+    
+    private void OnCaptureProgressReported(object? sender, CaptureProgressEventArgs e)
+    {
+        // Progress updates are handled by the stats update timer
+        // This event can be used for additional processing if needed
+    }
+    
+    private void OnDialogueDetected(object? sender, DialogueDetectedEventArgs e)
+    {
+        // New dialogue detected - refresh the dialogue grid
+        Dispatcher.Invoke(() =>
+        {
+            try
+            {
+                // Add the new dialogue to the collection
+                DialogueEntries.Add(e.DialogueEntry);
+                
+                // Scroll to the new entry
+                DialogueDataGrid.ScrollIntoView(e.DialogueEntry);
+                
+                // Update statistics
+                UpdateStatistics();
+                
+                // Dialogue detection will be logged to file automatically
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error handling dialogue detection: {ex.Message}");
+            }
+        });
+    }
+    
+    private void UpdateLogDisplay(object? sender, EventArgs e)
+    {
+        // Update log display from file (non-blocking, prevents UI thread issues)
+        if (_captureService == null) return;
+        
+        try
+        {
+            var logLines = _captureService.GetRecentLogLines(500);
+            
+            if (logLines.Length == 0) return;
+            
+            // Only update if content has changed to prevent flickering
+            var newContent = string.Join('\n', logLines);
+            if (LiveLogTextBox.Text != newContent)
+            {
+                LiveLogTextBox.Text = newContent;
+                LiveLogTextBox.ScrollToEnd();
+            }
+        }
+        catch (Exception ex)
+        {
+            // Don't show message box during regular operation - just log to console
+            Console.WriteLine($"Error updating log display: {ex.Message}");
+        }
+    }
+    
+    #endregion
+
+    #region Window Event Handlers
+    
+    protected override void OnClosing(CancelEventArgs e)
+    {
+        // Stop capture service when closing
+        if (_captureService != null && _captureService.IsRunning)
+        {
+            var task = _captureService.StopCaptureAsync();
+            task.Wait(TimeSpan.FromSeconds(5)); // Wait up to 5 seconds for graceful shutdown
+        }
+        
+        _captureService?.Dispose();
+        base.OnClosing(e);
+    }
+    
     #endregion
 
     #region INotifyPropertyChanged Implementation

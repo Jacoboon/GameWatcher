@@ -189,7 +189,7 @@ namespace SimpleLoop
             return areEqual;
         }
 
-        // Optimized comparison that samples pixels instead of checking every one
+        // Optimized comparison that samples pixels with tolerance for real-world variations
         public static unsafe bool AreImagesSimilar(Bitmap bmp1, Bitmap bmp2, int sampleRate = 100)
         {
             if (bmp1.Width != bmp2.Width || bmp1.Height != bmp2.Height)
@@ -206,22 +206,34 @@ namespace SimpleLoop
             var ptr1 = (byte*)bmpData1.Scan0;
             var ptr2 = (byte*)bmpData2.Scan0;
             
-            bool areEqual = true;
+            int diffPixels = 0;
+            int totalSampled = 0;
+            const int tolerance = 10; // Allow small pixel variations
             
-            // Sample every Nth pixel for speed
+            // Sample every Nth pixel for speed, count differences with tolerance
             for (int i = 0; i < bytes; i += sampleRate)
             {
-                if (ptr1[i] != ptr2[i])
+                totalSampled++;
+                int diff = Math.Abs(ptr1[i] - ptr2[i]);
+                if (diff > tolerance)
                 {
-                    areEqual = false;
-                    break;
+                    diffPixels++;
+                }
+                
+                // If more than 5% of sampled pixels are significantly different, consider frames different
+                if (diffPixels * 20 > totalSampled) // 5% threshold
+                {
+                    bmp1.UnlockBits(bmpData1);
+                    bmp2.UnlockBits(bmpData2);
+                    return false;
                 }
             }
             
             bmp1.UnlockBits(bmpData1);
             bmp2.UnlockBits(bmpData2);
             
-            return areEqual;
+            // Frames are similar if less than 5% of pixels differ significantly
+            return true;
         }
     }
 }
