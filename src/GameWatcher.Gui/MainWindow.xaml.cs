@@ -24,6 +24,8 @@ public partial class MainWindow : Window
 
     private ObservableCollection<WindowItem> _windows = new();
     private CancellationTokenSource? _cts;
+    private readonly DispatcherTimer _missesTimer = new DispatcherTimer();
+    private ObservableCollection<string> _misses = new();
 
     private readonly string _root;
     private readonly string _mapsDir;
@@ -44,6 +46,10 @@ public partial class MainWindow : Window
         _speakersPath = Path.Combine(_mapsDir, "speakers.json");
         RefreshWindows();
         LoadSpeakers();
+        MissesList.ItemsSource = _misses;
+        _missesTimer.Interval = TimeSpan.FromSeconds(2);
+        _missesTimer.Tick += (_, __) => RefreshMisses();
+        _missesTimer.Start();
     }
 
     private void RefreshWindows()
@@ -116,6 +122,84 @@ public partial class MainWindow : Window
         dlg.ShowDialog();
     }
 
+    private void RefreshMisses()
+    {
+        try
+        {
+            var path = Path.Combine(_dataDir, "misses.json");
+            if (!File.Exists(path)) return;
+            var json = File.ReadAllText(path);
+            var arr = JsonSerializer.Deserialize<List<MissEntry>>(json) ?? new();
+            var set = new HashSet<string>(arr.Select(m => m.normalized));
+            // Preserve selection
+            var sel = MissesList.SelectedItems.Cast<string>().ToHashSet();
+            _misses.Clear();
+            foreach (var s in set.Take(200)) _misses.Add(s);
+            // restore selection
+            foreach (var s in sel)
+                if (_misses.Contains(s)) MissesList.SelectedItems.Add(s);
+        }
+        catch { }
+    }
+
+    private void AssignSpeaker_Click(object sender, RoutedEventArgs e)
+    {
+        var items = MissesList.SelectedItems.Cast<string>().ToList();
+        if (items.Count == 0) { MessageBox.Show("Select one or more lines."); return; }
+        var speaker = SpeakerBox.Text?.Trim();
+        if (string.IsNullOrWhiteSpace(speaker)) { MessageBox.Show("Enter/select a speaker first."); return; }
+        try
+        {
+            Directory.CreateDirectory(_mapsDir);
+            var map = File.Exists(_speakersPath)
+                ? JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(_speakersPath)) ?? new()
+                : new();
+            foreach (var norm in items)
+                map[norm] = speaker;
+            File.WriteAllText(_speakersPath, JsonSerializer.Serialize(map, new JsonSerializerOptions { WriteIndented = true }));
+            if (!SpeakerBox.Items.Contains(speaker)) SpeakerBox.Items.Add(speaker);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show("Failed to assign speaker: " + ex.Message);
+        }
+    }
+
+    private async void GenerateVoice_Click(object sender, RoutedEventArgs e)
+    {
+        var items = MissesList.SelectedItems.Cast<string>().ToList();
+        if (items.Count == 0) { MessageBox.Show("Select one or more lines."); return; }
+        try
+        {
+            // Write a temporary misses file scoped to selected items
+            var tmp = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "gw_misses_selected.json");
+            var missArr = items.Select(s => new MissEntry { normalized = s }).ToList();
+            File.WriteAllText(tmp, JsonSerializer.Serialize(missArr));
+
+            // Call Tools CLI to generate voices just for these
+            var psi = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = "dotnet",
+                Arguments = $"run --project \"{System.IO.Path.Combine(_root, "src", "GameWatcher.Tools", "GameWatcher.Tools.csproj")}\" -- gen-voices --misses \"{tmp}\" --map \"{System.IO.Path.Combine(_root, "assets", "maps", "dialogue.en.json")}\" --speakers \"{_speakersPath}\" --voices \"{_voicesDir}\"",
+                UseShellExecute = false,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                CreateNoWindow = true
+            };
+            using var proc = System.Diagnostics.Process.Start(psi)!;
+            string output = await proc.StandardOutput.ReadToEndAsync();
+            string err = await proc.StandardError.ReadToEndAsync();
+            proc.WaitForExit();
+            LogBox.AppendText(output + (string.IsNullOrWhiteSpace(err) ? "" : ("\n" + err)) + "\n");
+            LogBox.ScrollToEnd();
+            RefreshMisses();
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show("TTS generation failed: " + ex.Message);
+        }
+    }
+
     private void RunCapture(IntPtr hwnd, int fps, CancellationToken ct)
     {
         var detector = new GameWatcher.App.Vision.TextboxDetector(_templatesDir);
@@ -127,7 +211,9 @@ public partial class MainWindow : Window
         var normalizer = new SimpleNormalizer();
         Rectangle? rectCache = null;
         string? lastId = null;
-        string? lastCropHash = null;
+        string? prevHash = null;
+        int stableCount = 0;
+        int stability = int.TryParse(Environment.GetEnvironmentVariable("GW_STABILITY"), out var sVal) ? Math.Clamp(sVal, 1, 5) : 2;
         using var player = new GameWatcher.App.Audio.PlaybackAgent();
 
         var frameDelay = TimeSpan.FromMilliseconds(1000.0 / fps);
@@ -151,8 +237,8 @@ public partial class MainWindow : Window
             try
             {
                 var cropHash = ImageHasher.ComputeSHA1(crop);
-                if (cropHash == lastCropHash) { Thread.Sleep(frameDelay); continue; }
-                lastCropHash = cropHash;
+                if (cropHash == prevHash) stableCount++; else { prevHash = cropHash; stableCount = 1; }
+                if (stableCount < stability) { Thread.Sleep(frameDelay); continue; }
 
                 var raw = ocr.ReadTextAsync(crop).GetAwaiter().GetResult();
                 var norm = normalizer.Normalize(raw);
@@ -194,11 +280,7 @@ public partial class MainWindow : Window
                         Audio = null,
                         Timestamp = DateTimeOffset.UtcNow
                     });
-                    // Prompt speaker assignment if speaker is default
-                    if (speaker == "default")
-                    {
-                        Dispatcher.Invoke(() => PromptAssignSpeaker(norm));
-                    }
+                    // No popup; authoring pane handles assignment
                 }
 
                 Dispatcher.Invoke(() =>
@@ -220,17 +302,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void PromptAssignSpeaker(string norm)
-    {
-        var dlg = new SpeakerAssignWindow(_speakersPath, norm, SpeakerBox.Items.Cast<string>().ToList());
-        dlg.Owner = this;
-        if (dlg.ShowDialog() == true)
-        {
-            if (!SpeakerBox.Items.Contains(dlg.SelectedSpeaker))
-                SpeakerBox.Items.Add(dlg.SelectedSpeaker);
-            SpeakerBox.Text = dlg.SelectedSpeaker;
-        }
-    }
+    // Popup speaker assignment disabled in favor of authoring pane
 
     private static string FindRepoRoot()
     {
@@ -243,3 +315,5 @@ public partial class MainWindow : Window
         return Environment.CurrentDirectory;
     }
 }
+
+file class MissEntry { public string normalized { get; set; } = string.Empty; }

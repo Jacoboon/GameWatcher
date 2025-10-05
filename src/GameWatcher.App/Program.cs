@@ -80,7 +80,9 @@ async Task RunCaptureAsync(string title, int fps)
     var normalizer = new SimpleNormalizer();
     Rectangle? rectCache = null;
     string? lastId = null;
-    string? lastCropHash = null;
+    string? prevHash = null;
+    int stableCount = 0;
+    int stability = int.TryParse(Environment.GetEnvironmentVariable("GW_STABILITY"), out var sVal) ? Math.Clamp(sVal, 1, 5) : 2;
     using var player = new PlaybackAgent();
 
     var frameDelay = TimeSpan.FromMilliseconds(1000.0 / fps);
@@ -110,10 +112,10 @@ async Task RunCaptureAsync(string title, int fps)
 
         try
         {
-            // Skip OCR if crop pixels unchanged
+            // Stability: require N identical hashes before OCR
             var cropHash = ImageHasher.ComputeSHA1(crop);
-            if (cropHash == lastCropHash) { await Task.Delay(frameDelay); continue; }
-            lastCropHash = cropHash;
+            if (cropHash == prevHash) stableCount++; else { prevHash = cropHash; stableCount = 1; }
+            if (stableCount < stability) { await Task.Delay(frameDelay); continue; }
 
             var raw = await ocr.ReadTextAsync(crop);
             var norm = normalizer.Normalize(raw);

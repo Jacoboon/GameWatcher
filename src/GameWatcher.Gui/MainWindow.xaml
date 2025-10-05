@@ -32,7 +32,20 @@
       </StackPanel>
     </StackPanel>
 
-    <TextBox x:Name="LogBox" Grid.Row="2" Grid.ColumnSpan="2" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"/>
+    <TextBox x:Name="LogBox" Grid.Row="2" Grid.Column="0" IsReadOnly="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"/>
+    <Grid Grid.Row="2" Grid.Column="1" Margin="8,0,0,0">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto"/>
+        <RowDefinition Height="*"/>
+        <RowDefinition Height="Auto"/>
+      </Grid.RowDefinitions>
+      <TextBlock Text="Unmapped Lines (misses)" FontWeight="Bold"/>
+      <ListBox x:Name="MissesList" Grid.Row="1" SelectionMode="Extended" />
+      <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,6,0,0">
+        <Button Content="Assign Speaker" Click="AssignSpeaker_Click" Margin="0,0,8,0"/>
+        <Button Content="Generate Voice" Click="GenerateVoice_Click"/>
+      </StackPanel>
+    </Grid>
 
     <StackPanel Grid.Row="3" Grid.ColumnSpan="2" Orientation="Horizontal" HorizontalAlignment="Right">
       <TextBlock Text="Tip: Press Stop to end capture"/>
