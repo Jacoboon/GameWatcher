@@ -13,7 +13,7 @@ namespace SimpleLoop
     public class CaptureLogger : IDisposable
     {
         private readonly ConcurrentQueue<LogEntry> _logQueue;
-        private readonly Timer _flushTimer;
+        private readonly System.Threading.Timer _flushTimer;
         private readonly string _logFilePath;
         private readonly object _fileLock = new();
         private bool _disposed = false;
@@ -30,7 +30,7 @@ namespace SimpleLoop
             _logFilePath = Path.Combine(logDirectory, $"capture_session_{timestamp}.log");
             
             // Flush to file every 500ms to prevent UI blocking
-            _flushTimer = new Timer(FlushLogEntries, null, TimeSpan.FromMilliseconds(500), TimeSpan.FromMilliseconds(500));
+            _flushTimer = new System.Threading.Timer(FlushLogEntries, null, TimeSpan.FromMilliseconds(500), TimeSpan.FromMilliseconds(500));
             
             LogMessage($"Capture session started: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
         }

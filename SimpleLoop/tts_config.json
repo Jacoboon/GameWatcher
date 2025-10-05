@@ -1,0 +1,10 @@
+{
+  "OpenAiApiKey": "YOUR_OPENAI_API_KEY_HERE",
+  "DefaultVoice": "fable",
+  "DefaultSpeed": 1.2,
+  "AutoGenerateAudio": true,
+  "AutoPlayAudio": true,
+  "VoicesDirectory": "voices",
+  "MaxConcurrentRequests": 3,
+  "EnableAudioEffects": true
+}

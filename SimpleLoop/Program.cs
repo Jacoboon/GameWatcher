@@ -31,28 +31,185 @@ namespace SimpleLoop
         // Performance optimization - crop to game area
         private static Rectangle _gameArea = new Rectangle(0, 0, 1920, 1080); // Adjust as needed
 
+        static void TestTesseractStandalone()
+        {
+            Console.WriteLine("🧪 Testing Tesseract OCR directly...");
+            
+            try
+            {
+                Console.WriteLine("Creating SimpleOCR instance...");
+                using var ocr = new SimpleOCR();
+                Console.WriteLine("✅ SimpleOCR created successfully");
+                
+                // Test with a simple white rectangle with text
+                using var testImage = new Bitmap(400, 100);
+                using (var g = Graphics.FromImage(testImage))
+                {
+                    g.Clear(Color.White);
+                    using (var font = new Font("Arial", 16, FontStyle.Bold))
+                    {
+                        g.DrawString("Hello World Test", font, Brushes.Black, 20, 30);
+                    }
+                }
+                
+                Console.WriteLine("🖼️ Test image created (400x100 with 'Hello World Test')");
+                
+                var result = ocr.ExtractTextFast(testImage);
+                Console.WriteLine($"🔍 OCR Result: '{result}' (length: {result?.Length ?? 0})");
+                
+                if (string.IsNullOrEmpty(result))
+                {
+                    Console.WriteLine("❌ OCR returned empty result!");
+                }
+                else if (result.Contains("Hello") || result.Contains("World"))
+                {
+                    Console.WriteLine("✅ OCR successfully detected some expected text!");
+                }
+                else
+                {
+                    Console.WriteLine($"⚠️ OCR returned unexpected text: '{result}'");
+                }
+                
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"❌ Error: {ex.Message}");
+                Console.WriteLine($"❌ Type: {ex.GetType().Name}");
+                Console.WriteLine($"❌ Stack trace: {ex.StackTrace}");
+            }
+            
+            Console.WriteLine("Press any key to exit...");
+            Console.ReadKey();
+        }
+
         static async Task Main(string[] args)
         {
-            Console.WriteLine("=== SimpleLoop Game Text Capture v4 ===");
-            Console.WriteLine("DIALOGUE CATALOG & SPEAKER DETECTION");
-            Console.WriteLine("Starting 15fps capture loop (66ms budget)...");
+            Console.WriteLine("=== GameWatcher SimpleLoop v5.0 ===");
+            Console.WriteLine("DIALOGUE CAPTURE + TTS INTEGRATION");
+            Console.WriteLine();
+            
+            // Handle command line arguments
+            if (args.Length > 0)
+            {
+                switch (args[0].ToLower())
+                {
+                    case "test-ocr":
+                        TestTesseractStandalone();
+                        return;
+                        
+                    default:
+                        break;
+                }
+            }
+            
+            // Handle command line arguments
+            if (args.Length > 0)
+            {
+                switch (args[0].ToLower())
+                {
+                    case "setup-tts":
+                    case "tts-setup":
+                        await TtsSetup.SetupTtsAsync();
+                        return;
+                        
+                    case "tts-status":
+                        TtsSetup.ShowTtsStatus();
+                        return;
+                        
+                    case "help":
+                    case "--help":
+                    case "-h":
+                        ShowHelp();
+                        return;
+                        
+                    default:
+                        Console.WriteLine($"Unknown command: {args[0]}");
+                        Console.WriteLine("Use 'help' to see available commands.");
+                        return;
+                }
+            }
+            
+            // Show TTS status at startup
+            TtsSetup.ShowTtsStatus();
+            
+            Console.WriteLine("Starting 15fps capture loop...");
             Console.WriteLine("Press Ctrl+C to stop");
-            Console.WriteLine("Press 'S' + Enter to show dialogue stats\n");
+            Console.WriteLine("Press 'S' + Enter to show dialogue stats");
+            Console.WriteLine("TTS Commands: 'T' (toggle auto-play), 'G' (toggle auto-generate), 'R' (replay), 'K' (skip)");
+            Console.WriteLine();
 
-            // Initialize components
-            _detector = new SimpleTextboxDetector(); // Proven working blue field detection (23 textboxes found)
-            _ocr = new SimpleOCR();
-            _catalog = new DialogueCatalog();
-            _speakerCatalog = new SpeakerCatalog(); // New: Initialize speaker profiles
+            // Initialize components using CaptureService for consistency with GUI
+            using var captureService = new CaptureService();
+            
+            Console.WriteLine($"TTS Ready: {(captureService.IsTtsReady ? "✅ Yes" : "❌ No (run 'SimpleLoop.exe setup-tts')")}");
             
             Console.CancelKeyPress += (s, e) => {
                 e.Cancel = true;
-                PrintStats();
+                captureService.StopCaptureAsync().Wait();
+                PrintCaptureServiceStats(captureService);
                 Environment.Exit(0);
             };
 
-            // Main capture loop - 15 FPS = 67ms intervals (more breathing room)
-            var timer = new System.Threading.Timer(CaptureAndProcess, null, 0, 67);
+            // Subscribe to capture events
+            captureService.ProgressReported += (sender, e) => {
+                // Periodically show stats
+            };
+            
+            captureService.DialogueDetected += (sender, e) => {
+                Console.WriteLine($"💬 Dialogue: \"{e.DialogueEntry.Text}\" ({e.SpeakerProfile.Name})");
+            };
+
+            // Start capture service
+            await captureService.StartCaptureAsync();
+            
+            // Handle keyboard input for TTS controls
+            _ = Task.Run(async () => {
+                while (true)
+                {
+                    try
+                    {
+                        var key = Console.ReadKey(true);
+                        
+                        switch (char.ToLower(key.KeyChar))
+                        {
+                            case 's':
+                                PrintCaptureServiceStats(captureService);
+                                break;
+                                
+                            case 't':
+                                captureService.AutoPlayEnabled = !captureService.AutoPlayEnabled;
+                                Console.WriteLine($"🔊 Auto-play: {(captureService.AutoPlayEnabled ? "Enabled" : "Disabled")}");
+                                break;
+                                
+                            case 'g':
+                                captureService.AutoGenerateEnabled = !captureService.AutoGenerateEnabled;
+                                Console.WriteLine($"🎤 Auto-generate: {(captureService.AutoGenerateEnabled ? "Enabled" : "Disabled")}");
+                                break;
+                                
+                            case 'r':
+                                captureService.ReplayCurrentAudio();
+                                Console.WriteLine("🔁 Replaying current audio");
+                                break;
+                                
+                            case 'k':
+                                captureService.SkipCurrentAudio();
+                                Console.WriteLine("⏭️ Skipping current audio");
+                                break;
+                                
+                            case 'c':
+                                captureService.ClearAudioQueue();
+                                Console.WriteLine("🧹 Audio queue cleared");
+                                break;
+                        }
+                    }
+                    catch
+                    {
+                        // Ignore key reading errors
+                    }
+                    
+                    await Task.Delay(100);
+                }
+            });
             
             // Keep the program running
             await Task.Delay(Timeout.Infinite);
@@ -539,14 +696,71 @@ namespace SimpleLoop
                 Console.WriteLine($"🎤 [{DateTime.Now:HH:mm:ss.fff}] Voice: {speakerProfile.TtsVoiceId} | Effects: {speakerProfile.Effects.EnvironmentPreset}");
                 Console.WriteLine($"📤 [{DateTime.Now:HH:mm:ss.fff}] Pipeline: \"{text.Substring(0, Math.Min(60, text.Length))}...\"");
                 
-                // TODO: Next steps in TTS pipeline:
-                // - Generate TTS audio with OpenAI using speakerProfile.TtsVoiceId and speakerProfile.TtsSpeed  
-                // - Apply NAudio effects from speakerProfile.Effects (reverb, pitch, EQ)
-                // - Save audio to speakerProfile-based filename structure
-                // - Update entry.AudioPath and entry.HasAudio = true
+                // TTS PIPELINE IMPLEMENTATION ROADMAP:
+                // Phase 1: OpenAI TTS Generation
+                //   - Call OpenAI TTS API with speakerProfile.TtsVoiceId and speakerProfile.TtsSpeed
+                //   - Generate base audio file for dialogue text
+                // Phase 2: Audio Effects Processing  
+                //   - Apply NAudio effects from speakerProfile.Effects (reverb, pitch, EQ)
+                //   - Process audio through effects pipeline for character voice styling
+                // Phase 3: File Management
+                //   - Save processed audio to speakerProfile-based filename structure
+                //   - Update entry.AudioPath and entry.HasAudio = true for playback integration
             }
         }
 
+        private static void ShowHelp()
+        {
+            Console.WriteLine("=== GameWatcher SimpleLoop Commands ===");
+            Console.WriteLine();
+            Console.WriteLine("Usage: SimpleLoop.exe [command]");
+            Console.WriteLine();
+            Console.WriteLine("Commands:");
+            Console.WriteLine("  setup-tts    Configure OpenAI TTS integration");
+            Console.WriteLine("  tts-status   Show current TTS configuration");
+            Console.WriteLine("  help         Show this help message");
+            Console.WriteLine();
+            Console.WriteLine("Runtime Controls (during capture):");
+            Console.WriteLine("  S            Show capture statistics");
+            Console.WriteLine("  T            Toggle auto-play audio");
+            Console.WriteLine("  G            Toggle auto-generate audio");
+            Console.WriteLine("  R            Replay current audio");
+            Console.WriteLine("  K            Skip current audio");
+            Console.WriteLine("  C            Clear audio queue");
+            Console.WriteLine("  Ctrl+C       Stop capture and exit");
+            Console.WriteLine();
+        }
+        
+        private static void PrintCaptureServiceStats(CaptureService captureService)
+        {
+            var stats = captureService.GetStatistics();
+            var ttsStats = captureService.GetTtsStatistics();
+            
+            Console.WriteLine();
+            Console.WriteLine("=== CAPTURE STATISTICS ===");
+            Console.WriteLine($"Runtime: {stats.Runtime:hh\\:mm\\:ss}");
+            Console.WriteLine($"Frames: {stats.FrameCount} total, {stats.ProcessedFrames} processed ({stats.ActualFps:F1} fps)");
+            Console.WriteLine($"Textboxes: {stats.TextboxesFound}");
+            Console.WriteLine($"Dialogues: {stats.DialogueCount}");
+            Console.WriteLine($"Speakers: {stats.SpeakerCount}");
+            Console.WriteLine($"Avg Processing: {stats.AverageProcessingTimeMs:F1}ms");
+            
+            if (ttsStats != null)
+            {
+                Console.WriteLine();
+                Console.WriteLine("=== TTS STATISTICS ===");
+                Console.WriteLine($"Total Dialogues: {ttsStats.TotalDialogues}");
+                Console.WriteLine($"With Audio: {ttsStats.DialoguesWithAudio}");
+                Console.WriteLine($"Without Audio: {ttsStats.DialoguesWithoutAudio}");
+                Console.WriteLine($"Queue Size: {ttsStats.QueueSize}");
+                Console.WriteLine($"Estimated API Cost: ${ttsStats.EstimatedCost:F4}");
+                Console.WriteLine($"Auto-Play: {(captureService.AutoPlayEnabled ? "Enabled" : "Disabled")}");
+                Console.WriteLine($"Auto-Generate: {(captureService.AutoGenerateEnabled ? "Enabled" : "Disabled")}");
+            }
+            
+            Console.WriteLine();
+        }
+        
         private static void PrintStats()
         {
             var elapsed = DateTime.Now - _startTime;

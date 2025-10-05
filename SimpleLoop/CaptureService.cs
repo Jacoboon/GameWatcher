@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Threading;
 using System.Threading.Tasks;
+using SimpleLoop.Services;
 
 namespace SimpleLoop
 {
@@ -10,15 +11,15 @@ namespace SimpleLoop
     /// Provides a reusable service for capturing game frames and processing text detection
     /// Extracted from Program.cs to enable GUI integration with background processing
     /// </summary>
-    public class CaptureService
+    public class CaptureService : IDisposable
     {
-        private Timer? _captureTimer;
+        private System.Threading.Timer? _captureTimer;
         private CancellationTokenSource? _cancellationTokenSource;
         private bool _isRunning = false;
         
         // Core components
         private ITextboxDetector? _detector;
-        private EnhancedOCR? _ocr;
+        private IOcrEngine? _ocr;
         private DialogueCatalog? _catalog;
         private SpeakerCatalog? _speakerCatalog;
         
@@ -52,21 +53,54 @@ namespace SimpleLoop
         // Debug snapshot manager
         private SnapshotManager? _snapshotManager;
         
-        public CaptureService()
+        // TTS integration
+        private TtsManager? _ttsManager;
+        
+        public CaptureService() : this(null, null)
         {
-            InitializeComponents();
         }
         
-        private void InitializeComponents()
+        public CaptureService(string? speakerCatalogPath = null, string? dialogueCatalogPath = null)
+        {
+            InitializeComponents(speakerCatalogPath, dialogueCatalogPath);
+        }
+        
+        private void InitializeComponents(string? speakerCatalogPath = null, string? dialogueCatalogPath = null)
         {
             try
             {
                 _logger = new CaptureLogger();
-                _snapshotManager = new SnapshotManager();
-                _detector = new DynamicTextboxDetector();
-                _ocr = new EnhancedOCR();
-                _catalog = new DialogueCatalog();
-                _speakerCatalog = new SpeakerCatalog();
+        _snapshotManager = new SnapshotManager();
+        _detector = new DynamicTextboxDetector();
+        _ocr = new WindowsOCR();                // Use provided paths or defaults for data files
+                var speakerPath = speakerCatalogPath ?? "speaker_catalog.json";
+                var dialoguePath = dialogueCatalogPath ?? "dialogue_catalog.json";
+                
+                _catalog = new DialogueCatalog(dialoguePath);
+                _speakerCatalog = new SpeakerCatalog(speakerPath);
+                
+                // Initialize TTS manager if configuration is available
+                try
+                {
+                    _ttsManager = new TtsManager(_catalog, _speakerCatalog);
+                    if (_ttsManager.IsReady)
+                    {
+                        _logger.LogMessage("TTS Manager initialized successfully");
+                        
+                        // Subscribe to TTS events
+                        _ttsManager.AudioGenerated += OnAudioGenerated;
+                        _ttsManager.TtsError += OnTtsError;
+                    }
+                    else
+                    {
+                        _logger.LogMessage("TTS Manager not ready - check tts_config.json", LogLevel.Warning);
+                    }
+                }
+                catch (Exception ttsEx)
+                {
+                    _logger.LogError("TTS Manager initialization failed", ttsEx);
+                    _ttsManager = null;
+                }
                 
                 _logger.LogMessage("Capture service initialized successfully");
                 _logger.LogMessage($"Debug snapshots will be saved to: {_snapshotManager.SessionDirectory}");
@@ -126,7 +160,7 @@ namespace SimpleLoop
                 _waitingForStableFrame = true;
                 
                 // Start capture timer - 15 FPS (67ms intervals)
-                _captureTimer = new Timer(CaptureAndProcess, null, 0, 67);
+                _captureTimer = new System.Threading.Timer(CaptureAndProcess, null, 0, 67);
                 
                 _logger?.LogMessage("Capture service started (15 FPS)");
                 return Task.FromResult(true);
@@ -314,13 +348,24 @@ namespace SimpleLoop
                             try 
                             {
                                 _logger?.LogMessage("Running enhanced OCR on textbox...");
+                                
+                                // Save debug image of original textbox
+                                _snapshotManager?.SaveTextboxCrop(textboxCopy, "debug", _frameCount);
+                                
                                 var rawText = _ocr?.ExtractTextFast(textboxCopy) ?? "";
-                                _logger?.LogMessage($"Raw OCR: \"{rawText}\"");
+                                _logger?.LogMessage($"Raw OCR result: '{rawText}' (length: {rawText.Length})");
                                 
                                 var cleanedText = CleanOCRText(rawText);
-                                _logger?.LogMessage($"Cleaned: \"{cleanedText}\"");
+                                _logger?.LogMessage($"Cleaned text: '{cleanedText}' (length: {cleanedText.Length})");
                                 
-                                await ProcessNewDialogue(cleanedText);
+                                if (!string.IsNullOrWhiteSpace(cleanedText))
+                                {
+                                    await ProcessNewDialogue(cleanedText);
+                                }
+                                else
+                                {
+                                    _logger?.LogMessage("No meaningful text extracted from textbox");
+                                }
                             }
                             catch (Exception ex)
                             {
@@ -416,6 +461,42 @@ namespace SimpleLoop
                 entry.VoiceProfile = speakerProfile.TtsVoiceId;
                 
                 _logger?.LogDialogue(text, speakerProfile.Name, speakerProfile.TtsVoiceId);
+                
+                // Process with TTS system if available
+                if (_ttsManager?.IsReady == true)
+                {
+                    // Check if we already have audio for this dialogue
+                    if (entry.HasAudio && !string.IsNullOrEmpty(entry.AudioPath) && File.Exists(entry.AudioPath))
+                    {
+                        // Play existing audio immediately
+                        _logger?.LogMessage($"🔄 Playing cached audio: {entry.AudioPath}");
+                        _ = Task.Run(async () => {
+                            try
+                            {
+                                await _ttsManager.PlayExistingAudioAsync(entry.AudioPath, entry, speakerProfile);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger?.LogError("Cached audio playback error", ex);
+                            }
+                        });
+                    }
+                    else
+                    {
+                        // Generate new TTS audio in background (don't block capture)
+                        _logger?.LogMessage($"🎤 Generating new TTS for: '{entry.Text}' ({speakerProfile.Name})");
+                        _ = Task.Run(async () => {
+                            try
+                            {
+                                await _ttsManager.ProcessDialogueAsync(entry, speakerProfile);
+                            }
+                            catch (Exception ex)
+                            {
+                                _logger?.LogError("TTS processing error", ex);
+                            }
+                        });
+                    }
+                }
                 
                 // Notify listeners of new dialogue
                 DialogueDetected?.Invoke(this, new DialogueDetectedEventArgs(entry, speakerProfile));
@@ -636,9 +717,42 @@ namespace SimpleLoop
         
         #endregion
         
+        // TTS event handlers
+        private void OnAudioGenerated(object? sender, TtsGenerationEventArgs e)
+        {
+            _logger?.LogMessage($"Audio generated: {e.AudioPath} for \"{e.DialogueEntry.Text}\"");
+        }
+        
+        private void OnTtsError(object? sender, string error)
+        {
+            _logger?.LogMessage($"TTS Error: {error}", LogLevel.Warning);
+        }
+        
+        // TTS control methods
+        public void SkipCurrentAudio() => _ttsManager?.SkipCurrentAudio();
+        public void ReplayCurrentAudio() => _ttsManager?.ReplayCurrentAudio();
+        public void ClearAudioQueue() => _ttsManager?.ClearAudioQueue();
+        
+        public bool IsTtsReady => _ttsManager?.IsReady ?? false;
+        public TtsStatistics? GetTtsStatistics() => _ttsManager?.GetStatistics();
+        
+        public bool AutoPlayEnabled 
+        { 
+            get => _ttsManager?.AutoPlayEnabled ?? false;
+            set { if (_ttsManager != null) _ttsManager.AutoPlayEnabled = value; }
+        }
+        
+        public bool AutoGenerateEnabled 
+        { 
+            get => _ttsManager?.AutoGenerateEnabled ?? false;
+            set { if (_ttsManager != null) _ttsManager.AutoGenerateEnabled = value; }
+        }
+        
         public void Dispose()
         {
             StopCaptureAsync().Wait();
+            
+            _ttsManager?.Dispose();
             _cancellationTokenSource?.Dispose();
             _logger?.Dispose();
         }

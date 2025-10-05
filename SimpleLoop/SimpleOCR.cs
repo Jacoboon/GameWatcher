@@ -6,7 +6,7 @@ using Tesseract;
 
 namespace SimpleLoop
 {
-    public class SimpleOCR : IDisposable
+    public class SimpleOCR : IOcrEngine
     {
         private TesseractEngine? _engine;
         private readonly string _tessDataPath;
@@ -31,22 +31,39 @@ namespace SimpleLoop
             {
                 try
                 {
+                    Console.WriteLine($"Checking Tesseract path: {path}");
                     if (System.IO.Directory.Exists(path))
                     {
-                        Console.WriteLine($"Trying Tesseract path: {path}");
+                        Console.WriteLine($"Directory exists, trying to initialize Tesseract at: {path}");
                         _engine = new TesseractEngine(path, "eng", EngineMode.Default);
+                        
+                        // Test the engine with a simple operation
                         _engine.SetVariable("tessedit_char_whitelist", "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 .,!?'-");
-                        Console.WriteLine($"✅ Tesseract initialized successfully at: {path}");
+                        
+                        Console.WriteLine($"✅ Tesseract engine created successfully!");
+                        Console.WriteLine($"✅ Variables set successfully!");
+                        Console.WriteLine($"✅ Full initialization at: {path}");
                         return;
+                    }
+                    else
+                    {
+                        Console.WriteLine($"Directory does not exist: {path}");
                     }
                 }
                 catch (Exception ex)
                 {
-                    Console.WriteLine($"Failed to initialize Tesseract at {path}: {ex.Message}");
+                    Console.WriteLine($"❌ Failed to initialize Tesseract at {path}: {ex.Message}");
+                    Console.WriteLine($"❌ Exception type: {ex.GetType().Name}");
+                    Console.WriteLine($"❌ Stack trace: {ex.StackTrace}");
                 }
             }
             
             Console.WriteLine("❌ OCR will be disabled. Could not find Tesseract data in any standard location.");
+            Console.WriteLine("❌ Available paths checked:");
+            foreach (var path in tesseractPaths.Where(p => !string.IsNullOrEmpty(p)))
+            {
+                Console.WriteLine($"   - {path}");
+            }
         }
 
         public string ExtractText(Bitmap textboxImage)
@@ -109,17 +126,25 @@ namespace SimpleLoop
         public string ExtractTextFast(Bitmap textboxImage)
         {
             if (_engine == null) 
+            {
+                Console.WriteLine("OCR Engine is null!");
                 return "[OCR not available]";
+            }
 
             try
             {
+                Console.WriteLine($"Processing {textboxImage.Width}x{textboxImage.Height} image with Tesseract...");
                 using var pix = Pix.LoadFromMemory(ImageToByteArray(textboxImage));
                 using var page = _engine.Process(pix);
-                return page.GetText().Trim();
+                var result = page.GetText().Trim();
+                var confidence = page.GetMeanConfidence();
+                Console.WriteLine($"OCR Result: '{result}' (confidence: {confidence:F2})");
+                return result;
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"Fast OCR Error: {ex.Message}");
+                Console.WriteLine($"Stack trace: {ex.StackTrace}");
                 return "[OCR Error]";
             }
         }

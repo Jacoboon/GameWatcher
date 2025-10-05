@@ -1,6 +1,6 @@
 [
   {
-    "Id": "speaker_king_of_cornelia_king_7EB14DE1",
+    "Id": "speaker_king_of_cornelia_king_1DDE80EF",
     "Name": "King of Cornelia",
     "Description": "A wise and noble ruler, large and commanding presence",
     "Location": "Cornelia Castle",
@@ -32,8 +32,8 @@
       "ChorusDepth": 0.3,
       "EnvironmentPreset": "throne_room"
     },
-    "CreatedAt": "2025-10-05T11:14:56.9617577-04:00",
-    "LastUsed": "2025-10-05T11:14:56.9617609-04:00",
+    "CreatedAt": "2025-10-05T15:33:13.3531809-04:00",
+    "LastUsed": "2025-10-05T15:33:13.3531996-04:00",
     "UsageCount": 0,
     "SampleDialogue": [],
     "NameKeywords": [
@@ -49,7 +49,7 @@
     ]
   },
   {
-    "Id": "speaker_sage_of_elfheim_sage_BAA7288",
+    "Id": "speaker_sage_of_elfheim_sage_34E8AB5C",
     "Name": "Sage of Elfheim",
     "Description": "An ancient elven sage with mystical knowledge",
     "Location": "Elfheim",
@@ -81,8 +81,8 @@
       "ChorusDepth": 0.4,
       "EnvironmentPreset": "mystical"
     },
-    "CreatedAt": "2025-10-05T11:14:56.9619085-04:00",
-    "LastUsed": "2025-10-05T11:14:56.9619089-04:00",
+    "CreatedAt": "2025-10-05T15:33:13.3535352-04:00",
+    "LastUsed": "2025-10-05T15:33:13.353542-04:00",
     "UsageCount": 0,
     "SampleDialogue": [],
     "NameKeywords": [
@@ -97,7 +97,7 @@
     ]
   },
   {
-    "Id": "speaker_princess_sara_princess_10D36614",
+    "Id": "speaker_princess_sara_princess_50B4252D",
     "Name": "Princess Sara",
     "Description": "The kidnapped princess of Cornelia, young and brave",
     "Location": "Cornelia Castle",
@@ -129,8 +129,8 @@
       "ChorusDepth": 0.3,
       "EnvironmentPreset": "None"
     },
-    "CreatedAt": "2025-10-05T11:14:56.9619097-04:00",
-    "LastUsed": "2025-10-05T11:14:56.9619098-04:00",
+    "CreatedAt": "2025-10-05T15:33:13.3535433-04:00",
+    "LastUsed": "2025-10-05T15:33:13.3535434-04:00",
     "UsageCount": 0,
     "SampleDialogue": [],
     "NameKeywords": [
@@ -145,7 +145,7 @@
     ]
   },
   {
-    "Id": "speaker_mysterious_voice_mysterious_4A2007A7",
+    "Id": "speaker_mysterious_voice_mysterious_175B65FA",
     "Name": "Mysterious Voice",
     "Description": "Unknown speaker, possibly magical or otherworldly",
     "Location": "Unknown",
@@ -177,8 +177,8 @@
       "ChorusDepth": 0.3,
       "EnvironmentPreset": "None"
     },
-    "CreatedAt": "2025-10-05T11:14:56.9619102-04:00",
-    "LastUsed": "2025-10-05T11:14:56.9619103-04:00",
+    "CreatedAt": "2025-10-05T15:33:13.3535439-04:00",
+    "LastUsed": "2025-10-05T15:33:13.353544-04:00",
     "UsageCount": 0,
     "SampleDialogue": [],
     "NameKeywords": [],

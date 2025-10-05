@@ -21,11 +21,28 @@ namespace SimpleLoop
         /// </summary>
         public string ExtractTextFast(Bitmap image)
         {
-            // Apply enhanced preprocessing specifically designed for FF1
-            using var preprocessed = PreprocessForFF1OCR(image);
-            
-            // Use Tesseract with the enhanced image
-            return _tesseractOcr.ExtractTextFast(preprocessed);
+            try
+            {
+                Console.WriteLine($"EnhancedOCR: Processing {image.Width}x{image.Height} image");
+                
+                // Apply enhanced preprocessing specifically designed for FF1
+                Console.WriteLine("EnhancedOCR: Starting preprocessing...");
+                using var preprocessed = PreprocessForFF1OCR(image);
+                Console.WriteLine($"EnhancedOCR: Preprocessed to {preprocessed.Width}x{preprocessed.Height}");
+                
+                // Use Tesseract with the enhanced image
+                Console.WriteLine("EnhancedOCR: Calling SimpleOCR...");
+                var result = _tesseractOcr.ExtractTextFast(preprocessed);
+                Console.WriteLine($"EnhancedOCR: Result: '{result}' (length: {result?.Length ?? 0})");
+                
+                return result;
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"EnhancedOCR Error: {ex.Message}");
+                Console.WriteLine($"EnhancedOCR Error Stack: {ex.StackTrace}");
+                return "[EnhancedOCR Error]";
+            }
         }
         
         /// <summary>
@@ -33,36 +50,42 @@ namespace SimpleLoop
         /// </summary>
         public static Bitmap PreprocessForFF1OCR(Bitmap source)
         {
-            // Step 1: Increase contrast for white text on blue background
-            var contrasted = AdjustContrast(source, 2.0f); // Higher contrast
-            
-            // Step 2: Convert to grayscale with optimized weights for blue backgrounds
-            var grayscale = ConvertToGrayscaleOptimized(contrasted);
-            contrasted.Dispose();
-            
-            // Step 3: Scale up more aggressively (6x instead of 4x)
-            var scaledWidth = grayscale.Width * 6;
-            var scaledHeight = grayscale.Height * 6;
-            var scaled = new Bitmap(scaledWidth, scaledHeight);
-            
-            using (var g = Graphics.FromImage(scaled))
+            // Simplified preprocessing to avoid hangs with large images
+            try 
             {
-                g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
-                g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.None;
-                g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
-                g.DrawImage(grayscale, 0, 0, scaledWidth, scaledHeight);
+                Console.WriteLine("Step 1: Converting to grayscale...");
+                // Step 1: Convert to grayscale with optimized weights for blue backgrounds
+                var grayscale = ConvertToGrayscaleOptimized(source);
+                
+                Console.WriteLine("Step 2: Scaling image...");
+                // Step 2: Scale up moderately (3x instead of 6x for stability)
+                var scaledWidth = grayscale.Width * 3;
+                var scaledHeight = grayscale.Height * 3;
+                var scaled = new Bitmap(scaledWidth, scaledHeight);
+                
+                using (var g = Graphics.FromImage(scaled))
+                {
+                    g.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
+                    g.PixelOffsetMode = System.Drawing.Drawing2D.PixelOffsetMode.None;
+                    g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.None;
+                    g.DrawImage(grayscale, 0, 0, scaledWidth, scaledHeight);
+                }
+                grayscale.Dispose();
+                
+                Console.WriteLine("Step 3: Applying threshold...");
+                // Step 3: Simple threshold instead of adaptive
+                var enhanced = ApplySimpleThreshold(scaled, 128);
+                scaled.Dispose();
+                
+                Console.WriteLine("Preprocessing complete!");
+                return enhanced;
             }
-            grayscale.Dispose();
-            
-            // Step 4: Apply adaptive threshold instead of fixed threshold
-            var enhanced = ApplyAdaptiveThreshold(scaled);
-            scaled.Dispose();
-            
-            // Step 5: Clean up noise
-            var cleaned = RemoveNoise(enhanced);
-            enhanced.Dispose();
-            
-            return cleaned;
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Preprocessing error: {ex.Message}");
+                // Return a copy of original if preprocessing fails
+                return new Bitmap(source);
+            }
         }
         
         private static Bitmap AdjustContrast(Bitmap source, float contrast)
@@ -114,6 +137,28 @@ namespace SimpleLoop
             }
             
             return grayscale;
+        }
+        
+        private static Bitmap ApplySimpleThreshold(Bitmap source, int threshold)
+        {
+            var result = new Bitmap(source.Width, source.Height);
+            
+            for (int x = 0; x < source.Width; x++)
+            {
+                for (int y = 0; y < source.Height; y++)
+                {
+                    var pixel = source.GetPixel(x, y);
+                    var gray = (int)(pixel.R * 0.299 + pixel.G * 0.587 + pixel.B * 0.114);
+                    
+                    // Simple binary threshold
+                    if (gray > threshold)
+                        result.SetPixel(x, y, Color.White);
+                    else
+                        result.SetPixel(x, y, Color.Black);
+                }
+            }
+            
+            return result;
         }
         
         private static Bitmap ApplyAdaptiveThreshold(Bitmap source)

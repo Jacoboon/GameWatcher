@@ -94,11 +94,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     
     private void InitializeCaptureService()
     {
-        try
+        try 
         {
-            _captureService = new CaptureService();
-            
-            // Subscribe to capture service events
+            // CLI is the single source of truth - GUI manages CLI's data files
+            var cliDirectory = System.IO.Path.GetFullPath("../SimpleLoop");
+            var speakerCatalogPath = System.IO.Path.Combine(cliDirectory, "speaker_catalog.json");
+            var dialogueCatalogPath = System.IO.Path.Combine(cliDirectory, "dialogue_catalog.json");
+            _captureService = new CaptureService(speakerCatalogPath, dialogueCatalogPath);            // Subscribe to capture service events
             _captureService.ProgressReported += OnCaptureProgressReported;
             _captureService.DialogueDetected += OnDialogueDetected;
             
@@ -419,8 +421,11 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             foreach (var entry in selected)
             {
                 DialogueEntries.Remove(entry);
-                // TODO: Remove from DialogueCatalog as well
+                _dialogueCatalog?.RemoveDialogueById(entry.Id);
             }
+            
+            // Save changes to catalog
+            SaveDialogueCatalog();
             UpdateStatistics();
         }
     }
@@ -442,6 +447,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         };
 
         SpeakerProfiles.Add(newSpeaker);
+        _speakerCatalog?.AddOrUpdateSpeaker(newSpeaker);
+        SaveSpeakerCatalog();
+        
         SpeakerListBox.SelectedItem = newSpeaker;
         SpeakerNameBox.Focus();
         SpeakerNameBox.SelectAll();
@@ -457,7 +465,8 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         if (result == MessageBoxResult.Yes)
         {
             SpeakerProfiles.Remove(speaker);
-            // TODO: Remove from SpeakerCatalog as well
+            _speakerCatalog?.RemoveSpeaker(speaker.Id);
+            SaveSpeakerCatalog();
             UpdateStatistics();
         }
     }
@@ -491,7 +500,9 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         SelectedSpeaker.Description = SpeakerDescriptionBox.Text;
         SelectedSpeaker.Effects.EnvironmentPreset = AudioEffectsBox.Text;
 
-        // TODO: Save to SpeakerCatalog
+        // Save changes to catalog
+        _speakerCatalog?.AddOrUpdateSpeaker(SelectedSpeaker);
+        SaveSpeakerCatalog();
         StatusText.Text = $"Saved speaker '{SelectedSpeaker.Name}'";
 
         // Refresh the list display
@@ -505,12 +516,13 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
         try
         {
-            // TODO: Generate and play a preview TTS sample
+            // NOTE: TTS preview implementation pending - requires OpenAI TTS API integration
+            // Future implementation will generate and play audio using SelectedSpeaker.TtsVoiceId and TtsSpeed
             var sampleText = "Hello, this is a preview of my voice settings.";
-            StatusText.Text = $"Playing voice preview for {SelectedSpeaker.Name}...";
+            StatusText.Text = $"Voice preview (simulation) for {SelectedSpeaker.Name}";
             
-            // For now, just show a message
-            MessageBox.Show($"Voice Preview:\nSpeaker: {SelectedSpeaker.Name}\nVoice: {SelectedSpeaker.TtsVoiceId}\nSpeed: {SelectedSpeaker.TtsSpeed}\nText: \"{sampleText}\"", 
+            // Show voice settings preview until TTS is implemented
+            MessageBox.Show($"Voice Preview (Simulation):\nSpeaker: {SelectedSpeaker.Name}\nVoice: {SelectedSpeaker.TtsVoiceId}\nSpeed: {SelectedSpeaker.TtsSpeed}\nSample: \"{sampleText}\"", 
                            "Voice Preview", MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)
@@ -592,6 +604,44 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             // Don't show message box during regular operation - just log to console
             Console.WriteLine($"Error updating log display: {ex.Message}");
+        }
+    }
+    
+    #endregion
+
+    #region Data Persistence Helpers
+    
+    /// <summary>
+    /// Save speaker catalog changes to disk
+    /// </summary>
+    private void SaveSpeakerCatalog()
+    {
+        try
+        {
+            _speakerCatalog?.SaveCatalog();
+            Console.WriteLine("💾 Saved speaker catalog changes");
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"Error saving speaker catalog: {ex.Message}";
+            Console.WriteLine($"❌ Error saving speaker catalog: {ex.Message}");
+        }
+    }
+    
+    /// <summary>
+    /// Save dialogue catalog changes to disk
+    /// </summary>
+    private void SaveDialogueCatalog()
+    {
+        try
+        {
+            _dialogueCatalog?.SaveCatalog();
+            Console.WriteLine("💾 Saved dialogue catalog changes");
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"Error saving dialogue catalog: {ex.Message}";
+            Console.WriteLine($"❌ Error saving dialogue catalog: {ex.Message}");
         }
     }
     

@@ -18,7 +18,7 @@ namespace SimpleLoop
             LoadCatalog();
         }
 
-        public DialogueEntry AddOrUpdateDialogue(string text, string rawOcrText = "")
+        public DialogueEntry? AddOrUpdateDialogue(string text, string rawOcrText = "")
         {
             if (string.IsNullOrWhiteSpace(text)) return null;
 
@@ -92,7 +92,7 @@ namespace SimpleLoop
                 return "NPC";  // Generic townsperson
         }
 
-        public DialogueEntry GetDialogue(string id)
+        public DialogueEntry? GetDialogue(string id)
         {
             lock (_lockObject)
             {
