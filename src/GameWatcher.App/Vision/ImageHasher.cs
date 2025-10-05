@@ -8,8 +8,11 @@ namespace GameWatcher.App.Vision;
 internal static class ImageHasher
 {
     public static string ComputeSHA1(Bitmap bmp)
+        => ComputeSHA1(bmp, new Rectangle(0, 0, bmp.Width, bmp.Height));
+
+    public static string ComputeSHA1(Bitmap bmp, Rectangle region)
     {
-        var rect = new Rectangle(0, 0, bmp.Width, bmp.Height);
+        var rect = Rectangle.Intersect(new Rectangle(0, 0, bmp.Width, bmp.Height), region);
         var data = bmp.LockBits(rect, ImageLockMode.ReadOnly, PixelFormat.Format32bppArgb);
         try
         {
@@ -26,4 +29,3 @@ internal static class ImageHasher
         }
     }
 }
-

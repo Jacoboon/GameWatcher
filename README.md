@@ -1,38 +1,39 @@
 # GameWatcher
 
-**GameWatcher** is a Windows tool that watches any selected game window — starting with **Final Fantasy I** — detects dialogue boxes, OCRs their text, normalizes it, and plays pre-rendered or AI-generated voice lines. It’s non-invasive, engine-agnostic, and can be adapted to any retro RPG with a stable text box UI.
+GameWatcher watches a chosen game window (starting with FF1), detects the dialogue textbox, OCRs its text, normalizes it, and plays mapped or generated audio. It’s non‑invasive and engine‑agnostic; works great with borderless windowed games.
 
 ## Quick Start
-1. Build `GameWatcher.App`.
-2. Run → **Pick Window** → click the game window.
-3. Place your audio lines in `/voices` and your mapping in `/maps/dialogue.en.json`.
-4. Play. When a recognized line appears, the matching audio is queued and played.
+- Use borderless windowed mode (exclusive fullscreen often blocks capture).
+- Install Tesseract CLI or set `TESSERACT_EXE` to `tesseract.exe`.
+- One‑time: `./scripts/sync_artifacts.ps1` to copy textbox templates.
+- Run live watch: `./scripts/watch.ps1 -Title "FINAL FANTASY" -Fps 20`.
+- Put voices in `assets/voices/` and mapping in `assets/maps/dialogue.en.json`.
+- Unknown lines are recorded under `data/` and listed in `data/misses.json`.
 
 ## Core Technology
-- **Capture:** Windows Graphics Capture (Win10+), fallback: PrintWindow.  
-- **Detection:** OpenCV template match for dialogue UI; region cached for performance.  
-- **OCR:** Tesseract with font-specific whitelist and upscaling for pixel text.  
-- **Audio:** NAudio for gapless async playback with debounce and caching.  
-- **Voice Generation:** Pre-rendered via OpenAI `gpt-4o-mini-tts` or ElevenLabs (optional).  
+- Capture: Windows Graphics Capture (Win10+), fallbacks available.
+- Detection: Corner template match; caches region for performance.
+- OCR: Tesseract CLI with grayscale+upscale+thresholding.
+- Audio: NAudio playback; pre‑rendered WAVs.
+- Authoring: Catalog + misses report, mapping JSON, optional TTS generation.
 
-## Roadmap
-GameWatcher is designed to grow:
-- Phase 1 — Core voiceover playback  
-- Phase 2 — Event detection & overlays  
-- Phase 3 — Draft/Chaos streamer modes  
-- Phase 4 — SDK integration for indie RPGs  
-- Phase 5 — Full platform ecosystem  
+## Live Authoring Flow
+- Keep `watch.ps1` running while you play.
+- Generate voices for new lines:
+  - Dry run: `./scripts/author_gen.ps1 -DryRun`
+  - Live: `./scripts/author_gen.ps1 -Max 10` (requires `OPENAI_API_KEY`).
+- The app hot‑reloads `assets/maps/dialogue.en.json` and `assets/maps/speakers.json`; new audio plays without restarting.
+- Convenience loop (watch + periodic authoring):
+  - `./scripts/live_author.ps1 -Title "FINAL FANTASY" -MaxPerPass 10 -IntervalSec 20`
 
-See `/docs` for technical design and `/tools/tts_batch` for pre-generation scripts.
- 
 ## Smoke Test (OCR)
-- Requires Tesseract CLI. Install with winget `winget install -e --id UB-Mannheim.TesseractOCR` or chocolatey `choco install tesseract`, or set `TESSERACT_EXE` to the full path of `tesseract.exe`.
-- One-time import of templates: `./scripts/sync_artifacts.ps1` (copies from `Artifacts/templates` to `assets/templates`).
-- Run: `dotnet run --project src/GameWatcher.App`
+- Install Tesseract as above.
+- Import templates: `./scripts/sync_artifacts.ps1`.
+- Static test (uses a sample image): `dotnet run --project src/GameWatcher.App`
 - Input image: `assets/templates/FF-TextBox-Position.png`
 - Output crop: `out/crop.png`
-- Console prints raw and normalized OCR text.
 
 ## Detection Notes
-- Corner templates are 19x19; default border inset is `19` px (override with `GW_TEXTBOX_INSET`).
-- Detector uses dynamic corners when available; falls back to a normalized static rect.
+- Corner templates are 19×19; default border inset is `19` px (`GW_TEXTBOX_INSET` to override).
+- Detector searches full frame by default; set `GW_DETECT_ROI` to narrow the search region if needed.
+

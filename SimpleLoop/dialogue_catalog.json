@@ -1,0 +1,86 @@
+[
+  {
+    "Id": "dialogue_5B1A3736",
+    "Text": "I am a sage. When the time is right, the\nfuture is revealed to me.",
+    "Speaker": "Sage",
+    "FirstSeen": "2025-10-05T05:58:21.6415687-04:00",
+    "LastSeen": "2025-10-05T05:58:21.6415846-04:00",
+    "SeenCount": 1,
+    "RawOcrText": "",
+    "HasAudio": false,
+    "AudioPath": "",
+    "VoiceProfile": "default"
+  },
+  {
+    "Id": "dialogue_4981BFAE",
+    "Text": "I shall wait patiently until then.",
+    "Speaker": "Sage",
+    "FirstSeen": "2025-10-05T05:58:23.2460501-04:00",
+    "LastSeen": "2025-10-05T05:58:23.2460541-04:00",
+    "SeenCount": 1,
+    "RawOcrText": "",
+    "HasAudio": false,
+    "AudioPath": "",
+    "VoiceProfile": "default"
+  },
+  {
+    "Id": "dialogue_1D12F7E2",
+    "Text": "Weapons and armor made of mythril are sturdy\nand powerful. You should give them a try.\nYou\u0027ll be surprised!",
+    "Speaker": "Narrator",
+    "FirstSeen": "2025-10-05T05:58:30.7380093-04:00",
+    "LastSeen": "2025-10-05T05:58:43.4106702-04:00",
+    "SeenCount": 2,
+    "RawOcrText": "",
+    "HasAudio": false,
+    "AudioPath": "",
+    "VoiceProfile": "default"
+  },
+  {
+    "Id": "dialogue_2543FA31",
+    "Text": "If the prince does not awaken, there will be\nno elf King.",
+    "Speaker": "NPC",
+    "FirstSeen": "2025-10-05T05:58:33.3779191-04:00",
+    "LastSeen": "2025-10-05T05:58:33.3779199-04:00",
+    "SeenCount": 1,
+    "RawOcrText": "",
+    "HasAudio": false,
+    "AudioPath": "",
+    "VoiceProfile": "default"
+  },
+  {
+    "Id": "dialogue_10A7B99D",
+    "Text": "We will be at the mercy of the dark elft\u0027s\nevil power.",
+    "Speaker": "NPC",
+    "FirstSeen": "2025-10-05T05:58:35.2313364-04:00",
+    "LastSeen": "2025-10-05T05:58:35.2313373-04:00",
+    "SeenCount": 1,
+    "RawOcrText": "",
+    "HasAudio": false,
+    "AudioPath": "",
+    "VoiceProfile": "default"
+  },
+  {
+    "Id": "dialogue_18080A2F",
+    "Text": "If the prince does not awaken, there will be\nno elf King.",
+    "Speaker": "NPC",
+    "FirstSeen": "2025-10-05T05:58:41.0450055-04:00",
+    "LastSeen": "2025-10-05T05:58:41.0450067-04:00",
+    "SeenCount": 1,
+    "RawOcrText": "",
+    "HasAudio": false,
+    "AudioPath": "",
+    "VoiceProfile": "default"
+  },
+  {
+    "Id": "dialogue_3B54A95D",
+    "Text": "Our prince was meant to become the elf King,\nbut what will happen now\u0027",
+    "Speaker": "NPC",
+    "FirstSeen": "2025-10-05T05:58:45.1815028-04:00",
+    "LastSeen": "2025-10-05T05:58:45.1815044-04:00",
+    "SeenCount": 1,
+    "RawOcrText": "",
+    "HasAudio": false,
+    "AudioPath": "",
+    "VoiceProfile": "default"
+  }
+]

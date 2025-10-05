@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.Globalization;
 using GameWatcher.App.Ocr;
 using GameWatcher.App.Text;
 using GameWatcher.App.Vision;
@@ -81,9 +82,14 @@ async Task RunCaptureAsync(string title, int fps)
     Rectangle? rectCache = null;
     string? lastId = null;
     string? prevHash = null;
+    string? lastOcrHash = null; // guard to OCR once per stable crop
     int stableCount = 0;
     int stability = int.TryParse(Environment.GetEnvironmentVariable("GW_STABILITY"), out var sVal) ? Math.Clamp(sVal, 1, 5) : 2;
     using var player = new PlaybackAgent();
+    int frameIndex = 0;
+    int redetectEvery = int.TryParse(Environment.GetEnvironmentVariable("GW_REDETECT_FRAMES"), out var r)
+        ? Math.Max(1, r)
+        : Math.Max(1, fps * 3); // by default re-detect every 3s
 
     var frameDelay = TimeSpan.FromMilliseconds(1000.0 / fps);
     Console.WriteLine("Press Q to quit.");
@@ -95,15 +101,29 @@ async Task RunCaptureAsync(string title, int fps)
             if (key.Key == ConsoleKey.Q) break;
         }
 
-        using var frame = Win32Capture.CaptureClient(hwnd);
+        using var frame = CaptureService.CaptureWindow(hwnd);
         if (frame == null) { await Task.Delay(frameDelay); continue; }
 
-        if (rectCache is null)
+        if (rectCache is null || (frameIndex % redetectEvery == 0))
         {
-            rectCache = detector.DetectTextbox(frame) ?? new Rectangle(0, 0, frame.Width, frame.Height);
+            var forcedRect = Environment.GetEnvironmentVariable("GW_TEXTBOX_RECT");
+            if (!string.IsNullOrWhiteSpace(forcedRect) && TryParseRect(forcedRect, out var forced))
+            {
+                rectCache = Rectangle.Intersect(forced, new Rectangle(0, 0, frame.Width, frame.Height));
+            }
+            else
+            {
+                var detected = detector.DetectTextbox(frame);
+                // if rect changed, reset lastOcrHash so we can OCR again
+                var before = rectCache;
+                rectCache = detected; // allow null when no textbox is present
+                if (before != rectCache) lastOcrHash = null;
+        }
         }
 
+        if (!rectCache.HasValue) { await Task.Delay(frameDelay); continue; }
         var rect = rectCache.Value;
+        if (rect.Width <= 0 || rect.Height <= 0) { rectCache = null; await Task.Delay(frameDelay); continue; }
         using var crop = new Bitmap(rect.Width, rect.Height);
         using (var g = Graphics.FromImage(crop))
         {
@@ -113,9 +133,20 @@ async Task RunCaptureAsync(string title, int fps)
         try
         {
             // Stability: require N identical hashes before OCR
-            var cropHash = ImageHasher.ComputeSHA1(crop);
+            // Hash a slightly in-set region to avoid flicker artifacts (e.g., arrow)
+            double insetPct = double.TryParse(Environment.GetEnvironmentVariable("GW_HASH_INSET_PCT"), NumberStyles.Float, CultureInfo.InvariantCulture, out var ip)
+                ? Math.Clamp(ip, 0.0, 0.45)
+                : 0.08; // default 8% inset on all sides
+            var hr = new Rectangle(
+                (int)Math.Round(crop.Width * insetPct),
+                (int)Math.Round(crop.Height * insetPct),
+                (int)Math.Round(crop.Width * (1 - 2 * insetPct)),
+                (int)Math.Round(crop.Height * (1 - 2 * insetPct))
+            );
+            var cropHash = ImageHasher.ComputeSHA1(crop, hr);
             if (cropHash == prevHash) stableCount++; else { prevHash = cropHash; stableCount = 1; }
             if (stableCount < stability) { await Task.Delay(frameDelay); continue; }
+            if (cropHash == lastOcrHash) { await Task.Delay(frameDelay); continue; }
 
             var raw = await ocr.ReadTextAsync(crop);
             var norm = normalizer.Normalize(raw);
@@ -126,6 +157,21 @@ async Task RunCaptureAsync(string title, int fps)
             lastId = id;
 
             using var pre = ImagePreprocessor.GrayscaleUpscaleThreshold(crop);
+            // optional: save detection overlay into data/detect for this line
+            SaveDetectOverlay(dataDir, frame, rect, id);
+            if (Environment.GetEnvironmentVariable("GW_SAVE_CROP") == "1")
+            {
+                try
+                {
+                    Directory.CreateDirectory(Path.Combine(root, "out"));
+                    crop.Save(Path.Combine(root, "out", "crop_latest.png"));
+                    pre.Save(Path.Combine(root, "out", "pre_latest.png"));
+                }
+                catch { }
+            }
+            // hot-reload maps so authoring updates are picked up live
+            mapping.RefreshIfChanged();
+            speakerResolver.RefreshIfChanged();
             var speaker = speakerResolver.Resolve(norm);
 
             if (mapping.TryResolve(norm, out var audio))
@@ -166,6 +212,8 @@ async Task RunCaptureAsync(string title, int fps)
         }
 
         await Task.Delay(frameDelay);
+        frameIndex++;
+        lastOcrHash = prevHash; // the hash that passed stability and was processed
     }
 }
 
@@ -253,4 +301,43 @@ string? GetArg(string name)
         if (args[i] == name) return args[i + 1];
     }
     return null;
+}
+
+static bool TryParseRect(string s, out Rectangle rect)
+{
+    rect = Rectangle.Empty;
+    try
+    {
+        var parts = s.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        if (parts.Length != 4) return false;
+        int x = int.Parse(parts[0]);
+        int y = int.Parse(parts[1]);
+        int w = int.Parse(parts[2]);
+        int h = int.Parse(parts[3]);
+        if (w <= 0 || h <= 0) return false;
+        rect = new Rectangle(x, y, w, h);
+        return true;
+    }
+    catch { return false; }
+}
+
+static void SaveDetectOverlay(string dataRoot, Bitmap frame, Rectangle rect, string id)
+{
+    try
+    {
+        if (Environment.GetEnvironmentVariable("GW_SAVE_DETECT") != "1") return;
+        var dir = Path.Combine(dataRoot, "detect");
+        Directory.CreateDirectory(dir);
+        var path = Path.Combine(dir, id + ".png");
+        if (File.Exists(path)) return; // keep first example
+        using var copy = new Bitmap(frame.Width, frame.Height);
+        using (var g = Graphics.FromImage(copy))
+        {
+            g.DrawImage(frame, new Rectangle(0, 0, copy.Width, copy.Height));
+            using var pen = new Pen(Color.Lime, 3);
+            g.DrawRectangle(pen, rect);
+        }
+        copy.Save(path);
+    }
+    catch { }
 }
