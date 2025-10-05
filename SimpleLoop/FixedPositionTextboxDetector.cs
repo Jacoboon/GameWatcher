@@ -6,7 +6,7 @@ using System.IO;
 
 namespace SimpleLoop
 {
-    public class FixedPositionTextboxDetector
+    public class FixedPositionTextboxDetector : ITextboxDetector
     {
         private Rectangle? _fixedTextboxRect;
         private bool _positionLearned = false;

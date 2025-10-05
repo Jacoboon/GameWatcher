@@ -3,7 +3,7 @@ using System.Drawing;
 
 namespace SimpleLoop
 {
-    public class SimpleTextboxDetector
+    public class SimpleTextboxDetector : ITextboxDetector
     {
         public Rectangle? DetectTextbox(Bitmap screenshot)
         {

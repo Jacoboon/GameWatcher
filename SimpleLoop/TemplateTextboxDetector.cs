@@ -5,7 +5,7 @@ using System.IO;
 
 namespace SimpleLoop
 {
-    public class TemplateTextboxDetector
+    public class TemplateTextboxDetector : ITextboxDetector
     {
         private Bitmap? _topLeft;
         private Bitmap? _topRight;
@@ -51,26 +51,32 @@ namespace SimpleLoop
                 return null;
             }
 
-            // Find top-left corner first (most distinctive)
-            var tlMatch = FindTemplate(screenshot, _topLeft, 0.85);
+            // Find top-left corner first (most distinctive) with more relaxed threshold
+            var tlMatch = FindTemplate(screenshot, _topLeft, 0.70); // Lowered from 0.85
             if (tlMatch == null)
             {
-                return null; // No textbox if we can't find top-left
+                // Try with even more relaxed threshold
+                tlMatch = FindTemplate(screenshot, _topLeft, 0.60);
+                if (tlMatch == null)
+                {
+                    Console.WriteLine("⚠️ No TL corner found even with relaxed threshold");
+                    return null;
+                }
             }
 
             Console.WriteLine($"🔍 Found TL corner at {tlMatch}");
 
-            // Look for top-right corner in expected area (textbox is ~800-900px wide)
-            var expectedTrX = tlMatch.Value.X + 800; // Approximate textbox width
-            var trSearchArea = new Rectangle(expectedTrX - 100, tlMatch.Value.Y - 10, 200, 30);
-            var trMatch = FindTemplate(screenshot, _topRight, 0.80, trSearchArea);
+            // Look for top-right corner in expected area (textbox is ~800-1000px wide)
+            var expectedTrX = tlMatch.Value.X + 900; // Approximate textbox width from templates
+            var trSearchArea = new Rectangle(expectedTrX - 150, tlMatch.Value.Y - 15, 300, 40);
+            var trMatch = FindTemplate(screenshot, _topRight, 0.65, trSearchArea); // Lowered threshold
 
             if (trMatch == null)
             {
                 Console.WriteLine("⚠️ Could not find TR corner, trying broader search");
-                // Try broader search
-                trSearchArea = new Rectangle(tlMatch.Value.X + 400, tlMatch.Value.Y - 10, 500, 30);
-                trMatch = FindTemplate(screenshot, _topRight, 0.75, trSearchArea);
+                // Try much broader search with lower threshold
+                trSearchArea = new Rectangle(tlMatch.Value.X + 400, tlMatch.Value.Y - 20, 600, 50);
+                trMatch = FindTemplate(screenshot, _topRight, 0.55, trSearchArea); // Even lower
             }
 
             if (trMatch != null)
@@ -103,15 +109,39 @@ namespace SimpleLoop
             var maxX = Math.Min(search.Right, screenshot.Width - template.Width);
             var maxY = Math.Min(search.Bottom, screenshot.Height - template.Height);
             
-            for (int y = search.Y; y < maxY; y += 2) // Skip every other row for speed
+            double bestMatch = 0.0;
+            Point? bestLocation = null;
+            int samplesChecked = 0;
+            
+            for (int y = search.Y; y < maxY; y += 3) // Slightly wider sampling for better coverage
             {
-                for (int x = search.X; x < maxX; x += 2) // Skip every other column for speed
+                for (int x = search.X; x < maxX; x += 3) 
                 {
-                    if (CalculateMatch(screenshot, template, x, y) >= threshold)
+                    samplesChecked++;
+                    double match = CalculateMatch(screenshot, template, x, y);
+                    
+                    if (match > bestMatch)
                     {
+                        bestMatch = match;
+                        bestLocation = new Point(x, y);
+                    }
+                    
+                    if (match >= threshold)
+                    {
+                        Console.WriteLine($"🎯 Template match: {match:F3} at ({x},{y}) - SUCCESS!");
                         return new Point(x, y);
                     }
                 }
+            }
+            
+            // Debug output for failed searches
+            if (bestLocation.HasValue)
+            {
+                Console.WriteLine($"⚠️ Template search: Best match {bestMatch:F3} at {bestLocation} (threshold: {threshold:F3}, samples: {samplesChecked})");
+            }
+            else
+            {
+                Console.WriteLine($"❌ Template search: No matches found (samples: {samplesChecked})");
             }
             
             return null;

@@ -10,11 +10,16 @@ namespace SimpleLoop
     {
         private static Bitmap? _lastFrame;
         private static Bitmap? _lastTextbox;
-        private static SimpleTextboxDetector? _detector;
+        private static ITextboxDetector? _detector;
         private static SimpleOCR? _ocr;
         private static DialogueCatalog? _catalog;
+        private static SpeakerCatalog? _speakerCatalog; // New: Speaker profiles and voice management
         private static string _lastText = "";
         private static readonly object _lockObject = new();
+        
+        // New: Stable frame detection
+        private static bool _waitingForStableFrame = true; // Track if we're looking for stability  
+        private static bool _processingStableFrame = false; // Prevent duplicate processing
         
         // Performance tracking
         private static int _frameCount = 0;
@@ -35,9 +40,10 @@ namespace SimpleLoop
             Console.WriteLine("Press 'S' + Enter to show dialogue stats\n");
 
             // Initialize components
-            _detector = new SimpleTextboxDetector(); // Check EVERY unique frame for textbox
+            _detector = new SimpleTextboxDetector(); // Proven working blue field detection (23 textboxes found)
             _ocr = new SimpleOCR();
             _catalog = new DialogueCatalog();
+            _speakerCatalog = new SpeakerCatalog(); // New: Initialize speaker profiles
             
             Console.CancelKeyPress += (s, e) => {
                 e.Cancel = true;
@@ -64,22 +70,45 @@ namespace SimpleLoop
 
                 lock (_lockObject)
                 {
-                    // Step 2: Compare with last frame (optimized comparison)
+                    // Step 2: Compare with last frame for STABILITY detection (new algorithm)
                     if (_lastFrame != null && ScreenCapture.AreImagesSimilar(_lastFrame, currentFrame, 500))
                     {
-                        // Frame is the same, skip processing
+                        // Frame is SAME as previous - this indicates STABILITY!
+                        if (_waitingForStableFrame && !_processingStableFrame)
+                        {
+                            // First stable frame detected - process it for textbox!
+                            _waitingForStableFrame = false;
+                            _processingStableFrame = true;
+                            
+                            Console.WriteLine($"🎯 [{DateTime.Now:HH:mm:ss.fff}] STABLE FRAME DETECTED - Processing for textbox");
+                            // Continue processing below to check for textbox
+                        }
+                        else
+                        {
+                            // Already processed this stable frame or still processing, skip
+                            currentFrame.Dispose();
+                            return;
+                        }
+                    }
+                    else
+                    {
+                        // Frame has CHANGED - reset stability tracking and skip textbox detection
+                        _waitingForStableFrame = true;
+                        _processingStableFrame = false;
+                        
+                        // Frame has changed, dispose old frame and skip processing (no textbox check)
+                        _lastFrame?.Dispose();
+                        _lastFrame = new Bitmap(currentFrame);
                         currentFrame.Dispose();
-                        return;
+                        return; // Skip textbox detection for changing frames
                     }
 
-                    // Frame has changed, dispose old frame and continue processing
-                    _lastFrame?.Dispose();
-                    _lastFrame = new Bitmap(currentFrame);
+                    // Only reach here if we have a STABLE frame that needs processing
                 }
 
                 _processedFrames++;
 
-                // Step 3: Check EVERY unique frame for textbox (no caching BS)
+                // Step 3: Check STABLE frame for textbox (new optimized algorithm)
                 var textboxRect = _detector?.DetectTextbox(currentFrame);
                 
                 // Debug screenshots disabled for performance
@@ -130,13 +159,19 @@ namespace SimpleLoop
                     }
                     
                     textboxImage?.Dispose();
+                    
+                    // Reset processing flag after textbox processing is complete
+                    _processingStableFrame = false;
                 }
                 else
                 {
+                    // No textbox found in stable frame - reset processing flag
+                    _processingStableFrame = false;
+                    
                     // Only log occasionally to avoid spam
                     if (_frameCount % 200 == 0)
                     {
-                        Console.WriteLine($"⭕ [{DateTime.Now:HH:mm:ss.fff}] No textbox found (frame {_frameCount})");
+                        Console.WriteLine($"⭕ [{DateTime.Now:HH:mm:ss.fff}] No textbox found in stable frame (frame {_frameCount})");
                     }
                 }
 
@@ -292,6 +327,13 @@ namespace SimpleLoop
         {
             if (string.IsNullOrWhiteSpace(text)) return text;
             
+            // Quality filter: Reject obvious OCR garbage before processing
+            if (IsOCRGarbage(text))
+            {
+                Console.WriteLine($"🚫 [{DateTime.Now:HH:mm:ss.fff}] OCR quality filter: Rejecting garbage text");
+                return "[REJECTED: Low Quality OCR]";
+            }
+            
             var cleaned = text;
             
             // Fix common OCR character errors
@@ -372,6 +414,92 @@ namespace SimpleLoop
             
             return cleaned.Trim();
         }
+        
+        /// <summary>
+        /// Detects if OCR text is garbage/low quality and should be rejected
+        /// </summary>
+        private static bool IsOCRGarbage(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return true;
+            
+            // Remove whitespace for analysis
+            var cleanText = text.Replace(" ", "").Replace("\n", "").Replace("\r", "").Replace("\t", "");
+            
+            if (cleanText.Length < 3) return true; // Too short to be meaningful
+            if (cleanText.Length > 500) return true; // Suspiciously long for game dialogue
+            
+            // Count different character types
+            int letters = 0;
+            int digits = 0;
+            int punctuation = 0;
+            int symbols = 0;
+            int spaces = text.Count(c => char.IsWhiteSpace(c));
+            
+            foreach (char c in cleanText)
+            {
+                if (char.IsLetter(c)) letters++;
+                else if (char.IsDigit(c)) digits++;
+                else if (char.IsPunctuation(c)) punctuation++;
+                else symbols++;
+            }
+            
+            int totalChars = cleanText.Length;
+            
+            // Quality heuristics for FF1 dialogue
+            
+            // 1. Must have reasonable amount of letters (at least 40% of text)
+            if ((double)letters / totalChars < 0.4) return true;
+            
+            // 2. Too many symbols/garbage characters (>30%)
+            if ((double)symbols / totalChars > 0.3) return true;
+            
+            // 3. Too many digits (FF1 dialogue rarely has many numbers)
+            if ((double)digits / totalChars > 0.3) return true;
+            
+            // 4. Check for common OCR garbage patterns
+            string lowerText = text.ToLower();
+            
+            // Multiple consecutive dots/dashes (OCR artifacts)
+            if (System.Text.RegularExpressions.Regex.IsMatch(text, @"[.\-_]{4,}")) return true;
+            
+            // Too many single characters separated by spaces (OCR fragmentation)
+            if (System.Text.RegularExpressions.Regex.Matches(text, @"\b\w\b").Count > totalChars * 0.4) return true;
+            
+            // Common OCR garbage character sequences
+            string[] garbagePatterns = {
+                "brc", "pada", "pel", "sree", "ber", "af", "te", "nies", 
+                "tara", "sai", "fares", "ay", "pel brc", "pada", "L-. -"
+            };
+            
+            int garbageMatches = garbagePatterns.Count(pattern => lowerText.Contains(pattern));
+            if (garbageMatches >= 2) return true; // Multiple garbage patterns = likely junk
+            
+            // 5. Check for reasonable English-like patterns
+            // Must have some common English words or at least vowels in reasonable proportion
+            int vowels = lowerText.Count(c => "aeiou".Contains(c));
+            if ((double)vowels / letters < 0.15) return true; // Too few vowels for English
+            
+            // Common FF1 words that indicate real dialogue
+            string[] validWords = {
+                "king", "princess", "knight", "warrior", "light", "crystal", "garland",
+                "cornelia", "elfheim", "sage", "castle", "kingdom", "power", "evil",
+                "help", "save", "thank", "you", "i", "am", "is", "the", "and", "of",
+                "to", "in", "for", "with", "by", "from", "up", "about", "into",
+                "over", "after", "beneath", "under", "above", "but", "not", "or"
+            };
+            
+            int validWordMatches = validWords.Count(word => 
+                System.Text.RegularExpressions.Regex.IsMatch(lowerText, $@"\b{word}\b"));
+            
+            // If we found valid words, it's probably real dialogue
+            if (validWordMatches >= 2) return false;
+            
+            // If no valid words but reasonable character distribution, be conservative
+            if (letters >= 5 && (double)letters / totalChars >= 0.6) return false;
+            
+            // Default: reject if we can't confidently say it's good
+            return true;
+        }
 
         private static void ProcessNewDialogue(string text)
         {
@@ -381,9 +509,9 @@ namespace SimpleLoop
                 return;
             }
 
-            if (text == "[OCR not available]" || text == "[OCR Error]")
+            if (text == "[OCR not available]" || text == "[OCR Error]" || text == "[REJECTED: Low Quality OCR]")
             {
-                Console.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] OCR system error: {text}");
+                Console.WriteLine($"⚠️ [{DateTime.Now:HH:mm:ss.fff}] OCR system error or quality rejection: {text}");
                 return;
             }
 
@@ -396,18 +524,26 @@ namespace SimpleLoop
             _lastText = text;
             Console.WriteLine($"🎉 >>> NEW DIALOGUE DETECTED: \"{text}\"");
             
-            // Add to dialogue catalog with speaker detection
-            var entry = _catalog?.AddOrUpdateDialogue(text);
+            // Step 1: Identify speaker using advanced profile matching
+            var speakerProfile = _speakerCatalog?.IdentifySpeaker(text) ?? _speakerCatalog?.GetOrCreateGenericSpeaker("NPC");
             
-            if (entry != null)
+            // Step 2: Add to dialogue catalog with enhanced speaker info
+            var entry = _catalog?.AddOrUpdateDialogue(text);
+            if (entry != null && speakerProfile != null)
             {
-                Console.WriteLine($"📤 [{DateTime.Now:HH:mm:ss.fff}] Pipeline: {entry.Speaker} speaks - \"{text.Substring(0, Math.Min(50, text.Length))}...\"");
+                // Update dialogue entry with speaker profile information
+                entry.Speaker = speakerProfile.Name;
+                entry.VoiceProfile = speakerProfile.TtsVoiceId;
                 
-                // TODO: Next steps in pipeline:
-                // - Generate TTS audio with OpenAI for this speaker
-                // - Play with NAudio with voice profile
-                // - Emit events for Twitch integration
-                // - Update overlays
+                Console.WriteLine($"🎭 [{DateTime.Now:HH:mm:ss.fff}] Character: {speakerProfile.Name} ({speakerProfile.CharacterType})");
+                Console.WriteLine($"🎤 [{DateTime.Now:HH:mm:ss.fff}] Voice: {speakerProfile.TtsVoiceId} | Effects: {speakerProfile.Effects.EnvironmentPreset}");
+                Console.WriteLine($"📤 [{DateTime.Now:HH:mm:ss.fff}] Pipeline: \"{text.Substring(0, Math.Min(60, text.Length))}...\"");
+                
+                // TODO: Next steps in TTS pipeline:
+                // - Generate TTS audio with OpenAI using speakerProfile.TtsVoiceId and speakerProfile.TtsSpeed  
+                // - Apply NAudio effects from speakerProfile.Effects (reverb, pitch, EQ)
+                // - Save audio to speakerProfile-based filename structure
+                // - Update entry.AudioPath and entry.HasAudio = true
             }
         }
 
@@ -434,6 +570,10 @@ namespace SimpleLoop
             {
                 Console.WriteLine("⚠️ Performance needs optimization");
             }
+            
+            // Show speaker catalog statistics
+            Console.WriteLine();
+            _speakerCatalog?.ShowStatistics();
         }
     }
 }
