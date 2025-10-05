@@ -1,0 +1,15 @@
+<Window x:Class="GameWatcher.Gui.SpeakerAssignWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Assign Speaker" Height="180" Width="420">
+  <StackPanel Margin="10">
+    <TextBlock Text="Assign speaker for:"/>
+    <TextBox x:Name="NormBox" IsReadOnly="True" Margin="0,4,0,8" TextWrapping="Wrap"/>
+    <StackPanel Orientation="Horizontal">
+      <ComboBox x:Name="SpeakerCombo" IsEditable="True" Width="260"/>
+      <Button Content="OK" Width="60" Margin="8,0,0,0" Click="Ok_Click"/>
+      <Button Content="Cancel" Width="60" Click="Cancel_Click"/>
+    </StackPanel>
+  </StackPanel>
+</Window>
+

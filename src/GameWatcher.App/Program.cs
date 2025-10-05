@@ -80,6 +80,7 @@ async Task RunCaptureAsync(string title, int fps)
     var normalizer = new SimpleNormalizer();
     Rectangle? rectCache = null;
     string? lastId = null;
+    string? lastCropHash = null;
     using var player = new PlaybackAgent();
 
     var frameDelay = TimeSpan.FromMilliseconds(1000.0 / fps);
@@ -109,6 +110,11 @@ async Task RunCaptureAsync(string title, int fps)
 
         try
         {
+            // Skip OCR if crop pixels unchanged
+            var cropHash = ImageHasher.ComputeSHA1(crop);
+            if (cropHash == lastCropHash) { await Task.Delay(frameDelay); continue; }
+            lastCropHash = cropHash;
+
             var raw = await ocr.ReadTextAsync(crop);
             var norm = normalizer.Normalize(raw);
             if (string.IsNullOrWhiteSpace(norm)) { await Task.Delay(frameDelay); continue; }
