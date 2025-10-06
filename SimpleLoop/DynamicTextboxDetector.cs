@@ -99,12 +99,28 @@ namespace SimpleLoop
             var blueRegions = new List<Rectangle>();
             var sampledPoints = new List<Point>();
             
-            // Sample the screen at a reasonable density
-            var stepSize = Math.Max(10, Math.Min(screenshot.Width, screenshot.Height) / 100);
+            // Define targeted search area based on FF1 dialogue coordinates analysis
+            // Normalized coordinates: X=0.196875, Y=0.050926, Width=0.604688, Height=0.282407
+            // With 25px buffer: X=378, Y=55, Width=1161, Height=305
+            var targetX = (int)(screenshot.Width * 0.196875) - 25;
+            var targetY = (int)(screenshot.Height * 0.050926) - 25;
+            var targetWidth = (int)(screenshot.Width * 0.604688) + 50;
+            var targetHeight = (int)(screenshot.Height * 0.282407) + 50;
             
-            for (int y = 0; y < screenshot.Height; y += stepSize)
+            // Ensure bounds stay within screen
+            targetX = Math.Max(0, targetX);
+            targetY = Math.Max(0, targetY);
+            targetWidth = Math.Min(targetWidth, screenshot.Width - targetX);
+            targetHeight = Math.Min(targetHeight, screenshot.Height - targetY);
+            
+            var searchArea = new Rectangle(targetX, targetY, targetWidth, targetHeight);
+            
+            // Sample only within the targeted dialogue area
+            var stepSize = Math.Max(10, Math.Min(targetWidth, targetHeight) / 100);
+            
+            for (int y = searchArea.Top; y < searchArea.Bottom; y += stepSize)
             {
-                for (int x = 0; x < screenshot.Width; x += stepSize)
+                for (int x = searchArea.Left; x < searchArea.Right; x += stepSize)
                 {
                     if (IsFF1Blue(screenshot.GetPixel(x, y)))
                     {
@@ -113,7 +129,12 @@ namespace SimpleLoop
                 }
             }
             
-            Console.WriteLine($"🔍 Full screen search found {sampledPoints.Count} blue sample points");
+            var searchAreaPixels = searchArea.Width * searchArea.Height;
+            var fullScreenPixels = screenshot.Width * screenshot.Height;
+            var reductionPercent = (1.0 - (double)searchAreaPixels / fullScreenPixels) * 100;
+            
+            Console.WriteLine($"🎯 Targeted search area: {searchArea.Width}x{searchArea.Height} ({reductionPercent:F1}% reduction)");
+            Console.WriteLine($"🔍 Found {sampledPoints.Count} blue sample points in targeted area");
             
             // For each blue point, try to trace a rectangle
             foreach (var point in sampledPoints)
