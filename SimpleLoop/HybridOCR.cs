@@ -11,7 +11,6 @@ namespace SimpleLoop
     {
         private readonly SimpleOCR _tesseractOcr;
         private readonly WindowsOCR _windowsOcr;
-        private bool _preferWindowsOcr = false;
 
         public bool WindowsOcrAvailable => _windowsOcr.IsAvailable;
 
@@ -25,8 +24,7 @@ namespace SimpleLoop
             
             if (_windowsOcr.IsAvailable)
             {
-                Console.WriteLine("[Hybrid OCR] Using Windows OCR as primary engine");
-                _preferWindowsOcr = true;
+                Console.WriteLine("[Hybrid OCR] Windows OCR available as primary engine");
             }
             else
             {

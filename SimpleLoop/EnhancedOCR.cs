@@ -35,7 +35,7 @@ namespace SimpleLoop
                 var result = _tesseractOcr.ExtractTextFast(preprocessed);
                 Console.WriteLine($"EnhancedOCR: Result: '{result}' (length: {result?.Length ?? 0})");
                 
-                return result;
+                return result ?? "";
             }
             catch (Exception ex)
             {

@@ -10,10 +10,10 @@ namespace SimpleLoop
     {
         private static Bitmap? _lastFrame;
         private static Bitmap? _lastTextbox;
-        private static ITextboxDetector? _detector;
-        private static SimpleOCR? _ocr;
-        private static DialogueCatalog? _catalog;
-        private static SpeakerCatalog? _speakerCatalog; // New: Speaker profiles and voice management
+        private static ITextboxDetector? _detector = null;
+        private static SimpleOCR? _ocr = null;
+        private static DialogueCatalog? _catalog = null;
+        private static SpeakerCatalog? _speakerCatalog = null; // New: Speaker profiles and voice management
         private static string _lastText = "";
         private static readonly object _lockObject = new();
         
@@ -84,7 +84,7 @@ namespace SimpleLoop
 
         static async Task Main(string[] args)
         {
-            Console.WriteLine("=== GameWatcher SimpleLoop v5.0 ===");
+            Console.WriteLine("=== SimpleLoop v5.0 ===");
             Console.WriteLine("DIALOGUE CAPTURE + TTS INTEGRATION");
             Console.WriteLine();
             
@@ -711,7 +711,7 @@ namespace SimpleLoop
 
         private static void ShowHelp()
         {
-            Console.WriteLine("=== GameWatcher SimpleLoop Commands ===");
+            Console.WriteLine("=== SimpleLoop Commands ===");
             Console.WriteLine();
             Console.WriteLine("Usage: SimpleLoop.exe [command]");
             Console.WriteLine();

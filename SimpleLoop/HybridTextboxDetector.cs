@@ -20,7 +20,7 @@ namespace SimpleLoop
         {
             try
             {
-                var basePath = @"C:\Code Projects\GameWatcher\assets\templates\";
+                var basePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "..", "..", "..", "assets", "templates");
                 
                 if (File.Exists(basePath + "FF-TextBox-TL.png"))
                     _topLeft = new Bitmap(basePath + "FF-TextBox-TL.png");

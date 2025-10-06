@@ -114,7 +114,7 @@ namespace SimpleLoop
                 var decoder = await BitmapDecoder.CreateAsync(randomAccessStream);
                 var softwareBitmap = await decoder.GetSoftwareBitmapAsync(BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied);
 
-                var ocrResult = await _ocrEngine.RecognizeAsync(softwareBitmap);
+                var ocrResult = await _ocrEngine!.RecognizeAsync(softwareBitmap);
                 var extractedText = string.Join(" ", ocrResult.Lines.Select(line => line.Text)).Trim();
                 
                 softwareBitmap.Dispose();
@@ -181,7 +181,7 @@ namespace SimpleLoop
                 var decoder = await BitmapDecoder.CreateAsync(randomAccessStream);
                 var softwareBitmap = await decoder.GetSoftwareBitmapAsync(BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied);
 
-                var ocrResult = await _ocrEngine.RecognizeAsync(softwareBitmap);
+                var ocrResult = await _ocrEngine!.RecognizeAsync(softwareBitmap);
                 var extractedText = string.Join(" ", ocrResult.Lines.Select(line => line.Text)).Trim();
                 
                 softwareBitmap.Dispose();

@@ -95,7 +95,7 @@ namespace SimpleLoop.Services
                 {
                     Console.WriteLine($"[TTS Manager] Generating audio for: \"{dialogueEntry.Text}\" ({speakerProfile.Name})");
                     
-                    var audioPath = await _ttsService?.GenerateAudioAsync(dialogueEntry, speakerProfile);
+                    var audioPath = await _ttsService!.GenerateAudioAsync(dialogueEntry, speakerProfile);
                     
                     if (!string.IsNullOrEmpty(audioPath))
                     {
@@ -130,7 +130,7 @@ namespace SimpleLoop.Services
         /// <param name="audioPath">Path to the existing audio file</param>
         /// <param name="dialogueEntry">The dialogue entry for context</param>
         /// <param name="speakerProfile">The speaker profile for audio processing</param>
-        public async Task PlayExistingAudioAsync(string audioPath, DialogueEntry dialogueEntry, SpeakerProfile speakerProfile)
+        public Task PlayExistingAudioAsync(string audioPath, DialogueEntry dialogueEntry, SpeakerProfile speakerProfile)
         {
             try
             {
@@ -139,11 +139,11 @@ namespace SimpleLoop.Services
                 if (!File.Exists(audioPath))
                 {
                     Console.WriteLine($"[TTS Manager] Warning: Audio file not found: {audioPath}");
-                    return;
+                    return Task.CompletedTask;
                 }
                 
                 // Queue the existing audio file for playback
-                _audioService.QueueAudio(audioPath, dialogueEntry, speakerProfile);
+                _audioService!.QueueAudio(audioPath, dialogueEntry, speakerProfile);
                 Console.WriteLine($"[TTS Manager] Successfully queued existing audio for playback");
                 
                 // Invoke completion events
@@ -154,6 +154,8 @@ namespace SimpleLoop.Services
                 Console.WriteLine($"[TTS Manager] Error playing existing audio: {ex.Message}");
                 TtsError?.Invoke(this, ex.Message);
             }
+            
+            return Task.CompletedTask;
         }
         
         /// <summary>
