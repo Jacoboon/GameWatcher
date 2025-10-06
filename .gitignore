@@ -11,3 +11,12 @@ Artifacts/
 *.log
 .DS_Store
 Thumbs.db
+
+# Security - API Keys and Secrets
+tts_config.json
+Secrets/
+**/openai-api-key.txt
+
+# Debug Output
+debug_snapshots/
+**/debug_snapshots/
