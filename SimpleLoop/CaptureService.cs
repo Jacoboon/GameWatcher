@@ -30,12 +30,10 @@ namespace SimpleLoop
         private string _lastText = "";
         private readonly object _lockObject = new();
         
-        // Enhanced stability detection state
-        private bool _waitingForStableFrame = true;
-        private DateTime _frameStableStartTime = DateTime.MinValue;
+        // Simple processing state tracking
+        private bool _isBusy = false;
         private Rectangle? _lastTextboxRect = null;
         private string _lastTextboxHash = "";
-        private const int STABILITY_DELAY_MS = 300; // Reduced to 300ms for more responsive detection
         
         // Performance tracking
         private int _frameCount = 0;
@@ -163,7 +161,7 @@ namespace SimpleLoop
                 _processedFrames = 0;
                 _textboxesFound = 0;
                 _totalProcessingTime = 0;
-                _waitingForStableFrame = true;
+                _isBusy = false;
                 
                 // Start capture timer - 15 FPS (67ms intervals)
                 _captureTimer = new System.Threading.Timer(CaptureAndProcess, null, 0, 67);
@@ -240,55 +238,55 @@ namespace SimpleLoop
                     _logger?.LogMessage($"Frame #{_frameCount} captured: {currentFrame.Width}x{currentFrame.Height}", LogLevel.Debug);
                 }
 
-                // Step 2: Fast early exit checks before expensive operations
+                // Step 2: Smart frame processing logic with dynamic similarity thresholds
                 lock (_lockObject)
                 {
-                    // Quick frame similarity check with optimized threshold
-                    bool frameIsSimilar = _lastFrame != null && ScreenCapture.AreImagesSimilar(_lastFrame, currentFrame, 750);
+                    bool frameMatches;
                     
-                    // Log frame similarity status periodically for monitoring
-                    if (_frameCount % 100 == 0)
+                    if (!_isBusy)
                     {
-                        _logger?.LogMessage($"Frame similarity: similar={frameIsSimilar}, waiting={_waitingForStableFrame}", LogLevel.Debug);
-                    }
-                    
-                    if (frameIsSimilar)
-                    {
-                        // Frame is stable - check if we need to wait longer
-                        if (_waitingForStableFrame)
-                        {
-                            if (_frameStableStartTime == DateTime.MinValue)
-                            {
-                                // First stable frame - start timer
-                                _frameStableStartTime = DateTime.Now;
-                                _logger?.LogMessage("Frame stability started - waiting for text to settle...", LogLevel.Debug);
-                            }
-                            
-                            var stableTime = (DateTime.Now - _frameStableStartTime).TotalMilliseconds;
-                            if (stableTime < STABILITY_DELAY_MS)
-                            {
-                                // Still waiting for stability - early exit
-                                currentFrame.Dispose();
-                                return;
-                            }
-                            
-                            // Stability period complete - process this frame
-                            _waitingForStableFrame = false;
-                            _logger?.LogMessage($"Stable frame detected after {stableTime:0}ms - processing for textbox", LogLevel.Debug);
-                        }
-                        else
-                        {
-                            // Frame is stable and we already processed it recently - early exit
-                            currentFrame.Dispose();
-                            return;
-                        }
+                        // Not busy = use lower threshold (more tolerant) to find new textbox appearances 
+                        // Sample rate 500 = check every 500th pixel, tolerance allows minor compression differences
+                        frameMatches = _lastFrame != null && ScreenCapture.AreImagesSimilar(_lastFrame, currentFrame, 500);
                     }
                     else
                     {
-                        // Frame has changed - reset stability tracking and early exit
-                        _waitingForStableFrame = true;
-                        _frameStableStartTime = DateTime.MinValue;
+                        // Busy = use very high threshold (99% similar) to catch text changes
+                        // Sample rate 50 = check every 50th pixel for higher sensitivity, but still fuzzy
+                        frameMatches = _lastFrame != null && ScreenCapture.AreImagesSimilar(_lastFrame, currentFrame, 50);
+                    }
+                    
+                    // Log frame comparison status periodically for monitoring
+                    if (_frameCount % 100 == 0)
+                    {
+                        string thresholdType = _isBusy ? "high-sensitivity" : "standard";
+                        _logger?.LogMessage($"Frame {thresholdType}: matches={frameMatches}, isBusy={_isBusy}", LogLevel.Debug);
+                    }
+                    
+                    if (frameMatches && !_isBusy)
+                    {
+                        // Fuzzy match + not busy = new stable frame detected, process it
+                        _isBusy = true;
+                        _logger?.LogMessage("Stable frame detected (fuzzy) - processing for textbox", LogLevel.Debug);
+                        // Continue to textbox detection below
+                    }
+                    else if (frameMatches && _isBusy)
+                    {
+                        // Exact match + busy = same text as before, skip processing
+                        currentFrame.Dispose();
+                        return;
+                    }
+                    else
+                    {
+                        // No match = frame has changed, reset busy state and update last frame
+                        if (_isBusy)
+                        {
+                            _logger?.LogMessage("Text/scene change detected (exact mismatch) - resetting state", LogLevel.Debug);
+                        }
+                        
+                        _isBusy = false;
                         _lastTextboxRect = null;
+                        _lastTextboxHash = "";
                         
                         _lastFrame?.Dispose();
                         _lastFrame = new Bitmap(currentFrame);
@@ -329,19 +327,7 @@ namespace SimpleLoop
                         _lastTextboxHash = textboxHash;
                         _logger?.LogMessage("Unique textbox detected, processing OCR");
                         
-                        // Check for continuation indicators (like FF1's white triangle)
-                        bool hasContinuation = HasContinuationIndicator(textboxImage);
-                        if (hasContinuation)
-                        {
-                            _logger?.LogMessage("Continuation indicator detected - more text expected", LogLevel.Debug);
-                        }
-                        
-                        // IMPORTANT: Reset stability state to allow processing of next text change
-                        lock (_lockObject)
-                        {
-                            _waitingForStableFrame = true;
-                            _frameStableStartTime = DateTime.MinValue;
-                        }
+
                         
                         // Debug snapshots disabled for production
                         // _snapshotManager?.SaveFullscreenWithDetection(currentFrame, textboxRect, _frameCount);
@@ -355,9 +341,6 @@ namespace SimpleLoop
                             {
                                 _logger?.LogMessage("Running enhanced OCR on textbox...");
                                 
-                                // Debug textbox snapshots disabled for production
-                                // _snapshotManager?.SaveTextboxCrop(textboxCopy, "debug", _frameCount);
-                                
                                 var rawText = _ocr?.ExtractTextFast(textboxCopy) ?? "";
                                 _logger?.LogMessage($"Raw OCR result: '{rawText}' (length: {rawText.Length})");
                                 
@@ -366,6 +349,7 @@ namespace SimpleLoop
                                 
                                 if (!string.IsNullOrWhiteSpace(cleanedText))
                                 {
+                                    // Process each textbox as its own dialogue immediately
                                     await ProcessNewDialogue(cleanedText);
                                 }
                                 else
@@ -512,49 +496,7 @@ namespace SimpleLoop
             return Task.CompletedTask;
         }
         
-        private bool HasContinuationIndicator(Bitmap textboxImage)
-        {
-            // Detect FF1's white continuation triangle in bottom-right corner
-            try
-            {
-                if (textboxImage.Width < 50 || textboxImage.Height < 30) return false;
-                
-                // Look for white pixels in the bottom-right area where FF1 places the triangle
-                int rightEdge = textboxImage.Width - 1;
-                int bottomEdge = textboxImage.Height - 1;
-                int searchArea = 30; // 30x30 pixel search area
-                
-                int whitePixels = 0;
-                int totalPixels = 0;
-                
-                // Sample the bottom-right corner area
-                for (int x = Math.Max(0, rightEdge - searchArea); x < rightEdge; x += 3)
-                {
-                    for (int y = Math.Max(0, bottomEdge - searchArea); y < bottomEdge; y += 3)
-                    {
-                        try
-                        {
-                            var pixel = textboxImage.GetPixel(x, y);
-                            totalPixels++;
-                            
-                            // Check for white/light colored pixels (continuation indicator)
-                            if (pixel.R > 200 && pixel.G > 200 && pixel.B > 200)
-                            {
-                                whitePixels++;
-                            }
-                        }
-                        catch { continue; }
-                    }
-                }
-                
-                // If more than 15% of sampled pixels in corner are white, likely a continuation indicator
-                return totalPixels > 0 && (whitePixels * 100 / totalPixels) > 15;
-            }
-            catch
-            {
-                return false; // Safe fallback
-            }
-        }
+
         
         public string? GetLogFilePath() => _logger?.LogFilePath;
         

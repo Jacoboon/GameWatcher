@@ -242,7 +242,7 @@ namespace SimpleLoop
                 
                 if (hasGoodBorders)
                 {
-                    Console.WriteLine($"🔷 Rectangle has good blue borders: T:{bluePixelsTop} B:{bluePixelsBottom} L:{bluePixelsLeft} R:{bluePixelsRight}");
+                    // Console.WriteLine($"🔷 Rectangle has good blue borders: T:{bluePixelsTop} B:{bluePixelsBottom} L:{bluePixelsLeft} R:{bluePixelsRight}");
                 }
                 
                 return hasGoodBorders;

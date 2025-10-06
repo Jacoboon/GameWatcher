@@ -235,5 +235,41 @@ namespace SimpleLoop
             // Frames are similar if less than 5% of pixels differ significantly
             return true;
         }
+
+        // Exact pixel-by-pixel comparison for detecting text changes within textboxes
+        // More strict than AreImagesSimilar - any pixel difference returns false
+        public static unsafe bool AreImagesExact(Bitmap bmp1, Bitmap bmp2)
+        {
+            if (bmp1.Width != bmp2.Width || bmp1.Height != bmp2.Height)
+                return false;
+
+            var rect = new Rectangle(0, 0, bmp1.Width, bmp1.Height);
+            
+            var bmpData1 = bmp1.LockBits(rect, ImageLockMode.ReadOnly, PixelFormat.Format24bppRgb);
+            var bmpData2 = bmp2.LockBits(rect, ImageLockMode.ReadOnly, PixelFormat.Format24bppRgb);
+            
+            var stride = bmpData1.Stride;
+            var bytes = Math.Abs(stride) * bmp1.Height;
+            
+            var ptr1 = (byte*)bmpData1.Scan0;
+            var ptr2 = (byte*)bmpData2.Scan0;
+            
+            bool areExact = true;
+            
+            // Check every single byte - no tolerance for differences
+            for (int i = 0; i < bytes; i++)
+            {
+                if (ptr1[i] != ptr2[i])
+                {
+                    areExact = false;
+                    break;
+                }
+            }
+            
+            bmp1.UnlockBits(bmpData1);
+            bmp2.UnlockBits(bmpData2);
+            
+            return areExact;
+        }
     }
 }

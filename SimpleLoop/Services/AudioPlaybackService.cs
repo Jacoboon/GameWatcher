@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using NAudio.Wave;
@@ -62,6 +63,24 @@ namespace SimpleLoop.Services
                 return;
             }
             
+            // Check for duplicate queueing of the same dialogue
+            var dialogueId = dialogueEntry.Id;
+            var existingItems = _playbackQueue.ToArray();
+            var alreadyQueued = existingItems.Any(item => item.DialogueEntry.Id == dialogueId);
+            
+            if (alreadyQueued)
+            {
+                Console.WriteLine($"[Audio] DUPLICATE DETECTED: \"{dialogueEntry.Text}\" already in queue - SKIPPING");
+                return;
+            }
+            
+            // Also check if it's the currently playing item
+            if (_currentItem?.DialogueEntry.Id == dialogueId)
+            {
+                Console.WriteLine($"[Audio] DUPLICATE DETECTED: \"{dialogueEntry.Text}\" currently playing - SKIPPING");
+                return;
+            }
+            
             var item = new AudioPlaybackItem
             {
                 AudioPath = audioPath,
@@ -116,6 +135,25 @@ namespace SimpleLoop.Services
         {
             while (_playbackQueue.TryDequeue(out _)) { }
             Console.WriteLine("[Audio] Playback queue cleared");
+        }
+        
+        /// <summary>
+        /// Stop current playback and clear queue (for when dialogue closes)
+        /// </summary>
+        public void StopAllAudio()
+        {
+            lock (_playbackLock)
+            {
+                // Stop current playback
+                if (_isPlaying)
+                {
+                    _waveOut.Stop();
+                    Console.WriteLine("[Audio] Stopped current playback");
+                }
+                
+                // Clear the queue
+                ClearQueue();
+            }
         }
         
         /// <summary>
@@ -212,6 +250,7 @@ namespace SimpleLoop.Services
                 lock (_playbackLock)
                 {
                     _isPlaying = false;
+                    Console.WriteLine($"[Audio] Playback completed, releasing lock. Queue size: {_playbackQueue.Count}");
                     _currentItem = null;
                 }
             }
