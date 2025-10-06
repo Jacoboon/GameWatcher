@@ -27,20 +27,74 @@ namespace SimpleLoop.Services
         {
             try
             {
-                if (File.Exists(CONFIG_FILE))
+                // Look in multiple possible locations for the config file
+                var searchPaths = new[]
                 {
-                    var json = File.ReadAllText(CONFIG_FILE);
+                    CONFIG_FILE, // Current directory
+                    Path.Combine("..", CONFIG_FILE), // Parent directory  
+                    Path.Combine("..", "..", CONFIG_FILE), // Two levels up
+                    Path.Combine("SimpleLoop", CONFIG_FILE), // SimpleLoop subdirectory
+                    Path.Combine("..", "SimpleLoop", CONFIG_FILE), // ../SimpleLoop/
+                };
+                
+                string? configPath = null;
+                foreach (var searchPath in searchPaths)
+                {
+                    if (File.Exists(searchPath))
+                    {
+                        configPath = searchPath;
+                        break;
+                    }
+                }
+                
+                // Try to write debug info to a temp file since console output isn't visible in WPF
+                try 
+                {
+                    var debugInfo = $"[Config] Current directory: {Directory.GetCurrentDirectory()}\n[Config] Found config at: {configPath ?? "NOT FOUND"}\n";
+                    File.WriteAllText("tts_debug.log", debugInfo);
+                }
+                catch { } // Ignore errors in debug logging
+                
+                if (configPath != null)
+                {
+                    var json = File.ReadAllText(configPath);
                     var config = JsonSerializer.Deserialize<TtsConfiguration>(json);
-                    return config ?? new TtsConfiguration();
+                    var result = config ?? new TtsConfiguration();
+                    
+                    // Set unified voices directory - find repo root and use voices/ there
+                    result.VoicesDirectory = FindRepoVoicesDirectory();
+                    
+                    try 
+                    {
+                        var debugInfo = $"[Config] Config valid: {result.IsValid()}, API Key present: {!string.IsNullOrWhiteSpace(result.OpenAiApiKey)}, Voices Dir: {result.VoicesDirectory}\n";
+                        File.AppendAllText("tts_debug.log", debugInfo);
+                    }
+                    catch { }
+                    
+                    return result;
+                }
+                else
+                {
+                    try 
+                    {
+                        File.AppendAllText("tts_debug.log", "[Config] Config file not found in any search paths, using defaults\n");
+                    }
+                    catch { }
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[Config] Error loading TTS configuration: {ex.Message}");
+                try 
+                {
+                    File.AppendAllText("tts_debug.log", $"[Config] Error loading TTS configuration: {ex.Message}\n");
+                }
+                catch { }
             }
             
             // Return defaults if file doesn't exist or loading failed
-            return new TtsConfiguration();
+            var defaultConfig = new TtsConfiguration();
+            defaultConfig.VoicesDirectory = FindRepoVoicesDirectory();
+            return defaultConfig;
         }
         
         /// <summary>
@@ -90,6 +144,56 @@ namespace SimpleLoop.Services
             return "Configuration valid";
         }
         
+        /// <summary>
+        /// Find the repo root and return the unified voices directory path
+        /// </summary>
+        private static string FindRepoVoicesDirectory()
+        {
+            try
+            {
+                var currentDir = Directory.GetCurrentDirectory();
+                
+                // Look for repo indicators (GameWatcher.sln or .git)
+                var searchDir = currentDir;
+                for (int i = 0; i < 5; i++) // Search up to 5 levels up
+                {
+                    if (File.Exists(Path.Combine(searchDir, "GameWatcher.sln")) ||
+                        Directory.Exists(Path.Combine(searchDir, ".git")))
+                    {
+                        var repoVoicesDir = Path.Combine(searchDir, "voices");
+                        try 
+                        {
+                            File.AppendAllText("tts_debug.log", $"[Config] Found repo root at: {searchDir}, using voices dir: {repoVoicesDir}\n");
+                        }
+                        catch { }
+                        return repoVoicesDir;
+                    }
+                    
+                    var parentDir = Directory.GetParent(searchDir);
+                    if (parentDir == null) break;
+                    searchDir = parentDir.FullName;
+                }
+                
+                // Fallback to current directory + voices if repo root not found
+                var fallbackDir = Path.Combine(currentDir, "voices");
+                try 
+                {
+                    File.AppendAllText("tts_debug.log", $"[Config] Could not find repo root, using fallback: {fallbackDir}\n");
+                }
+                catch { }
+                return fallbackDir;
+            }
+            catch (Exception ex)
+            {
+                try 
+                {
+                    File.AppendAllText("tts_debug.log", $"[Config] Error finding repo voices directory: {ex.Message}\n");
+                }
+                catch { }
+                return "voices"; // Ultimate fallback
+            }
+        }
+
         /// <summary>
         /// Create voices directory if it doesn't exist
         /// </summary>

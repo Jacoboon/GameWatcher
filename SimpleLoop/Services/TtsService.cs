@@ -225,7 +225,7 @@ namespace SimpleLoop.Services
         /// </summary>
         public static string[] GetAvailableVoices()
         {
-            return new[] { "alloy", "echo", "fable", "onyx", "nova", "shimmer" };
+            return new[] { "alloy", "echo", "fable", "onyx", "nova", "shimmer", "coral", "sage" };
         }
         
         /// <summary>
@@ -240,7 +240,9 @@ namespace SimpleLoop.Services
                 ["fable"] = "British accent, sophisticated tone, ideal for wise or noble characters",
                 ["onyx"] = "Deep male voice, suitable for powerful or mysterious characters", 
                 ["nova"] = "Young female voice, energetic and friendly",
-                ["shimmer"] = "Soft female voice, gentle and warm"
+                ["shimmer"] = "Soft female voice, gentle and warm",
+                ["coral"] = "Warm, engaging female voice with natural intonation",
+                ["sage"] = "Mature, wise-sounding voice with gravitas"
             };
         }
         

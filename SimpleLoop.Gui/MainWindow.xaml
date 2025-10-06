@@ -196,21 +196,109 @@
                         <ComboBox Name="SpeakerFilterBox" Width="150" Height="25" Margin="0,0,10,0" 
                                   SelectionChanged="SpeakerFilterBox_SelectionChanged"/>
                         <Button Content="Clear Filters" Width="100" Height="25" Click="ClearFilters_Click"/>
+                        <Button Content="Refresh Data" Width="100" Height="25" Margin="10,0,0,0"
+                                Background="#198754" Foreground="White" Click="RefreshData_Click"/>
                         
-                        <Button Content="Delete Selected" Width="120" Height="25" Margin="20,0,0,0" 
+                        <Button Content="💾 Save Changes" Width="120" Height="25" Margin="10,0,0,0"
+                                Background="#0D6EFD" Foreground="White" Click="SaveChanges_Click"/>
+                        
+                        <Button Content="Delete Selected" Width="120" Height="25" Margin="10,0,0,0" 
                                 Background="#D13438" Foreground="White" Click="DeleteSelectedDialogue_Click"/>
                     </StackPanel>
                     
                     <!-- Dialogue Grid -->
                     <DataGrid Name="DialogueDataGrid" Grid.Row="1" AutoGenerateColumns="False" 
                               CanUserAddRows="False" GridLinesVisibility="Horizontal" 
-                              AlternatingRowBackground="#F5F5F5" SelectionMode="Extended">
+                              AlternatingRowBackground="#F5F5F5" SelectionMode="Single" RowHeight="35">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Text" Binding="{Binding Text}" Width="*" IsReadOnly="False"/>
-                            <DataGridTextColumn Header="Speaker" Binding="{Binding Speaker}" Width="150" IsReadOnly="False"/>
-                            <DataGridTextColumn Header="Voice" Binding="{Binding VoiceProfile}" Width="100" IsReadOnly="True"/>
-                            <DataGridTextColumn Header="Count" Binding="{Binding SeenCount}" Width="60" IsReadOnly="True"/>
-                            <DataGridTextColumn Header="Last Seen" Binding="{Binding LastSeen}" Width="130" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Text" Binding="{Binding Text}" Width="2*" IsReadOnly="False">
+                                <DataGridTextColumn.ElementStyle>
+                                    <Style TargetType="TextBlock">
+                                        <Setter Property="TextWrapping" Value="Wrap"/>
+                                        <Setter Property="VerticalAlignment" Value="Center"/>
+                                        <Setter Property="Margin" Value="5,2"/>
+                                    </Style>
+                                </DataGridTextColumn.ElementStyle>
+                            </DataGridTextColumn>
+                            <DataGridTemplateColumn Header="Speaker" Width="120">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding Speaker}" VerticalAlignment="Center" Margin="5,0"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                                <DataGridTemplateColumn.CellEditingTemplate>
+                                    <DataTemplate>
+                                        <ComboBox SelectedItem="{Binding Speaker, UpdateSourceTrigger=PropertyChanged}"
+                                                  ItemsSource="{Binding RelativeSource={RelativeSource AncestorType=Window}, Path=AvailableSpeakers}"
+                                                  VerticalAlignment="Center"
+                                                  SelectionChanged="SpeakerCombo_SelectionChanged"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellEditingTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="Voice" Binding="{Binding VoiceProfile}" Width="80" IsReadOnly="True"/>
+                            <DataGridTemplateColumn Header="Audio Status" Width="120" CanUserResize="False">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                            <TextBlock Text="{Binding AudioStatus}" FontSize="10" VerticalAlignment="Center"
+                                                     Foreground="{Binding AudioStatusColor}" FontWeight="Bold"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTextColumn Header="Count" Binding="{Binding SeenCount}" Width="50" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Last Seen" Binding="{Binding LastSeen}" Width="110" IsReadOnly="True"/>
+                            <DataGridTemplateColumn Header="Actions" Width="240" CanUserResize="False">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" Margin="2">
+                                            <Button Width="55" Height="25" Margin="2,0" 
+                                                    Click="PlayAudio_Click" Tag="{Binding}" FontSize="10">
+                                                <Button.Style>
+                                                    <Style TargetType="Button">
+                                                        <Setter Property="Content" Value="▶ Play"/>
+                                                        <Setter Property="ToolTip" Value="Play existing audio file"/>
+                                                        <Setter Property="IsEnabled" Value="True"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding AudioStatus}" Value="⏸ Not Generated">
+                                                                <Setter Property="Content" Value="⏸ None"/>
+                                                                <Setter Property="IsEnabled" Value="False"/>
+                                                                <Setter Property="ToolTip" Value="No audio file available"/>
+                                                            </DataTrigger>
+                                                            <DataTrigger Binding="{Binding AudioStatus}" Value="❌ Missing">
+                                                                <Setter Property="Content" Value="❌ Missing"/>
+                                                                <Setter Property="IsEnabled" Value="False"/>
+                                                                <Setter Property="ToolTip" Value="Audio file is missing"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                            </Button>
+                                            <Button Width="65" Height="25" Margin="2,0" 
+                                                    Click="GenerateAudio_Click" Tag="{Binding}" FontSize="10">
+                                                <Button.Style>
+                                                    <Style TargetType="Button">
+                                                        <Setter Property="Content" Value="🎙 Generate"/>
+                                                        <Setter Property="ToolTip" Value="Generate new TTS audio"/>
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding AudioStatus}" Value="✓">
+                                                                <Setter Property="Content" Value="🔄 Regenerate"/>
+                                                                <Setter Property="ToolTip" Value="Regenerate TTS audio (will replace existing)"/>
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Button.Style>
+                                            </Button>
+                                            <Button Content="📁 Files" Width="55" Height="25" Margin="2,0" 
+                                                    Click="ManageAudio_Click" Tag="{Binding}"
+                                                    ToolTip="Manage audio files for this dialogue" FontSize="10"/>
+                                            <Button Content="🗑 Delete" Width="55" Height="25" Margin="2,0" 
+                                                    Click="DeleteDialogue_Click" Tag="{Binding}"
+                                                    ToolTip="Delete this dialogue entry" FontSize="10"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
                         </DataGrid.Columns>
                     </DataGrid>
                 </Grid>

@@ -50,9 +50,10 @@ namespace SimpleLoop
         
         // File-based logging to prevent GUI thread contention
         private CaptureLogger? _logger;
+        public CaptureLogger? Logger => _logger;
         
-        // Debug snapshot manager
-        private SnapshotManager? _snapshotManager;
+        // Debug snapshot manager - DISABLED for production
+        // private SnapshotManager? _snapshotManager;
         
         // TTS integration
         private TtsManager? _ttsManager;
@@ -70,15 +71,18 @@ namespace SimpleLoop
         {
             try
             {
-                _logger = new CaptureLogger();
-        _snapshotManager = new SnapshotManager();
+                // Create logs in a predictable location relative to the SimpleLoop directory
+                var logDirectory = Path.Combine(Path.GetDirectoryName(speakerCatalogPath ?? "speaker_catalog.json") ?? ".", "logs");
+                Console.WriteLine($"[CaptureService] Creating logs in: {Path.GetFullPath(logDirectory)}");
+                _logger = new CaptureLogger(logDirectory);
+        // _snapshotManager = null; // Disabled: No debug snapshots
         _detector = new DynamicTextboxDetector();
         _ocr = new WindowsOCR();                // Use provided paths or defaults for data files
                 var speakerPath = speakerCatalogPath ?? "speaker_catalog.json";
                 var dialoguePath = dialogueCatalogPath ?? "dialogue_catalog.json";
                 
-                _catalog = new DialogueCatalog(dialoguePath);
                 _speakerCatalog = new SpeakerCatalog(speakerPath);
+                _catalog = new DialogueCatalog(dialoguePath, _speakerCatalog);
                 
                 // Initialize TTS manager if configuration is available
                 try
@@ -104,7 +108,8 @@ namespace SimpleLoop
                 }
                 
                 _logger.LogMessage("Capture service initialized successfully");
-                _logger.LogMessage($"Debug snapshots will be saved to: {_snapshotManager.SessionDirectory}");
+                // Debug snapshots disabled for production
+                Console.WriteLine($"[CaptureService] Initialized successfully. Log file: {_logger.LogFilePath}");
                 
                 // Test capture to show what window we're detecting
                 var testCapture = ScreenCapture.CaptureGameWindow();
@@ -338,8 +343,8 @@ namespace SimpleLoop
                             _frameStableStartTime = DateTime.MinValue;
                         }
                         
-                        // Save debug snapshot only when processing new content
-                        _snapshotManager?.SaveFullscreenWithDetection(currentFrame, textboxRect, _frameCount);
+                        // Debug snapshots disabled for production
+                        // _snapshotManager?.SaveFullscreenWithDetection(currentFrame, textboxRect, _frameCount);
                         
                         // Create copies for async processing - EnhancedOCR will handle preprocessing
                         var textboxCopy = new Bitmap(textboxImage);
@@ -350,8 +355,8 @@ namespace SimpleLoop
                             {
                                 _logger?.LogMessage("Running enhanced OCR on textbox...");
                                 
-                                // Save debug image of original textbox
-                                _snapshotManager?.SaveTextboxCrop(textboxCopy, "debug", _frameCount);
+                                // Debug textbox snapshots disabled for production
+                                // _snapshotManager?.SaveTextboxCrop(textboxCopy, "debug", _frameCount);
                                 
                                 var rawText = _ocr?.ExtractTextFast(textboxCopy) ?? "";
                                 _logger?.LogMessage($"Raw OCR result: '{rawText}' (length: {rawText.Length})");
@@ -391,7 +396,8 @@ namespace SimpleLoop
                     if (_lastTextboxRect.HasValue)
                     {
                         _logger?.LogMessage("Textbox disappeared from frame");
-                        _snapshotManager?.SaveFullscreenWithDetection(currentFrame, null, _frameCount);
+                        // Debug snapshots disabled for production
+                        // _snapshotManager?.SaveFullscreenWithDetection(currentFrame, null, _frameCount);
                         _lastTextboxRect = null;
                         _lastTextboxHash = "";
                     }
@@ -751,11 +757,35 @@ namespace SimpleLoop
         
         public void Dispose()
         {
-            StopCaptureAsync().Wait();
-            
-            _ttsManager?.Dispose();
-            _cancellationTokenSource?.Dispose();
-            _logger?.Dispose();
+            try
+            {
+                // Force stop without waiting
+                _isRunning = false;
+                
+                // Dispose timer immediately
+                _captureTimer?.Dispose();
+                _captureTimer = null;
+                
+                // Cancel operations
+                _cancellationTokenSource?.Cancel();
+                
+                // Cleanup resources
+                lock (_lockObject)
+                {
+                    _lastFrame?.Dispose();
+                    _lastFrame = null;
+                    _lastTextbox?.Dispose();
+                    _lastTextbox = null;
+                }
+                
+                _ttsManager?.Dispose();
+                _cancellationTokenSource?.Dispose();
+                _logger?.Dispose();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Error during CaptureService disposal: {ex.Message}");
+            }
         }
     }
     

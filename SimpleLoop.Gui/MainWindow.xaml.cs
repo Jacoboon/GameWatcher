@@ -1,7 +1,11 @@
 ﻿using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
@@ -12,6 +16,7 @@ using System.Windows.Media.Imaging;
 using System.Windows.Navigation;
 using System.Windows.Shapes;
 using System.Windows.Threading;
+using SimpleLoop.Services;
 
 namespace SimpleLoop.Gui;
 
@@ -20,6 +25,12 @@ namespace SimpleLoop.Gui;
 /// </summary>
 public partial class MainWindow : Window, INotifyPropertyChanged
 {
+    // Windows API for forceful process termination
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern IntPtr GetCurrentProcess();
+    
+    [DllImport("kernel32.dll", SetLastError = true)]
+    private static extern bool TerminateProcess(IntPtr hProcess, uint uExitCode);
     private DialogueCatalog? _dialogueCatalog;
     private SpeakerCatalog? _speakerCatalog;
     private bool _isCapturing = false;
@@ -27,10 +38,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     // NEW: CaptureService integration
     private CaptureService? _captureService;
     private DispatcherTimer? _statsUpdateTimer;
+    private DispatcherTimer? _logUpdateTimer;
+    
+    // Audio playback
+    private System.Windows.Media.MediaPlayer? _mediaPlayer;
     
     // Observable collections for data binding
     public ObservableCollection<DialogueEntry> DialogueEntries { get; } = new();
     public ObservableCollection<SpeakerProfile> SpeakerProfiles { get; } = new();
+    public ObservableCollection<string> AvailableSpeakers { get; } = new();
     
     private SpeakerProfile? _selectedSpeaker;
     public SpeakerProfile? SelectedSpeaker
@@ -49,32 +65,58 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         InitializeComponent();
         DataContext = this;
         
+        // Initialize media player for in-app audio playback
+        _mediaPlayer = new System.Windows.Media.MediaPlayer();
+        _mediaPlayer.MediaEnded += (s, e) => StatusText.Text = "Audio playback completed";
+        _mediaPlayer.MediaFailed += (s, e) => StatusText.Text = $"Audio playback failed: {e.ErrorException?.Message}";
+        
+        // Add multiple shutdown hooks
+        this.Closing += MainWindow_Closing;
+        this.Closed += MainWindow_Closed;
+        Application.Current.SessionEnding += Application_SessionEnding;
+        
         InitializeCatalogs();
         InitializeCaptureService();
         SetupUI();
         LoadData();
+        
+        Console.WriteLine($"[GUI] MainWindow initialized. AvailableSpeakers count: {AvailableSpeakers.Count}");
     }
 
     private void InitializeCatalogs()
     {
+        var debugLog = @"c:\Code Projects\GameWatcher\SimpleLoop\gui_debug.log";
+        
         try
         {
-            // Use the SimpleLoop directory for catalog files  
-            var currentDir = Directory.GetCurrentDirectory();
-            var projectRoot = Directory.GetParent(currentDir)?.FullName ?? "";
-            var simpleLoopDir = System.IO.Path.Combine(projectRoot, "SimpleLoop");
+            // Use absolute path to SimpleLoop directory (same as CaptureService)
+            var simpleLoopDir = @"c:\Code Projects\GameWatcher\SimpleLoop";
             var dialoguePath = System.IO.Path.Combine(simpleLoopDir, "dialogue_catalog.json");
             var speakerPath = System.IO.Path.Combine(simpleLoopDir, "speaker_catalog.json");
             
-            Console.WriteLine($"Loading catalogs from:");
-            Console.WriteLine($"  Dialogue: {dialoguePath}");
-            Console.WriteLine($"  Speaker: {speakerPath}");
-            Console.WriteLine($"  Files exist: Dialogue={File.Exists(dialoguePath)}, Speaker={File.Exists(speakerPath)}");
+            Console.WriteLine($"[GUI] Loading catalogs from:");
+            Console.WriteLine($"[GUI]   Dialogue: {dialoguePath}");
+            Console.WriteLine($"[GUI]   Speaker: {speakerPath}");
+            Console.WriteLine($"[GUI]   Files exist: Dialogue={File.Exists(dialoguePath)}, Speaker={File.Exists(speakerPath)}");
             
-            _dialogueCatalog = new DialogueCatalog(dialoguePath);
+            File.AppendAllText(debugLog, $"[{DateTime.Now:HH:mm:ss}] InitializeCatalogs started\n");
+            File.AppendAllText(debugLog, $"[{DateTime.Now:HH:mm:ss}] Dialogue path: {dialoguePath}\n");
+            File.AppendAllText(debugLog, $"[{DateTime.Now:HH:mm:ss}] Speaker path: {speakerPath}\n");
+            File.AppendAllText(debugLog, $"[{DateTime.Now:HH:mm:ss}] Files exist: Dialogue={File.Exists(dialoguePath)}, Speaker={File.Exists(speakerPath)}\n");
+            
+            // Also check file sizes for diagnostics
+            if (File.Exists(dialoguePath))
+            {
+                var dialogueContent = File.ReadAllText(dialoguePath);
+                Console.WriteLine($"[GUI]   Dialogue file size: {dialogueContent.Length} characters");
+                File.AppendAllText(debugLog, $"[{DateTime.Now:HH:mm:ss}] Dialogue file size: {dialogueContent.Length} characters\n");
+            }
+            
             _speakerCatalog = new SpeakerCatalog(speakerPath);
+            _dialogueCatalog = new DialogueCatalog(dialoguePath, _speakerCatalog);
             
             Console.WriteLine($"Catalogs created successfully");
+            File.AppendAllText(debugLog, $"[{DateTime.Now:HH:mm:ss}] Catalogs created successfully\n");
             
             // Load entries into UI collections
             LoadDialogueEntries();
@@ -96,10 +138,16 @@ public partial class MainWindow : Window, INotifyPropertyChanged
     {
         try 
         {
-            // CLI is the single source of truth - GUI manages CLI's data files
-            var cliDirectory = System.IO.Path.GetFullPath("../SimpleLoop");
+            // CLI is the single source of truth - GUI manages CLI's data files  
+            // Use absolute path to avoid working directory issues
+            var cliDirectory = @"c:\Code Projects\GameWatcher\SimpleLoop";
             var speakerCatalogPath = System.IO.Path.Combine(cliDirectory, "speaker_catalog.json");
             var dialogueCatalogPath = System.IO.Path.Combine(cliDirectory, "dialogue_catalog.json");
+            Console.WriteLine($"[GUI] CLI directory: {cliDirectory}");
+            Console.WriteLine($"[GUI] Speaker catalog exists: {System.IO.File.Exists(speakerCatalogPath)}");
+            Console.WriteLine($"[GUI] About to create CaptureService with paths:");
+            Console.WriteLine($"[GUI]   Speaker: {speakerCatalogPath}");
+            Console.WriteLine($"[GUI]   Dialogue: {dialogueCatalogPath}");
             _captureService = new CaptureService(speakerCatalogPath, dialogueCatalogPath);            // Subscribe to capture service events
             _captureService.ProgressReported += OnCaptureProgressReported;
             _captureService.DialogueDetected += OnDialogueDetected;
@@ -110,12 +158,19 @@ public partial class MainWindow : Window, INotifyPropertyChanged
             _statsUpdateTimer.Tick += UpdateLiveStats;
             
             // Setup log refresh timer (every 2 seconds for file-based logs)
-            var logUpdateTimer = new DispatcherTimer();
-            logUpdateTimer.Interval = TimeSpan.FromSeconds(2);
-            logUpdateTimer.Tick += UpdateLogDisplay;
-            logUpdateTimer.Start();
+            _logUpdateTimer = new DispatcherTimer();
+            _logUpdateTimer.Interval = TimeSpan.FromSeconds(2);
+            _logUpdateTimer.Tick += UpdateLogDisplay;
+            _logUpdateTimer.Start();
             
             StatusText.Text = "Capture service initialized";
+            
+            // Debug: Show log file location immediately
+            var logPath = _captureService.GetLogFilePath();
+            Console.WriteLine($"[GUI Debug] Capture service log path: {logPath}");
+            
+            // Trigger an immediate log update to test
+            UpdateLogDisplay(null, EventArgs.Empty);
         }
         catch (Exception ex)
         {
@@ -129,9 +184,15 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void SetupUI()
     {
+        var debugLog = @"c:\Code Projects\GameWatcher\SimpleLoop\gui_debug.log";
+        File.AppendAllText(debugLog, $"[{DateTime.Now:HH:mm:ss}] SetupUI() called\n");
+        
         // Setup DataGrid bindings
         DialogueDataGrid.ItemsSource = DialogueEntries;
         SpeakerListBox.ItemsSource = SpeakerProfiles;
+        
+        File.AppendAllText(debugLog, $"[{DateTime.Now:HH:mm:ss}] DialogueEntries count: {DialogueEntries.Count}\n");
+        File.AppendAllText(debugLog, $"[{DateTime.Now:HH:mm:ss}] ItemsSource set to DialogueEntries\n");
         
         // Setup speaker filter dropdown
         SpeakerFilterBox.Items.Add("All Speakers");
@@ -156,34 +217,67 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     private void LoadData()
     {
-        LoadDialogueEntries();
+        var debugLog = @"c:\Code Projects\GameWatcher\SimpleLoop\gui_debug.log";
+        File.AppendAllText(debugLog, $"[{DateTime.Now:HH:mm:ss}] LoadData() called - DialogueEntries count before: {DialogueEntries.Count}\n");
+        
+        // Don't reload dialogue entries - they're already loaded by InitializeCatalogs()
+        // LoadDialogueEntries();
         LoadSpeakerProfiles();
         UpdateStatistics();
+        
+        File.AppendAllText(debugLog, $"[{DateTime.Now:HH:mm:ss}] LoadData() completed - DialogueEntries count after: {DialogueEntries.Count}\n");
     }
 
     private void LoadDialogueEntries()
     {
+        // Debug file logging to see what's happening
+        var debugLog = @"c:\Code Projects\GameWatcher\SimpleLoop\gui_debug.log";
+        
         if (_dialogueCatalog == null) 
         {
-            Console.WriteLine("_dialogueCatalog is null!");
+            Console.WriteLine("[GUI] _dialogueCatalog is null!");
+            File.AppendAllText(debugLog, $"[{DateTime.Now:HH:mm:ss}] _dialogueCatalog is null!\n");
+            StatusText.Text = "Dialogue catalog not initialized";
             return;
         }
         
         DialogueEntries.Clear();
+        Console.WriteLine("[GUI] Loading dialogue entries...");
+        File.AppendAllText(debugLog, $"[{DateTime.Now:HH:mm:ss}] Loading dialogue entries...\n");
         
-        // Load all dialogue entries (assuming we need to expose the internal dictionary)
-        // This may require adding a public method to DialogueCatalog to get all entries
         try
         {
-            var entries = _dialogueCatalog.GetAllEntries(); // We'll need to add this method
-            Console.WriteLine($"Retrieved {entries.Count()} entries from catalog");
+            var entries = _dialogueCatalog.GetAllEntries();
+            Console.WriteLine($"[GUI] Retrieved {entries.Count()} entries from catalog");
+            File.AppendAllText(debugLog, $"[{DateTime.Now:HH:mm:ss}] Retrieved {entries.Count()} entries from catalog\n");
+            
             foreach (var entry in entries)
             {
                 DialogueEntries.Add(entry);
+                var preview = entry.Text.Substring(0, Math.Min(50, entry.Text.Length));
+                Console.WriteLine($"[GUI] Added: {preview}...");
+                File.AppendAllText(debugLog, $"[{DateTime.Now:HH:mm:ss}] Added: {preview}...\n");
             }
             
-            Console.WriteLine($"Added {DialogueEntries.Count} entries to UI collection");
+            Console.WriteLine($"[GUI] Added {DialogueEntries.Count} entries to UI collection");
+            Console.WriteLine($"[GUI] DataGrid ItemsSource count: {((System.Collections.ICollection?)DialogueDataGrid.ItemsSource)?.Count ?? 0}");
+            File.AppendAllText(debugLog, $"[{DateTime.Now:HH:mm:ss}] Added {DialogueEntries.Count} entries to UI collection\n");
             UpdateStatistics();
+            
+            // Force UI refresh
+            DialogueDataGrid.Items.Refresh();
+            
+            // Debug UI thread and binding state
+            File.AppendAllText(debugLog, $"[{DateTime.Now:HH:mm:ss}] UI Thread: {System.Windows.Threading.Dispatcher.CurrentDispatcher.Thread.ManagedThreadId}\n");
+            File.AppendAllText(debugLog, $"[{DateTime.Now:HH:mm:ss}] ItemsSource null: {DialogueDataGrid.ItemsSource == null}\n");
+            File.AppendAllText(debugLog, $"[{DateTime.Now:HH:mm:ss}] ItemsSource type: {DialogueDataGrid.ItemsSource?.GetType().Name}\n");
+            
+            if (DialogueDataGrid.ItemsSource is System.Collections.IEnumerable items)
+            {
+                var count = 0;
+                foreach (var item in items) count++;
+                File.AppendAllText(debugLog, $"[{DateTime.Now:HH:mm:ss}] ItemsSource enumeration count: {count}\n");
+            }
         }
         catch (Exception ex)
         {
@@ -192,25 +286,39 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         }
     }    private void LoadSpeakerProfiles()
     {
-        if (_speakerCatalog == null) return;
+        var debugLog = @"c:\Code Projects\GameWatcher\SimpleLoop\gui_debug.log";
+        File.AppendAllText(debugLog, $"[{DateTime.Now:HH:mm:ss}] LoadSpeakerProfiles() called\n");
+        
+        if (_speakerCatalog == null) 
+        {
+            File.AppendAllText(debugLog, $"[{DateTime.Now:HH:mm:ss}] _speakerCatalog is null!\n");
+            return;
+        }
 
         SpeakerProfiles.Clear();
+        AvailableSpeakers.Clear();
         SpeakerFilterBox.Items.Clear();
         SpeakerFilterBox.Items.Add("All Speakers");
         
         try
         {
-            var speakers = _speakerCatalog.GetAllSpeakers(); // We'll need to add this method
+            var speakers = _speakerCatalog.GetAllSpeakers();
+            Console.WriteLine($"[GUI] LoadSpeakerProfiles: Found {speakers.Count} speakers");
+            
             foreach (var speaker in speakers)
             {
                 SpeakerProfiles.Add(speaker);
+                AvailableSpeakers.Add(speaker.Name);
                 SpeakerFilterBox.Items.Add(speaker.Name);
+                _captureService?.Logger?.LogMessage($"[GUI] Added speaker: {speaker.Name} with voice: {speaker.TtsVoiceId}");
             }
             
+            Console.WriteLine($"[GUI] AvailableSpeakers collection count: {AvailableSpeakers.Count}");
             SpeakerFilterBox.SelectedIndex = 0;
         }
         catch (Exception ex)
         {
+            File.AppendAllText(debugLog, $"[{DateTime.Now:HH:mm:ss}] Exception in LoadSpeakerProfiles: {ex.Message}\n");
             StatusText.Text = $"Error loading speakers: {ex.Message}";
         }
     }
@@ -408,6 +516,81 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         FilterDialogueEntries();
     }
 
+    private void RefreshData_Click(object sender, RoutedEventArgs e)
+    {
+        var debugLog = @"c:\Code Projects\GameWatcher\SimpleLoop\gui_debug.log";
+        Console.WriteLine("[GUI] Manual refresh requested");
+        File.AppendAllText(debugLog, $"[{DateTime.Now:HH:mm:ss}] RefreshData_Click called\n");
+        
+        LoadDialogueEntries();
+        LoadSpeakerProfiles(); 
+        StatusText.Text = "Data refreshed manually";
+        
+        File.AppendAllText(debugLog, $"[{DateTime.Now:HH:mm:ss}] RefreshData_Click completed\n");
+    }
+
+    private void SaveChanges_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            // Save both dialogue and speaker catalogs
+            _dialogueCatalog?.SaveCatalog();
+            _speakerCatalog?.SaveCatalog();
+            
+            StatusText.Text = "Changes saved successfully";
+            MessageBox.Show("All changes have been saved to disk.", "Save Complete", 
+                          MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"Error saving changes: {ex.Message}";
+            MessageBox.Show($"Failed to save changes:\n{ex.Message}", "Save Error", 
+                          MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void SpeakerCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        _captureService?.Logger?.LogMessage("[GUI] SpeakerCombo_SelectionChanged triggered");
+        
+        if (sender is ComboBox combo && combo.DataContext is DialogueEntry entry)
+        {
+            var selectedSpeaker = combo.SelectedItem as string;
+            _captureService?.Logger?.LogMessage($"[GUI] Selected speaker: '{selectedSpeaker}', Current entry speaker: '{entry.Speaker}'");
+            
+            if (!string.IsNullOrEmpty(selectedSpeaker))
+            {
+                _captureService?.Logger?.LogMessage($"[GUI] Processing speaker selection: '{selectedSpeaker}' (was '{entry.Speaker}')");
+                
+                // Always update the speaker name (even if it's the same)
+                entry.Speaker = selectedSpeaker;
+                
+                // Find the speaker profile and update the voice
+                var speaker = _speakerCatalog?.GetSpeakerByName(selectedSpeaker);
+                _captureService?.Logger?.LogMessage($"[GUI] Found speaker profile: {speaker?.Name} with voice: {speaker?.TtsVoiceId}");
+                
+                if (speaker != null)
+                {
+                    var oldVoice = entry.VoiceProfile;
+                    entry.VoiceProfile = speaker.TtsVoiceId;
+                    entry.TtsVoiceId = speaker.TtsVoiceId;
+                    _captureService?.Logger?.LogMessage($"[GUI] Updated entry voice from '{oldVoice}' to: {entry.VoiceProfile}");
+                }
+                else
+                {
+                    _captureService?.Logger?.LogMessage("[GUI] Speaker profile not found in catalog");
+                }
+                
+                // Update status - no manual refresh needed if binding works properly
+                StatusText.Text = $"Updated speaker to '{selectedSpeaker}' (voice: {entry.VoiceProfile})";
+            }
+            else
+            {
+                _captureService?.Logger?.LogMessage("[GUI] Empty speaker selection");
+            }
+        }
+    }
+
     private void DeleteSelectedDialogue_Click(object sender, RoutedEventArgs e)
     {
         var selected = DialogueDataGrid.SelectedItems.Cast<DialogueEntry>().ToList();
@@ -510,25 +693,180 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         LoadSpeakerProfiles(); // Refresh filter dropdown
     }
 
-    private void PreviewVoice_Click(object sender, RoutedEventArgs e)
+    private async void PreviewVoice_Click(object sender, RoutedEventArgs e)
     {
         if (SelectedSpeaker == null) return;
-
+        
         try
         {
-            // NOTE: TTS preview implementation pending - requires OpenAI TTS API integration
-            // Future implementation will generate and play audio using SelectedSpeaker.TtsVoiceId and TtsSpeed
-            var sampleText = "Hello, this is a preview of my voice settings.";
-            StatusText.Text = $"Voice preview (simulation) for {SelectedSpeaker.Name}";
+            StatusText.Text = $"Checking voice preview for {SelectedSpeaker.Name}...";
+            _captureService?.Logger?.LogMessage($"[GUI] Voice preview requested for speaker: {SelectedSpeaker.Name}");
             
-            // Show voice settings preview until TTS is implemented
-            MessageBox.Show($"Voice Preview (Simulation):\nSpeaker: {SelectedSpeaker.Name}\nVoice: {SelectedSpeaker.TtsVoiceId}\nSpeed: {SelectedSpeaker.TtsSpeed}\nSample: \"{sampleText}\"", 
-                           "Voice Preview", MessageBoxButton.OK, MessageBoxImage.Information);
+            // Create a temporary dialogue entry for the preview
+            var sampleText = "Hello, this is a preview of my voice settings.";
+            var previewEntry = new DialogueEntry
+            {
+                Id = "voice_preview",
+                Text = sampleText,
+                Speaker = SelectedSpeaker.Name,
+                VoiceProfile = SelectedSpeaker.TtsVoiceId,
+                TtsVoiceId = SelectedSpeaker.TtsVoiceId
+            };
+            
+            // Generate/play preview (this will check for existing file first)
+            await GenerateAndPlayPreview(previewEntry, SelectedSpeaker);
+            
+            StatusText.Text = $"Voice preview for {SelectedSpeaker.Name} completed";
         }
         catch (Exception ex)
         {
             MessageBox.Show($"Error generating voice preview: {ex.Message}", "Error", 
                            MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private async Task GenerateAndPlayPreview(DialogueEntry previewEntry, SpeakerProfile speaker)
+    {
+        try
+        {
+            // Check if we have a TTS service available through capture service
+            if (_captureService == null)
+            {
+                throw new InvalidOperationException("Capture service not available");
+            }
+            
+            _captureService?.Logger?.LogMessage($"[GUI] Starting speaker preview for: {speaker.Name}");
+            
+            // Load TTS configuration
+            var config = SimpleLoop.Services.TtsConfiguration.Load();
+            
+            // Create shared preview system - voice+speed based, not speaker based
+            var previewsDir = System.IO.Path.Combine(config.VoicesDirectory, "previews");
+            var previewFileName = $"{speaker.TtsVoiceId}_{speaker.TtsSpeed:F1}.mp3";
+            var previewPath = System.IO.Path.Combine(previewsDir, previewFileName);
+            
+            // ALWAYS check for existing preview file first (even if TTS fails, we can use existing)
+            if (File.Exists(previewPath))
+            {
+                _captureService?.Logger?.LogMessage($"[GUI] Using existing shared preview: {previewPath}");
+                await PlayAudioFile(previewPath);
+                return;
+            }
+            
+            _captureService?.Logger?.LogMessage($"[GUI] No existing preview found at: {previewPath}");
+            
+            // Check if TTS config is valid before attempting generation
+            if (!config.IsValid())
+            {
+                throw new InvalidOperationException($"TTS configuration is invalid and no existing preview found for {speaker.TtsVoiceId} at {speaker.TtsSpeed:F1} speed");
+            }
+            
+            // Only generate if TTS is available - if not, we already returned above for existing files
+            if (!_captureService?.IsTtsReady == true)
+            {
+                throw new InvalidOperationException("TTS system is not ready and no existing preview found");
+            }
+            
+            // Generate new shared preview file
+            var ttsService = new SimpleLoop.Services.TtsService(config.OpenAiApiKey, config.VoicesDirectory);
+            
+            // Create specific preview entry with shared preview path
+            var sharedPreview = new DialogueEntry
+            {
+                Id = "voice_preview",
+                Text = previewEntry.Text,
+                Speaker = "Preview", // Generic speaker for preview
+                VoiceProfile = speaker.TtsVoiceId,
+                TtsVoiceId = speaker.TtsVoiceId,
+                AudioPath = previewPath
+            };
+            
+            // Ensure previews directory exists
+            Directory.CreateDirectory(previewsDir);
+            
+            var audioPath = await ttsService.GenerateAudioAsync(sharedPreview, speaker);
+            
+            if (!string.IsNullOrEmpty(audioPath) && File.Exists(audioPath))
+            {
+                _captureService?.Logger?.LogMessage($"[GUI] New shared preview generated: {audioPath}");
+                
+                // Move to shared preview location if necessary
+                if (audioPath != previewPath)
+                {
+                    if (File.Exists(previewPath)) File.Delete(previewPath);
+                    File.Move(audioPath, previewPath);
+                    _captureService?.Logger?.LogMessage($"[GUI] Moved to shared preview path: {previewPath}");
+                }
+                
+                // Play the audio file
+                await PlayAudioFile(previewPath);
+            }
+            else
+            {
+                throw new InvalidOperationException("Failed to generate shared preview audio file");
+            }
+        }
+        catch (Exception ex)
+        {
+            _captureService?.Logger?.LogMessage($"[GUI] Error in voice preview: {ex.Message}");
+            throw;
+        }
+    }
+    
+
+    
+    private async Task PlayAudioFile(string audioPath)
+    {
+        try
+        {
+            // Convert relative path to absolute path
+            var fullPath = System.IO.Path.IsPathRooted(audioPath) ? audioPath : System.IO.Path.GetFullPath(audioPath);
+            
+            if (!File.Exists(fullPath))
+            {
+                throw new FileNotFoundException($"Audio file not found: {fullPath}");
+            }
+            
+            _captureService?.Logger?.LogMessage($"[GUI] Playing audio: {fullPath}");
+            
+            // Stop any current playback
+            _mediaPlayer?.Stop();
+            
+            // Play audio using the persistent media player
+            if (_mediaPlayer != null)
+            {
+                var uri = new Uri(fullPath);
+                _mediaPlayer.Open(uri);
+                _mediaPlayer.Volume = 0.7; // Set reasonable volume
+                _mediaPlayer.Play();
+                
+                StatusText.Text = $"♪ Playing: {System.IO.Path.GetFileName(fullPath)}";
+                
+                // Wait a moment for playback to start
+                await Task.Delay(500);
+            }
+        }
+        catch (Exception ex)
+        {
+            _captureService?.Logger?.LogMessage($"[GUI] Error playing audio: {ex.Message}");
+            StatusText.Text = $"Audio playback failed: {ex.Message}";
+            throw new InvalidOperationException($"Failed to play audio: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Stop any currently playing audio
+    /// </summary>
+    private void StopAudio()
+    {
+        try
+        {
+            _mediaPlayer?.Stop();
+            StatusText.Text = "Audio playback stopped";
+        }
+        catch (Exception ex)
+        {
+            StatusText.Text = $"Error stopping audio: {ex.Message}";
         }
     }
 
@@ -590,7 +928,24 @@ public partial class MainWindow : Window, INotifyPropertyChanged
         {
             var logLines = _captureService.GetRecentLogLines(500);
             
-            if (logLines.Length == 0) return;
+            if (logLines.Length == 0) 
+            {
+                // Debug: Show why no logs are found
+                var logPath = _captureService.GetLogFilePath();
+                if (string.IsNullOrEmpty(logPath))
+                {
+                    LiveLogTextBox.Text = "[DEBUG] No log file path available from capture service\n";
+                }
+                else if (!System.IO.File.Exists(logPath))
+                {
+                    LiveLogTextBox.Text = $"[DEBUG] Log file not found: {logPath}\n";
+                }
+                else
+                {
+                    LiveLogTextBox.Text = $"[DEBUG] Log file exists but no lines returned: {logPath}\n";
+                }
+                return;
+            }
             
             // Only update if content has changed to prevent flickering
             var newContent = string.Join('\n', logLines);
@@ -649,19 +1004,481 @@ public partial class MainWindow : Window, INotifyPropertyChanged
 
     #region Window Event Handlers
     
+    private void MainWindow_Closing(object sender, CancelEventArgs e)
+    {
+        Console.WriteLine("[GUI] MainWindow_Closing called");
+        ForceShutdown();
+    }
+
+    private void MainWindow_Closed(object sender, EventArgs e)
+    {
+        Console.WriteLine("[GUI] MainWindow_Closed called");
+        ForceShutdown();
+        
+        // Nuclear option - multiple termination methods
+        Task.Run(async () =>
+        {
+            await Task.Delay(500); // Wait half second
+            Console.WriteLine("[GUI] Attempting Environment.Exit(0)");
+            Environment.Exit(0);
+        });
+        
+        Task.Run(async () =>
+        {
+            await Task.Delay(1000); // Wait 1 second  
+            Console.WriteLine("[GUI] Attempting Application.Current.Shutdown()");
+            Application.Current.Dispatcher.Invoke(() => Application.Current.Shutdown(0));
+        });
+        
+        Task.Run(async () =>
+        {
+            await Task.Delay(1500); // Wait 1.5 seconds
+            Console.WriteLine("[GUI] Attempting Windows API TerminateProcess()");
+            var currentProcess = GetCurrentProcess();
+            TerminateProcess(currentProcess, 0);
+        });
+        
+        Task.Run(async () =>
+        {
+            await Task.Delay(2000); // Wait 2 seconds
+            Console.WriteLine("[GUI] Attempting Process.GetCurrentProcess().Kill()");
+            Process.GetCurrentProcess().Kill();
+        });
+    }
+
+    private void Application_SessionEnding(object sender, SessionEndingCancelEventArgs e)
+    {
+        Console.WriteLine("[GUI] Application_SessionEnding called");
+        ForceShutdown();
+    }
+
     protected override void OnClosing(CancelEventArgs e)
     {
-        // Stop capture service when closing
-        if (_captureService != null && _captureService.IsRunning)
+        Console.WriteLine("[GUI] OnClosing called");
+        try
         {
-            var task = _captureService.StopCaptureAsync();
-            task.Wait(TimeSpan.FromSeconds(5)); // Wait up to 5 seconds for graceful shutdown
+            ForceShutdown();
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error during shutdown: {ex.Message}");
+        }
+        finally
+        {
+            base.OnClosing(e);
+        }
+    }
+
+    private static bool _shutdownInProgress = false;
+
+    private void ForceShutdown()
+    {
+        if (_shutdownInProgress) return;
+        _shutdownInProgress = true;
+        
+        Console.WriteLine("[GUI] ForceShutdown started");
+        
+        // Stop all timers immediately - no try/catch, just force it
+        try
+        {
+            if (_statsUpdateTimer != null)
+            {
+                _statsUpdateTimer.Stop();
+                _statsUpdateTimer.Tick -= UpdateLiveStats;
+                _statsUpdateTimer = null;
+            }
+            
+            if (_logUpdateTimer != null)
+            {
+                _logUpdateTimer.Stop();
+                _logUpdateTimer.Tick -= UpdateLogDisplay;
+                _logUpdateTimer = null;
+            }
+            Console.WriteLine("[GUI] Timers stopped and disposed");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error stopping timers: {ex.Message}");
         }
         
-        _captureService?.Dispose();
-        base.OnClosing(e);
+        // Stop and dispose media player
+        try
+        {
+            if (_mediaPlayer != null)
+            {
+                _mediaPlayer.Stop();
+                _mediaPlayer.Close();
+                _mediaPlayer = null;
+                Console.WriteLine("[GUI] Media player disposed");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error disposing media player: {ex.Message}");
+        }
+        
+        // Stop capture service immediately - no waiting
+        try
+        {
+            if (_captureService != null)
+            {
+                Console.WriteLine("[GUI] Disposing capture service...");
+                // Try to stop first, but don't wait
+                if (_captureService.IsRunning)
+                {
+                    _ = _captureService.StopCaptureAsync(); // Fire and forget
+                }
+                // Force dispose immediately
+                _captureService.Dispose();
+                Console.WriteLine("[GUI] Capture service disposed");
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error disposing capture service: {ex.Message}");
+        }
+        
+        // Clear all references immediately
+        _captureService = null;
+        _statsUpdateTimer = null;
+        _logUpdateTimer = null;
+        _dialogueCatalog = null;
+        _speakerCatalog = null;
+        
+        // Quick save attempt - don't wait if it fails
+        try
+        {
+            var dialogPath = @"c:\Code Projects\GameWatcher\SimpleLoop\dialogue_catalog.json";
+            var speakerPath = @"c:\Code Projects\GameWatcher\SimpleLoop\speaker_catalog.json";
+            Console.WriteLine($"[GUI] Attempting quick save to {dialogPath} and {speakerPath}");
+        }
+        catch { }
+        
+        Console.WriteLine("[GUI] ForceShutdown completed - scheduling force exit");
     }
     
+    #endregion
+
+    #region Dialogue Row Action Event Handlers
+
+    private async void PlayAudio_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button button && button.Tag is DialogueEntry entry)
+        {
+            try 
+            {
+                // Find the audio file for this dialogue entry
+                var audioFile = FindAudioFileForDialogue(entry);
+                if (audioFile != null && File.Exists(audioFile))
+                {
+                    // Use in-app audio player instead of external media player
+                    await PlayAudioFile(audioFile);
+                }
+                else
+                {
+                    MessageBox.Show($"No audio file found for this dialogue entry.\nExpected: {audioFile ?? "Unknown path"}", 
+                                  "Audio Not Found", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error playing audio: {ex.Message}", "Playback Error", 
+                              MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+    }
+
+    private async void GenerateAudio_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button button && button.Tag is DialogueEntry entry)
+        {
+            var originalContent = button.Content;
+            try 
+            {
+                button.IsEnabled = false;
+                
+                // Find the speaker profile for this dialogue
+                var speaker = _speakerCatalog?.GetSpeakerByName(entry.Speaker);
+                if (speaker == null)
+                {
+                    MessageBox.Show($"No speaker profile found for '{entry.Speaker}'. Please create a speaker profile first.", 
+                                  "Speaker Not Found", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                // Check if audio already exists
+                var existingAudio = FindAudioFileForDialogue(entry);
+                
+                if (existingAudio != null && File.Exists(existingAudio))
+                {
+                    // Audio exists - ask user what to do
+                    var result = MessageBox.Show(
+                        $"Audio already exists for this dialogue:\n{System.IO.Path.GetFileName(existingAudio)}\n\nDo you want to:\nYes = Regenerate (delete old)\nNo = Play existing\nCancel = Do nothing",
+                        "Audio Already Exists", 
+                        MessageBoxButton.YesNoCancel, 
+                        MessageBoxImage.Question);
+
+                    if (result == MessageBoxResult.Yes)
+                    {
+                        // User wants to regenerate - delete old file first
+                        button.Content = "🗑 Deleting...";
+                        await CleanupOldAudioFiles(entry);
+                        
+                        // Continue with generation below
+                        button.Content = "⏳ Generating...";
+                    }
+                    else if (result == MessageBoxResult.No)
+                    {
+                        // User wants to play existing
+                        PlayExistingAudio(existingAudio);
+                        return;
+                    }
+                    else
+                    {
+                        // User cancelled
+                        return;
+                    }
+                }
+                else
+                {
+                    // No existing audio - generate new
+                    button.Content = "⏳ Generating...";
+                }
+
+                // Generate TTS audio using the TtsService
+                var audioFile = await GenerateTtsAudioForEntry(entry, speaker);
+                
+                if (audioFile != null)
+                {
+                    // Update the entry with the generated audio file path
+                    entry.AudioPath = audioFile;
+                    entry.HasAudio = true;
+                    entry.AudioGeneratedAt = DateTime.Now;
+                    _dialogueCatalog?.SaveCatalog();
+                    
+                    MessageBox.Show("Audio generated successfully!", "Generation Complete", 
+                                  MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error generating audio: {ex.Message}", "Generation Error", 
+                              MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            finally
+            {
+                button.IsEnabled = true;
+                button.Content = originalContent;
+            }
+        }
+    }
+
+    private void ManageAudio_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button button && button.Tag is DialogueEntry entry)
+        {
+            try 
+            {
+                // Find the speaker directory for this dialogue
+                var speaker = _speakerCatalog?.GetSpeakerByName(entry.Speaker);
+                if (speaker == null)
+                {
+                    MessageBox.Show($"No speaker profile found for '{entry.Speaker}'.", 
+                                  "Speaker Not Found", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    return;
+                }
+
+                var config = SimpleLoop.Services.TtsConfiguration.Load();
+                var speakerDir = System.IO.Path.Combine(config.VoicesDirectory, speaker.Name);
+                
+                if (!Directory.Exists(speakerDir))
+                {
+                    MessageBox.Show($"No audio files directory found for '{speaker.Name}'.", 
+                                  "Directory Not Found", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                // Get all audio files for this dialogue text
+                var audioFiles = Directory.GetFiles(speakerDir, "*.mp3")
+                    .Where(f => System.IO.Path.GetFileName(f).Contains(entry.Id) || 
+                               System.IO.Path.GetFileName(f).Contains(entry.Text.GetHashCode().ToString("X8")))
+                    .ToArray();
+
+                if (audioFiles.Length == 0)
+                {
+                    MessageBox.Show($"No audio files found for this dialogue in '{speakerDir}'.", 
+                                  "No Audio Files", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+
+                // Show audio file management dialog
+                ShowAudioFileManager(entry, audioFiles);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"Error managing audio files: {ex.Message}", "Management Error", 
+                              MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+    }
+
+    private void ShowAudioFileManager(DialogueEntry entry, string[] audioFiles)
+    {
+        var fileList = string.Join("\n", audioFiles.Select((f, i) => $"{i + 1}. {System.IO.Path.GetFileName(f)} ({new FileInfo(f).Length / 1024:N0}KB)"));
+        
+        var result = MessageBox.Show(
+            $"Audio files for: '{entry.Text}'\n\nFiles found:\n{fileList}\n\nOpen audio folder?", 
+            "Audio File Manager", 
+            MessageBoxButton.YesNo, 
+            MessageBoxImage.Information);
+
+        if (result == MessageBoxResult.Yes)
+        {
+            // Open the speaker's audio folder in Windows Explorer
+            var speakerDir = System.IO.Path.GetDirectoryName(audioFiles[0]);
+            if (!string.IsNullOrEmpty(speakerDir))
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+                {
+                    FileName = speakerDir,
+                    UseShellExecute = true
+                });
+            }
+        }
+    }
+
+    private void DeleteDialogue_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button button && button.Tag is DialogueEntry entry)
+        {
+            var result = MessageBox.Show($"Are you sure you want to delete this dialogue entry?\n\n\"{entry.Text}\"", 
+                                       "Confirm Delete", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            
+            if (result == MessageBoxResult.Yes)
+            {
+                try
+                {
+                    // Remove from catalog
+                    _dialogueCatalog?.RemoveDialogue(entry.Text);
+                    
+                    // Remove from UI collection
+                    DialogueEntries.Remove(entry);
+                    
+                    // Delete associated audio file if it exists
+                    var audioFile = FindAudioFileForDialogue(entry);
+                    if (audioFile != null && File.Exists(audioFile))
+                    {
+                        File.Delete(audioFile);
+                    }
+                    
+                    UpdateStatistics();
+                    StatusText.Text = "Dialogue entry deleted successfully";
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Error deleting dialogue: {ex.Message}", "Delete Error", 
+                                  MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+            }
+        }
+    }
+
+    private string? FindAudioFileForDialogue(DialogueEntry entry)
+    {
+        // First check if the entry has an AudioPath already set
+        if (!string.IsNullOrEmpty(entry.AudioPath) && File.Exists(entry.AudioPath))
+        {
+            return entry.AudioPath;
+        }
+        
+        // Look for audio file in voices/{Speaker}/{hash}_{voice}_{speed}.mp3 format
+        var config = TtsConfiguration.Load();
+        var voicesDir = System.IO.Path.Combine(config.VoicesDirectory, entry.Speaker);
+        if (!Directory.Exists(voicesDir)) return null;
+        
+        // Find any audio file that matches this entry's text hash pattern
+        var pattern = $"*{entry.Text.GetHashCode():X8}*.mp3";
+        var files = Directory.GetFiles(voicesDir, pattern);
+        return files.FirstOrDefault();
+    }
+
+    private async Task CleanupOldAudioFiles(DialogueEntry entry)
+    {
+        try
+        {
+            // Delete the direct AudioPath if it exists
+            if (!string.IsNullOrEmpty(entry.AudioPath) && File.Exists(entry.AudioPath))
+            {
+                File.Delete(entry.AudioPath);
+            }
+
+            // Also search for and delete any files with matching text hash
+            var config = TtsConfiguration.Load();
+            var voicesDir = System.IO.Path.Combine(config.VoicesDirectory, entry.Speaker);
+            if (Directory.Exists(voicesDir))
+            {
+                var pattern = $"*{entry.Text.GetHashCode():X8}*.mp3";
+                var files = Directory.GetFiles(voicesDir, pattern);
+                
+                foreach (var file in files)
+                {
+                    File.Delete(file);
+                }
+            }
+
+            // Clear the AudioPath since we deleted the files
+            entry.AudioPath = null;
+            entry.HasAudio = false;
+            
+            // Small delay to let file system catch up
+            await Task.Delay(100);
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error cleaning up old audio files: {ex.Message}");
+            throw; // Re-throw so the UI can show the error
+        }
+    }
+
+    private async void PlayExistingAudio(string audioPath)
+    {
+        try
+        {
+            // Use the unified in-app audio player
+            await PlayAudioFile(audioPath);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Error playing audio: {ex.Message}", "Playback Error", 
+                          MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private async Task<string?> GenerateTtsAudioForEntry(DialogueEntry entry, SpeakerProfile speaker)
+    {
+        try
+        {
+            // Load TTS configuration to get API key
+            var ttsConfig = TtsConfiguration.Load();
+            if (string.IsNullOrEmpty(ttsConfig.OpenAiApiKey) || ttsConfig.OpenAiApiKey == "YOUR_OPENAI_API_KEY_HERE")
+            {
+                throw new Exception("OpenAI API key not configured. Please set up your API key in tts_config.json");
+            }
+            
+            // Initialize TTS service
+            var ttsService = new TtsService(ttsConfig.OpenAiApiKey, ttsConfig.VoicesDirectory);
+            
+            // Generate the audio
+            var audioFile = await ttsService.GenerateAudioAsync(entry, speaker);
+            
+            return audioFile;
+        }
+        catch (Exception ex)
+        {
+            throw new Exception($"TTS generation failed: {ex.Message}", ex);
+        }
+    }
+
     #endregion
 
     #region INotifyPropertyChanged Implementation

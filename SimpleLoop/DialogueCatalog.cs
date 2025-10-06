@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 
 namespace SimpleLoop
@@ -10,11 +11,13 @@ namespace SimpleLoop
         private readonly string _catalogPath;
         private readonly Dictionary<string, DialogueEntry> _entries;
         private readonly object _lockObject = new object();
+        private readonly SpeakerCatalog? _speakerCatalog;
 
-        public DialogueCatalog(string catalogPath = "dialogue_catalog.json")
+        public DialogueCatalog(string catalogPath = "dialogue_catalog.json", SpeakerCatalog? speakerCatalog = null)
         {
             _catalogPath = catalogPath;
             _entries = new Dictionary<string, DialogueEntry>();
+            _speakerCatalog = speakerCatalog;
             LoadCatalog();
         }
 
@@ -24,39 +27,55 @@ namespace SimpleLoop
 
             lock (_lockObject)
             {
-                var entry = new DialogueEntry 
-                { 
-                    Text = text.Trim(),
-                    RawOcrText = rawOcrText,
-                    Speaker = DetermineSpeaker(text)
-                };
+                var cleanText = text.Trim();
                 
-                entry.Id = entry.GenerateId();
-
-                if (_entries.ContainsKey(entry.Id))
+                // FIRST: Look for existing dialogue by text only (ignore speaker)
+                var existing = _entries.Values.FirstOrDefault(e => e.Text.Equals(cleanText, StringComparison.OrdinalIgnoreCase));
+                
+                if (existing != null)
                 {
-                    // Update existing entry
-                    var existing = _entries[entry.Id];
+                    // Found existing dialogue - update it and use its saved speaker
                     existing.LastSeen = DateTime.Now;
                     existing.SeenCount++;
+                    existing.RawOcrText = rawOcrText; // Update raw OCR if provided
                     
-                    Console.WriteLine($"🔄 Updated dialogue: {existing.Id} (seen {existing.SeenCount} times)");
+                    Console.WriteLine($"🔄 Found existing dialogue by text: {existing.Id} - Speaker: {existing.Speaker} (seen {existing.SeenCount} times)");
+                    SaveCatalog();
                     return existing;
                 }
                 else
                 {
-                    // New dialogue entry
-                    _entries[entry.Id] = entry;
-                    Console.WriteLine($"🆕 New dialogue: {entry.Id} - Speaker: {entry.Speaker}");
+                    // Text not found - create new entry with speaker determination
+                    var newEntry = new DialogueEntry 
+                    { 
+                        Text = cleanText,
+                        RawOcrText = rawOcrText,
+                        Speaker = DetermineSpeaker(cleanText)
+                    };
+                    
+                    newEntry.Id = newEntry.GenerateId();
+                    _entries[newEntry.Id] = newEntry;
+                    
+                    Console.WriteLine($"🆕 New dialogue: {newEntry.Id} - Speaker: {newEntry.Speaker}");
                     SaveCatalog();
-                    return entry;
+                    return newEntry;
                 }
             }
         }
 
         private string DetermineSpeaker(string text)
         {
-            // Smart speaker detection based on FF1 dialogue patterns
+            // Use SpeakerCatalog if available for consistent speaker identification
+            if (_speakerCatalog != null)
+            {
+                var speaker = _speakerCatalog.IdentifySpeaker(text);
+                if (speaker != null)
+                {
+                    return speaker.Name;
+                }
+            }
+            
+            // Fallback to hardcoded patterns for backward compatibility
             var lowerText = text.ToLower();
             
             // Specific character detection
@@ -64,7 +83,7 @@ namespace SimpleLoop
                 return "Astos";
             
             if (lowerText.Contains("i am a sage") || lowerText.Contains("future is revealed"))
-                return "Sage";
+                return "Sage of Elfheim";  // Updated to match speaker catalog
                 
             if (lowerText.Contains("princess") || lowerText.Contains("your highness"))
                 return "Princess";
