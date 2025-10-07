@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <AssemblyTitle>GameWatcher Engine</AssemblyTitle>
+    <AssemblyDescription>Core services for game frame capture, OCR, and text processing</AssemblyDescription>
+    <AssemblyVersion>2.0.0.0</AssemblyVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Image processing -->
+    <PackageReference Include="System.Drawing.Common" Version="8.0.0" />
+    
+    <!-- Audio processing for TTS pipeline -->
+    <PackageReference Include="NAudio" Version="2.2.1" />
+    
+    <!-- JSON serialization -->
+    <PackageReference Include="System.Text.Json" Version="8.0.4" />
+    
+    <!-- Logging infrastructure -->
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
+  </ItemGroup>
+
+</Project>

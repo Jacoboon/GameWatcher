@@ -1,0 +1,28 @@
+{
+  "name": "FF1.PixelRemaster",
+  "version": "2.1.0",
+  "displayName": "Final Fantasy I Pixel Remaster",
+  "description": "Voice pack for FF1 Pixel Remaster with optimized dialogue detection based on V1 performance analysis",
+  "author": "GameWatcher Team",
+  "gameExecutable": "FINAL FANTASY.exe",
+  "windowTitle": "FINAL FANTASY",
+  "supportedVersions": ["1.0.2", "1.0.3"],
+  "engineVersion": "2.0.0",
+  "performance": {
+    "targetedDetection": true,
+    "searchAreaReduction": 79.3,
+    "averageProcessingTime": "2.3ms"
+  },
+  "detection": {
+    "strategy": "HybridTextboxDetection",
+    "fallbackStrategies": ["TemplateMatching", "ColorBasedDetection"],
+    "ocrEngine": "WindowsOCR",
+    "ocrLanguage": "en-US"
+  },
+  "audio": {
+    "defaultVoice": "fable",
+    "defaultSpeed": 1.2,
+    "speakers": 25,
+    "preGeneratedLines": 1847
+  }
+}

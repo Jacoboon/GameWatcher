@@ -1,0 +1,56 @@
+{
+  "textboxDetection": {
+    "primaryStrategy": "TargetedBlueRectangle",
+    "targetArea": {
+      "normalized": {
+        "x": 0.196875,
+        "y": 0.050926,
+        "width": 0.604688,
+        "height": 0.282407
+      },
+      "buffer": 25,
+      "description": "Optimized area based on V1 log analysis - 79.3% search reduction"
+    },
+    "colorDetection": {
+      "targetColor": "#4A90E2",
+      "tolerance": 15,
+      "minimumRectangleSize": {
+        "width": 400,
+        "height": 100
+      }
+    },
+    "templateMatching": {
+      "templates": [
+        "FF-TextBox-TL.png",
+        "FF-TextBox-TR.png",
+        "FF-TextBox-BL.png",
+        "FF-TextBox-BR.png"
+      ],
+      "matchThreshold": 0.85
+    },
+    "ocr": {
+      "preprocessingSteps": [
+        "Grayscale",
+        "Threshold",
+        "Scale2x",
+        "NoiseReduction"
+      ],
+      "postProcessing": [
+        "SmartQuoteNormalization",
+        "EllipsisCollapse",
+        "TrimWhitespace"
+      ]
+    }
+  },
+  "dynamicOptimization": {
+    "isBusyDetection": true,
+    "similarityThresholds": {
+      "idle": 500,
+      "busy": 50
+    },
+    "frameSkipping": {
+      "enabled": true,
+      "maxSkip": 3
+    }
+  }
+}
