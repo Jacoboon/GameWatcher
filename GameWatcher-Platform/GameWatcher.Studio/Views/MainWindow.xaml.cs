@@ -306,7 +306,24 @@ public partial class MainWindow : Window
         // Update Activity Monitor with capture statistics on UI thread
         Dispatcher.Invoke(() =>
         {
-            AddActivityLogEntry($"[CAPTURE] Frame {e.Statistics.FrameCount}: {e.Statistics.ActualFps:F1} FPS, {e.Statistics.TextboxesFound} textboxes found");
+            var message = $"[CAPTURE] Frame {e.Statistics.FrameCount}: {e.Statistics.ActualFps:F1} FPS, {e.Statistics.TextboxesFound} textboxes found";
+            AddActivityLogEntry(message);
+            
+            // Also log to Serilog for file output (only every 30 frames to avoid spam)
+            if (e.Statistics.FrameCount % 30 == 0)
+            {
+                try
+                {
+                    var logger = App.Services?.GetService<Microsoft.Extensions.Logging.ILogger<MainWindow>>();
+                    logger?.LogInformation("Capture Progress: Frame {FrameCount}, FPS: {Fps:F1}, Textboxes: {TextboxCount}", 
+                        e.Statistics.FrameCount, e.Statistics.ActualFps, e.Statistics.TextboxesFound);
+                }
+                catch
+                {
+                    // Fallback to console if logger not available
+                    Console.WriteLine($"[SERILOG] {message}");
+                }
+            }
         });
     }
 
@@ -315,7 +332,21 @@ public partial class MainWindow : Window
         // Update Activity Monitor with dialogue detection on UI thread
         Dispatcher.Invoke(() =>
         {
-            AddActivityLogEntry($"[DIALOGUE] \"{e.DialogueEntry.Text}\" ({e.DialogueEntry.Speaker})");
+            var message = $"[DIALOGUE] \"{e.DialogueEntry.Text}\" ({e.DialogueEntry.Speaker})";
+            AddActivityLogEntry(message);
+            
+            // Always log dialogue to Serilog file (important events)
+            try
+            {
+                var logger = App.Services?.GetService<Microsoft.Extensions.Logging.ILogger<MainWindow>>();
+                logger?.LogInformation("Dialogue Detected: {Text} (Speaker: {Speaker})", 
+                    e.DialogueEntry.Text, e.DialogueEntry.Speaker);
+            }
+            catch
+            {
+                // Fallback to console if logger not available
+                Console.WriteLine($"[SERILOG] {message}");
+            }
         });
     }
 
