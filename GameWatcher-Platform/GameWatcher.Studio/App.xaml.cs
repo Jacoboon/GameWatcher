@@ -94,14 +94,26 @@ public partial class App : Application
             })
             .UseSerilog((context, config) =>
             {
-                // Ensure logs directory exists
-                var logsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
-                Directory.CreateDirectory(logsDir);
+                // Create logs in both project source and runtime directories for development
+                var runtimeLogsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
+                var projectLogsDir = Path.Combine(Directory.GetCurrentDirectory(), "..", "..", "..", "logs");
+                
+                Directory.CreateDirectory(runtimeLogsDir);
+                Directory.CreateDirectory(projectLogsDir);
+
+                Console.WriteLine($"[SERILOG] Runtime logs: {runtimeLogsDir}");
+                Console.WriteLine($"[SERILOG] Project logs: {projectLogsDir}");
 
                 config.ReadFrom.Configuration(context.Configuration)
-                      .WriteTo.Console()
+                      .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss.fff}] [{Level:u3}] {Message:lj}{NewLine}{Exception}")
                       .WriteTo.File(
-                          Path.Combine(logsDir, "gamewatcher-studio_.log"),
+                          Path.Combine(runtimeLogsDir, "gamewatcher-studio_.log"),
+                          rollingInterval: RollingInterval.Day,
+                          retainedFileCountLimit: 7,
+                          shared: true,
+                          flushToDiskInterval: TimeSpan.FromSeconds(1))
+                      .WriteTo.File(
+                          Path.Combine(projectLogsDir, "gamewatcher-studio_.log"),
                           rollingInterval: RollingInterval.Day,
                           retainedFileCountLimit: 7,
                           shared: true,

@@ -359,6 +359,7 @@ public partial class MainWindow : Window
                                 {
                                     Dispatcher.Invoke(() => {
                                         AddActivityLogEntry($"[SYSTEM] Capture started for {gameTitle}");
+                                        Console.WriteLine($"[MAIN] Capture service started for {gameTitle}");
                                     });
                                 }
                             }
@@ -394,6 +395,7 @@ public partial class MainWindow : Window
                             {
                                 Dispatcher.Invoke(() => {
                                     AddActivityLogEntry("[SYSTEM] Capture stopped - no game detected");
+                                    Console.WriteLine("[MAIN] Capture service stopped - no game detected");
                                 });
                             }
                         }
