@@ -2,6 +2,7 @@ using GameWatcher.Engine.Services;
 using GameWatcher.Engine.Ocr;
 using GameWatcher.Engine.Detection;
 using GameWatcher.Runtime.Services;
+using GameWatcher.Runtime.Services.Capture;
 using GameWatcher.Runtime.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -48,8 +49,8 @@ public class Program
                 // Configuration
                 services.Configure<RuntimeConfig>(context.Configuration.GetSection("Runtime"));
                 
-                // Core Engine Services (V1 proven implementations)
-                services.AddSingleton<ICaptureService, CaptureService>();
+                // Core Runtime Services (Working implementations)
+                services.AddSingleton<GameCaptureService>();
                 services.AddSingleton<IOcrEngine, WindowsOcrEngine>();
                 services.AddSingleton<ITextboxDetector, DynamicTextboxDetector>();
                 

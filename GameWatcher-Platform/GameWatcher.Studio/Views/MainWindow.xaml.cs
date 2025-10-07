@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Windows;
 using GameWatcher.Studio.ViewModels;
+using GameWatcher.Runtime.Services.Capture;
 
 namespace GameWatcher.Studio.Views;
 
@@ -12,6 +13,8 @@ public partial class MainWindow : Window
     private System.Windows.Threading.DispatcherTimer? _smartGameCheckTimer;
     private bool _isMonitoring = false;
     private readonly List<string> _watchedExecutables = new();
+    private GameCaptureService? _captureService;
+    private bool _gameIsRunning = false;
 
     public MainWindow()
     {
@@ -25,6 +28,9 @@ public partial class MainWindow : Window
         
         // Initialize watched executables from available packs
         InitializeWatchedExecutables();
+        
+        // Initialize capture service for real-time monitoring
+        InitializeCaptureService();
         
         // Handle events
         Closing += MainWindow_Closing;
@@ -225,6 +231,42 @@ public partial class MainWindow : Window
         System.Diagnostics.Debug.WriteLine($"[Smart Polling] Watching {_watchedExecutables.Count} executables: {string.Join(", ", _watchedExecutables)}");
     }
 
+    private void InitializeCaptureService()
+    {
+        try
+        {
+            _captureService = new GameCaptureService();
+            
+            // Subscribe to capture events for Activity Monitor
+            _captureService.ProgressReported += CaptureService_ProgressReported;
+            _captureService.DialogueDetected += CaptureService_DialogueDetected;
+            
+            AddActivityLogEntry("[SYSTEM] Capture service initialized successfully");
+        }
+        catch (Exception ex)
+        {
+            AddActivityLogEntry($"[ERROR] Failed to initialize capture service: {ex.Message}");
+        }
+    }
+
+    private void CaptureService_ProgressReported(object? sender, CaptureProgressEventArgs e)
+    {
+        // Update Activity Monitor with capture statistics on UI thread
+        Dispatcher.Invoke(() =>
+        {
+            AddActivityLogEntry($"[CAPTURE] Frame {e.Statistics.FrameCount}: {e.Statistics.ActualFps:F1} FPS, {e.Statistics.TextboxesFound} textboxes found");
+        });
+    }
+
+    private void CaptureService_DialogueDetected(object? sender, DialogueDetectedEventArgs e)
+    {
+        // Update Activity Monitor with dialogue detection on UI thread
+        Dispatcher.Invoke(() =>
+        {
+            AddActivityLogEntry($"[DIALOGUE] \"{e.DialogueEntry.Text}\" ({e.DialogueEntry.Speaker})");
+        });
+    }
+
     private void SetupSmartGameDetection()
     {
         // Smart focus-based polling - only checks when window has focus
@@ -305,16 +347,64 @@ public partial class MainWindow : Window
                     UpdateGameStatus($"Final Fantasy detected - {gameTitle}");
                     BottomStatusText.Text = "GameWatcher V2 Platform - FF Game Ready (Smart Detection)";
                     
+                    // Start capture service automatically when game is detected
+                    if (!_gameIsRunning)
+                    {
+                        _gameIsRunning = true;
+                        _ = Task.Run(async () => {
+                            try
+                            {
+                                var started = await _captureService?.StartCaptureAsync();
+                                if (started == true)
+                                {
+                                    Dispatcher.Invoke(() => {
+                                        AddActivityLogEntry($"[SYSTEM] Capture started for {gameTitle}");
+                                    });
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Dispatcher.Invoke(() => {
+                                    AddActivityLogEntry($"[ERROR] Failed to start capture: {ex.Message}");
+                                });
+                            }
+                        });
+                    }
+                    
                     System.Diagnostics.Debug.WriteLine($"[Smart Polling] Detected: {executable} -> {gameTitle}");
                     return; // Found one, no need to check others
                 }
             }
             
-            // No games found
+            // No games found - stop capture service if running
             if (GameStatusText.Text != "No game detected")
             {
                 UpdateGameStatus("No game detected");
                 BottomStatusText.Text = "GameWatcher V2 Platform - Ready (No game)";
+                
+                // Stop capture service when game is no longer detected
+                if (_gameIsRunning)
+                {
+                    _gameIsRunning = false;
+                    _ = Task.Run(async () => {
+                        try
+                        {
+                            var stopped = await _captureService?.StopCaptureAsync();
+                            if (stopped == true)
+                            {
+                                Dispatcher.Invoke(() => {
+                                    AddActivityLogEntry("[SYSTEM] Capture stopped - no game detected");
+                                });
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Dispatcher.Invoke(() => {
+                                AddActivityLogEntry($"[ERROR] Failed to stop capture: {ex.Message}");
+                            });
+                        }
+                    });
+                }
             }
         }
         catch (Exception ex)
@@ -330,6 +420,14 @@ public partial class MainWindow : Window
         {
             _smartGameCheckTimer?.Stop();
             _smartGameCheckTimer = null;
+            
+            // Cleanup capture service
+            if (_captureService != null)
+            {
+                _captureService.StopCaptureAsync().Wait(TimeSpan.FromSeconds(2)); // Give it 2 seconds to stop gracefully
+                _captureService.Dispose();
+                _captureService = null;
+            }
         }
         catch (Exception ex)
         {
