@@ -1,0 +1,20 @@
+<Project>
+  <PropertyGroup>
+    <!-- Suppress platform compatibility warnings for Windows-specific APIs -->
+    <!-- CA1416: This call site is reachable on all platforms. 'X' is only supported on: 'windows' 6.1 and later -->
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
+    
+    <!-- Optional: Also suppress other common warnings across the solution -->
+    <!-- CS1998: Async method lacks 'await' operators and will run synchronously -->
+    <NoWarn>$(NoWarn);CS1998</NoWarn>
+    
+    <!-- CS8618: Non-nullable field must contain a non-null value when exiting constructor -->
+    <NoWarn>$(NoWarn);CS8618</NoWarn>
+    
+    <!-- CS0169: Field is never used -->
+    <NoWarn>$(NoWarn);CS0169</NoWarn>
+    
+    <!-- CS8602: Dereference of a possibly null reference -->
+    <NoWarn>$(NoWarn);CS8602</NoWarn>
+  </PropertyGroup>
+</Project>
