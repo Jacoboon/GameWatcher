@@ -131,17 +131,28 @@ namespace GameWatcher.Runtime.Services.Capture
                 Console.WriteLine("[GameCaptureService] Not running");
                 return Task.FromResult(false);
             }
-            
+
             try
             {
-                _isRunning = false;
+                Console.WriteLine("[GameCaptureService] Stopping...");
                 
-                // Stop the timer
-                _captureTimer?.Dispose();
-                _captureTimer = null;
+                // Set running flag first to stop new timer callbacks
+                _isRunning = false;
                 
                 // Cancel any ongoing operations
                 _cancellationTokenSource?.Cancel();
+                
+                // Stop and dispose the timer - wait for completion
+                if (_captureTimer != null)
+                {
+                    using var waitHandle = new ManualResetEvent(false);
+                    _captureTimer.Dispose(waitHandle);
+                    waitHandle.WaitOne(TimeSpan.FromSeconds(2)); // Wait up to 2 seconds
+                    _captureTimer = null;
+                }
+                
+                // Wait a bit for any in-flight callbacks to finish
+                Thread.Sleep(100);
                 
                 // Cleanup resources
                 lock (_lockObject)
@@ -150,7 +161,7 @@ namespace GameWatcher.Runtime.Services.Capture
                     _lastFrame = null;
                 }
                 
-                Console.WriteLine("[GameCaptureService] Stopped");
+                Console.WriteLine("[GameCaptureService] Stopped successfully");
                 
                 // Report final statistics
                 var stats = GetStatistics();
@@ -163,11 +174,14 @@ namespace GameWatcher.Runtime.Services.Capture
                 Console.WriteLine($"[GameCaptureService] Error stopping: {ex.Message}");
                 return Task.FromResult(false);
             }
-        }
-        
-        private void CaptureAndProcess(object? state)
+        }        private void CaptureAndProcess(object? state)
         {
-            if (!_isRunning) return;
+            // Check running state first
+            if (!_isRunning) 
+            {
+                Console.WriteLine("[GameCaptureService] Capture callback - already stopped");
+                return;
+            }
             
             var stopwatch = Stopwatch.StartNew();
             

@@ -17,22 +17,37 @@ namespace GameWatcher.Studio;
 
 public partial class App : Application
 {
-    private readonly IHost _host;
+    private IHost? _host;
 
     public App()
     {
-        // Simplified - no DI host for now
-        _host = null!; // We'll fix this later
+        // Initialize host builder for proper logging and DI
     }
 
     protected override async void OnStartup(StartupEventArgs e)
     {
         try
         {
-            // Skip complex DI for now - just show the window directly
-            var mainWindow = new Views.MainWindow();
-            mainWindow.Show();
+            // Build and start the host for proper logging
+            _host = CreateHostBuilder().Build();
+            await _host.StartAsync();
 
+            // Create main window with logging support
+            var mainWindow = new Views.MainWindow();
+            
+            // Get logger from DI if available
+            try
+            {
+                var logger = _host.Services.GetService<ILogger<App>>();
+                logger?.LogInformation("GameWatcher Studio starting up");
+            }
+            catch
+            {
+                // Fallback if logging fails
+                Console.WriteLine("[APP] GameWatcher Studio starting up");
+            }
+            
+            mainWindow.Show();
             base.OnStartup(e);
         }
         catch (Exception ex)
@@ -44,8 +59,18 @@ public partial class App : Application
 
     protected override async void OnExit(ExitEventArgs e)
     {
-        await _host.StopAsync(TimeSpan.FromSeconds(5));
-        _host.Dispose();
+        if (_host != null)
+        {
+            try
+            {
+                await _host.StopAsync(TimeSpan.FromSeconds(5));
+                _host.Dispose();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[APP] Error during shutdown: {ex.Message}");
+            }
+        }
         base.OnExit(e);
     }
 
@@ -61,9 +86,14 @@ public partial class App : Application
             })
             .UseSerilog((context, config) =>
             {
+                // Ensure logs directory exists
+                var logsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
+                Directory.CreateDirectory(logsDir);
+
                 config.ReadFrom.Configuration(context.Configuration)
+                      .WriteTo.Console()
                       .WriteTo.File(
-                          Path.Combine("logs", "gamewatcher-studio_.log"),
+                          Path.Combine(logsDir, "gamewatcher-studio_.log"),
                           rollingInterval: RollingInterval.Day,
                           retainedFileCountLimit: 7,
                           shared: true,
@@ -77,5 +107,5 @@ public partial class App : Application
             });
     }
 
-    public static IServiceProvider Services => ((App)Current)._host.Services;
+    public static IServiceProvider? Services => ((App)Current)._host?.Services;
 }
