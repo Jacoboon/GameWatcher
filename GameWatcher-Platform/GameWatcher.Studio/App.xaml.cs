@@ -5,6 +5,7 @@ using Microsoft.Extensions.Logging;
 using Serilog;
 using System.Windows;
 using System.IO;
+using System.Collections.Generic;
 using GameWatcher.Engine.Services;
 using GameWatcher.Engine.Ocr;
 using GameWatcher.Engine.Packs;
@@ -81,8 +82,15 @@ public partial class App : Application
             {
                 var basePath = AppDomain.CurrentDomain.BaseDirectory;
                 config.SetBasePath(basePath)
-                      .AddJsonFile("appsettings.json", optional: false, reloadOnChange: true)
-                      .AddJsonFile($"appsettings.{context.HostingEnvironment.EnvironmentName}.json", optional: true, reloadOnChange: true);
+                      .AddJsonFile("appsettings.json", optional: true, reloadOnChange: true)
+                      .AddJsonFile($"appsettings.{context.HostingEnvironment.EnvironmentName}.json", optional: true, reloadOnChange: true)
+                      .AddInMemoryCollection(new Dictionary<string, string?>
+                      {
+                          // Fallback defaults if appsettings.json is missing
+                          ["Serilog:MinimumLevel:Default"] = "Information",
+                          ["GameWatcher:AutoStart"] = "true",
+                          ["GameWatcher:DetectionIntervalMs"] = "2000"
+                      });
             })
             .UseSerilog((context, config) =>
             {
