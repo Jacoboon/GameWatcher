@@ -33,7 +33,6 @@
     <!-- UI Enhancement -->
     <PackageReference Include="ModernWpfUI" Version="0.9.6" />
     <PackageReference Include="System.Drawing.Common" Version="8.0.8" />
-    <PackageReference Include="System.Management" Version="9.0.9" />
   </ItemGroup>
 
 </Project>

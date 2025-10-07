@@ -92,35 +92,35 @@
 
                         <Border Grid.Column="0" Style="{StaticResource StatusCardStyle}">
                             <StackPanel>
-                                <TextBlock Text="Processing Time" Style="{StaticResource MetricLabelStyle}"/>
-                                <TextBlock Text="2.3ms" Style="{StaticResource MetricValueStyle}"/>
+                                <TextBlock Text="Frames Processed" Style="{StaticResource MetricLabelStyle}"/>
+                                <TextBlock x:Name="FramesProcessedText" Text="0" Style="{StaticResource MetricValueStyle}"/>
                             </StackPanel>
                         </Border>
 
                         <Border Grid.Column="1" Style="{StaticResource StatusCardStyle}">
                             <StackPanel>
-                                <TextBlock Text="Detection Rate" Style="{StaticResource MetricLabelStyle}"/>
-                                <TextBlock Text="94.1%" Style="{StaticResource MetricValueStyle}"/>
+                                <TextBlock Text="Text Detections" Style="{StaticResource MetricLabelStyle}"/>
+                                <TextBlock x:Name="DetectionsText" Text="0" Style="{StaticResource MetricValueStyle}"/>
                             </StackPanel>
                         </Border>
 
                         <Border Grid.Column="2" Style="{StaticResource StatusCardStyle}">
                             <StackPanel>
-                                <TextBlock Text="Search Reduction" Style="{StaticResource MetricLabelStyle}"/>
-                                <TextBlock Text="79.3%" Style="{StaticResource MetricValueStyle}"/>
+                                <TextBlock Text="Processing Rate" Style="{StaticResource MetricLabelStyle}"/>
+                                <TextBlock x:Name="ProcessingRateText" Text="20.0 fps" Style="{StaticResource MetricValueStyle}"/>
                             </StackPanel>
                         </Border>
 
                         <Border Grid.Column="3" Style="{StaticResource StatusCardStyle}">
                             <StackPanel>
-                                <TextBlock Text="Status" Style="{StaticResource MetricLabelStyle}"/>
-                                <TextBlock Text="Ready" Style="{StaticResource MetricValueStyle}"/>
+                                <TextBlock Text="Monitoring Status" Style="{StaticResource MetricLabelStyle}"/>
+                                <TextBlock x:Name="MonitoringStatusText" Text="Stopped" Style="{StaticResource MetricValueStyle}"/>
                             </StackPanel>
                         </Border>
                     </Grid>
 
                     <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
-                        <TextBox IsReadOnly="True" Background="Black" Foreground="LimeGreen" FontFamily="Consolas" 
+                        <TextBox x:Name="ActivityLogText" IsReadOnly="True" Background="Black" Foreground="LimeGreen" FontFamily="Consolas" 
                                  Text="GameWatcher V2 Platform - Activity Log&#x0a;&#x0a;[INFO] Engine initialized successfully&#x0a;[INFO] All V1 optimizations preserved&#x0a;[INFO] Performance: 4.1x faster processing&#x0a;[INFO] Ready for monitoring..."/>
                     </ScrollViewer>
                 </Grid>

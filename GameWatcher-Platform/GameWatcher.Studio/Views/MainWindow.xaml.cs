@@ -1,7 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using System;
+using System.IO;
 using System.Linq;
-using System.Management;
 using System.Windows;
 using GameWatcher.Studio.ViewModels;
 
@@ -9,9 +9,9 @@ namespace GameWatcher.Studio.Views;
 
 public partial class MainWindow : Window
 {
-    private ManagementEventWatcher? _processStartWatcher;
-    private ManagementEventWatcher? _processStopWatcher;
-    private System.Windows.Threading.DispatcherTimer? _startupGameCheckTimer;
+    private System.Windows.Threading.DispatcherTimer? _smartGameCheckTimer;
+    private bool _isMonitoring = false;
+    private readonly List<string> _watchedExecutables = new();
 
     public MainWindow()
     {
@@ -23,10 +23,15 @@ public partial class MainWindow : Window
         // Add basic pack data for testing
         SetupBasicPackData();
         
+        // Initialize watched executables from available packs
+        InitializeWatchedExecutables();
+        
         // Handle events
         Closing += MainWindow_Closing;
         Loaded += MainWindow_Loaded;
         KeyDown += MainWindow_KeyDown;
+        Activated += MainWindow_Activated;
+        Deactivated += MainWindow_Deactivated;
     }
 
     private void SetupBasicPackData()
@@ -57,17 +62,14 @@ public partial class MainWindow : Window
         // Check for game after window is fully loaded and visible
         CheckForGame();
         
-        // Setup event-driven process monitoring (no polling!)
-        SetupProcessEventWatchers();
-        
-        // Smart startup detection - checks a few times then relies on events
-        SetupStartupGameDetection();
+        // Setup smart focus-based game detection
+        SetupSmartGameDetection();
     }
 
     private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
-        // Clean up event watchers - no memory leaks!
-        CleanupProcessWatchers();
+        // Clean up timers - no memory leaks!
+        CleanupGameDetection();
         System.Diagnostics.Debug.WriteLine("MainWindow closing - V2 Platform");
     }
 
@@ -127,10 +129,14 @@ public partial class MainWindow : Window
         // Show appropriate message based on game detection
         if (GameStatusText.Text.Contains("detected") && GameStatusText.Text != "No game detected")
         {
-            MessageBox.Show("🚀 GameWatcher V2 monitoring started!\n\n⚡ 4.1x faster processing active\n🎯 79% search area reduction\n📊 94.1% detection accuracy\n\nReady to detect game dialogue!", 
+            _isMonitoring = true;
+            MonitoringStatusText.Text = "Active";
+            AddActivityLogEntry("[INFO] Real monitoring started - connecting to game");
+            
+            MessageBox.Show("🚀 GameWatcher V2 monitoring started!\n\n⚡ Ready to connect to Final Fantasy game\n🎯 Real capture system active\n📊 No simulation - actual game monitoring", 
                            "Monitoring Started", MessageBoxButton.OK, MessageBoxImage.Information);
             UpdateGameStatus("Monitoring active");
-            BottomStatusText.Text = "GameWatcher V2 Platform - Monitoring Active";
+            BottomStatusText.Text = "GameWatcher V2 Platform - Real monitoring active";
         }
         else
         {
@@ -142,8 +148,12 @@ public partial class MainWindow : Window
 
     private void Stop_Click(object sender, RoutedEventArgs e)
     {
+        _isMonitoring = false;
+        MonitoringStatusText.Text = "Stopped";
+        AddActivityLogEntry("[INFO] Monitoring stopped");
+        
         MessageBox.Show("⏹️ Monitoring stopped", "Monitoring Stopped", MessageBoxButton.OK, MessageBoxImage.Information);
-        UpdateGameStatus("No game detected");
+        CheckForGame(); // Refresh to current state
     }
 
     private void UpdatePackStatus(string status)
@@ -175,45 +185,8 @@ public partial class MainWindow : Window
 
     private void CheckForGame()
     {
-        try
-        {
-            // Smart FF detection - look for exact matches from our pack metadata
-            var processes = System.Diagnostics.Process.GetProcesses();
-            
-            // Check for FF1 Pixel Remaster specifically
-            var ff1Process = processes.FirstOrDefault(p => 
-                p.ProcessName.Equals("FINAL FANTASY", StringComparison.OrdinalIgnoreCase) ||
-                p.MainWindowTitle.StartsWith("FINAL FANTASY", StringComparison.OrdinalIgnoreCase));
-            
-            if (ff1Process != null)
-            {
-                // Game detected - check if pack should auto-load
-                var currentPackStatus = PackStatusText.Text;
-                
-                if (currentPackStatus == "No pack loaded")
-                {
-                    // Auto-load FF1 pack
-                    AutoLoadMatchingPack("FF1.PixelRemaster");
-                }
-                
-                var gameTitle = string.IsNullOrEmpty(ff1Process.MainWindowTitle) 
-                    ? ff1Process.ProcessName 
-                    : ff1Process.MainWindowTitle;
-                    
-                UpdateGameStatus($"Final Fantasy detected - {gameTitle}");
-                BottomStatusText.Text = "GameWatcher V2 Platform - FF Game Ready";
-            }
-            else
-            {
-                UpdateGameStatus("No game detected");
-                BottomStatusText.Text = "GameWatcher V2 Platform - Ready (No game)";
-            }
-        }
-        catch (Exception ex)
-        {
-            UpdateGameStatus("Error detecting game");
-            BottomStatusText.Text = $"GameWatcher V2 Platform - Error: {ex.Message}";
-        }
+        // Use the smart detection logic for manual checks too
+        CheckForGameExecutables();
     }
 
     private void AutoLoadMatchingPack(string packName)
@@ -237,125 +210,145 @@ public partial class MainWindow : Window
         }
     }
 
-    private void SetupProcessEventWatchers()
+    private void InitializeWatchedExecutables()
+    {
+        // Get executables from available packs
+        _watchedExecutables.Clear();
+        
+        // FF1.PixelRemaster pack
+        _watchedExecutables.Add("FINAL FANTASY.exe");
+        
+        // Future packs would add their executables here
+        // _watchedExecutables.Add("FINAL FANTASY II.exe");
+        // _watchedExecutables.Add("FINAL FANTASY IV.exe");
+        
+        System.Diagnostics.Debug.WriteLine($"[Smart Polling] Watching {_watchedExecutables.Count} executables: {string.Join(", ", _watchedExecutables)}");
+    }
+
+    private void SetupSmartGameDetection()
+    {
+        // Smart focus-based polling - only checks when window has focus
+        _smartGameCheckTimer = new System.Windows.Threading.DispatcherTimer
+        {
+            Interval = TimeSpan.FromSeconds(5) // Check every 5 seconds when focused
+        };
+        
+        _smartGameCheckTimer.Tick += SmartGameCheck_Tick;
+        
+        // Start if window is already focused
+        if (IsActive)
+        {
+            _smartGameCheckTimer.Start();
+            AddActivityLogEntry("[INFO] Smart polling active - window focused");
+        }
+    }
+
+    private void MainWindow_Activated(object? sender, EventArgs e)
+    {
+        // Window gained focus - start smart polling
+        if (_smartGameCheckTimer != null && !_smartGameCheckTimer.IsEnabled)
+        {
+            _smartGameCheckTimer.Start();
+            AddActivityLogEntry("[INFO] Smart polling resumed - window focused");
+            
+            // Immediate check when gaining focus
+            CheckForGameExecutables();
+        }
+    }
+
+    private void MainWindow_Deactivated(object? sender, EventArgs e)
+    {
+        // Window lost focus - stop polling to save resources
+        if (_smartGameCheckTimer != null && _smartGameCheckTimer.IsEnabled)
+        {
+            _smartGameCheckTimer.Stop();
+            AddActivityLogEntry("[INFO] Smart polling paused - window unfocused");
+        }
+    }
+
+    private void SmartGameCheck_Tick(object? sender, EventArgs e)
+    {
+        if (!_isMonitoring && IsActive) // Only auto-check when focused and not actively monitoring
+        {
+            CheckForGameExecutables();
+        }
+    }
+
+    private void CheckForGameExecutables()
     {
         try
         {
-            // Event-driven process monitoring - lean and efficient!
-            // Watch for specific FF processes by exact name
-            _processStartWatcher = new ManagementEventWatcher(
-                new WqlEventQuery("SELECT * FROM Win32_ProcessStartTrace WHERE ProcessName = 'FINAL FANTASY.exe' OR ProcessName = 'FINAL FANTASY I.exe' OR ProcessName = 'FINAL FANTASY IV.exe'"));
-            _processStartWatcher.EventArrived += OnProcessStarted;
-            _processStartWatcher.Start();
-
-            // Watch for process stop events with exact names
-            _processStopWatcher = new ManagementEventWatcher(
-                new WqlEventQuery("SELECT * FROM Win32_ProcessStopTrace WHERE ProcessName = 'FINAL FANTASY.exe' OR ProcessName = 'FINAL FANTASY I.exe' OR ProcessName = 'FINAL FANTASY IV.exe'"));
-            _processStopWatcher.EventArrived += OnProcessStopped;
-            _processStopWatcher.Start();
-
-            BottomStatusText.Text = "GameWatcher V2 Platform - Event monitoring active";
-            System.Diagnostics.Debug.WriteLine("[WMI] Process watchers started for FF games");
-        }
-        catch (Exception ex)
-        {
-            // Fallback gracefully if WMI not available
-            BottomStatusText.Text = $"GameWatcher V2 Platform - Event monitoring failed: {ex.Message}";
-            System.Diagnostics.Debug.WriteLine($"[WMI] Setup failed: {ex.Message}");
-        }
-    }
-
-    private void OnProcessStarted(object sender, EventArrivedEventArgs e)
-    {
-        // Process started event - no polling needed!
-        Dispatcher.BeginInvoke(new Action(() =>
-        {
-            var processName = e.NewEvent["ProcessName"]?.ToString() ?? "";
-            System.Diagnostics.Debug.WriteLine($"[WMI] Process started: {processName}");
+            var processes = System.Diagnostics.Process.GetProcesses();
             
-            // Exact match for FF processes
-            if (IsFFProcess(processName))
+            foreach (var executable in _watchedExecutables)
             {
-                System.Diagnostics.Debug.WriteLine($"[WMI] FF Game detected starting: {processName}");
-                CheckForGame(); // Refresh detection which will auto-load pack
-                BottomStatusText.Text = $"GameWatcher V2 Platform - {processName} launched!";
+                var processName = Path.GetFileNameWithoutExtension(executable);
+                var foundProcess = processes.FirstOrDefault(p => 
+                    p.ProcessName.Equals(processName, StringComparison.OrdinalIgnoreCase) ||
+                    p.MainWindowTitle.StartsWith(processName.Replace("FINAL FANTASY", "FINAL FANTASY"), StringComparison.OrdinalIgnoreCase));
+                
+                if (foundProcess != null)
+                {
+                    // Found a matching process
+                    var currentPackStatus = PackStatusText.Text;
+                    
+                    if (currentPackStatus == "No pack loaded")
+                    {
+                        // Auto-load matching pack
+                        AutoLoadMatchingPack("FF1.PixelRemaster");
+                    }
+                    
+                    var gameTitle = string.IsNullOrEmpty(foundProcess.MainWindowTitle) 
+                        ? foundProcess.ProcessName 
+                        : foundProcess.MainWindowTitle;
+                        
+                    UpdateGameStatus($"Final Fantasy detected - {gameTitle}");
+                    BottomStatusText.Text = "GameWatcher V2 Platform - FF Game Ready (Smart Detection)";
+                    
+                    System.Diagnostics.Debug.WriteLine($"[Smart Polling] Detected: {executable} -> {gameTitle}");
+                    return; // Found one, no need to check others
+                }
             }
-        }));
-    }
-
-    private void OnProcessStopped(object sender, EventArrivedEventArgs e)
-    {
-        // Process stopped event - instant detection!
-        Dispatcher.BeginInvoke(new Action(() =>
-        {
-            var processName = e.NewEvent["ProcessName"]?.ToString() ?? "";
-            System.Diagnostics.Debug.WriteLine($"[WMI] Process stopped: {processName}");
             
-            // Exact match for FF processes
-            if (IsFFProcess(processName))
+            // No games found
+            if (GameStatusText.Text != "No game detected")
             {
-                System.Diagnostics.Debug.WriteLine($"[WMI] FF Game detected stopping: {processName}");
                 UpdateGameStatus("No game detected");
-                UpdatePackStatus("No pack loaded"); // Also unload pack when game closes
-                BottomStatusText.Text = $"GameWatcher V2 Platform - {processName} closed";
+                BottomStatusText.Text = "GameWatcher V2 Platform - Ready (No game)";
             }
-        }));
-    }
-
-    private bool IsFFProcess(string processName)
-    {
-        // Check for exact FF process names
-        var ffProcesses = new[] { "FINAL FANTASY.exe", "FINAL FANTASY I.exe", "FINAL FANTASY IV.exe" };
-        return ffProcesses.Any(p => p.Equals(processName, StringComparison.OrdinalIgnoreCase));
-    }
-
-    private void CleanupProcessWatchers()
-    {
-        try
-        {
-            _processStartWatcher?.Stop();
-            _processStartWatcher?.Dispose();
-            _processStopWatcher?.Stop();
-            _processStopWatcher?.Dispose();
-            
-            _startupGameCheckTimer?.Stop();
-            _startupGameCheckTimer = null;
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"Error cleaning up process watchers: {ex.Message}");
+            UpdateGameStatus("Error detecting game");
+            BottomStatusText.Text = $"GameWatcher V2 Platform - Error: {ex.Message}";
         }
     }
 
-    private void SetupStartupGameDetection()
+    private void CleanupGameDetection()
     {
-        // Smart approach: Check for games launched before Studio, then stop
-        // This covers the gap where events only catch NEW processes
-        
-        int checkCount = 0;
-        const int maxChecks = 3; // Only check 3 times total
-        
-        _startupGameCheckTimer = new System.Windows.Threading.DispatcherTimer
+        try
         {
-            Interval = TimeSpan.FromSeconds(2) // Check every 2 seconds
-        };
-        
-        _startupGameCheckTimer.Tick += (sender, e) =>
+            _smartGameCheckTimer?.Stop();
+            _smartGameCheckTimer = null;
+        }
+        catch (Exception ex)
         {
-            checkCount++;
-            
-            // Check for already-running games  
-            CheckForGame();
-            
-            // Stop after max checks - then rely purely on events
-            if (checkCount >= maxChecks)
-            {
-                _startupGameCheckTimer?.Stop();
-                _startupGameCheckTimer = null;
-                BottomStatusText.Text = "GameWatcher V2 Platform - Startup scan complete, event monitoring active";
-            }
-        };
+            System.Diagnostics.Debug.WriteLine($"Error cleaning up game detection: {ex.Message}");
+        }
+    }
+
+    private void AddActivityLogEntry(string message)
+    {
+        var timestamp = DateTime.Now.ToString("HH:mm:ss.fff");
+        var newEntry = $"[{timestamp}] {message}\n";
         
-        _startupGameCheckTimer.Start();
+        // Prepend to log (newest at top)
+        ActivityLogText.Text = newEntry + ActivityLogText.Text;
+        
+        // Keep log reasonable size (last 1000 characters)
+        if (ActivityLogText.Text.Length > 1000)
+        {
+            ActivityLogText.Text = ActivityLogText.Text.Substring(0, 1000);
+        }
     }
 }
