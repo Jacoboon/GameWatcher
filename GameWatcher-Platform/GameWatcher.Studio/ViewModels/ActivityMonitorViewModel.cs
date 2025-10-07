@@ -4,13 +4,14 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Windows.Threading;
 using GameWatcher.Runtime.Services;
+using GameWatcher.Runtime.Services.Capture;
 
 namespace GameWatcher.Studio.ViewModels;
 
 public partial class ActivityMonitorViewModel : ObservableObject, IDisposable
 {
     private readonly ILogger<ActivityMonitorViewModel> _logger;
-    private readonly ProcessingPipeline _pipeline;
+    private GameCaptureService? _captureService;
     private readonly DispatcherTimer _metricsTimer;
     private readonly PerformanceCounter? _cpuCounter;
     private readonly PerformanceCounter? _memoryCounter;
@@ -25,7 +26,10 @@ public partial class ActivityMonitorViewModel : ObservableObject, IDisposable
     private int _textDetections;
 
     [ObservableProperty]
-    private int _audioPlayed;
+    private int _textboxesFound;
+
+    [ObservableProperty]
+    private double _currentFps;
 
     [ObservableProperty]
     private double _averageProcessingTime;
@@ -45,14 +49,16 @@ public partial class ActivityMonitorViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private bool _isMonitoring;
 
+    [ObservableProperty]
+    private string _monitoringStatus = "Stopped";
+
     private readonly Queue<double> _processingTimes = new();
     private const int MaxLogEntries = 100;
     private const int MaxProcessingTimeSamples = 50;
 
-    public ActivityMonitorViewModel(ILogger<ActivityMonitorViewModel> logger, ProcessingPipeline pipeline)
+    public ActivityMonitorViewModel(ILogger<ActivityMonitorViewModel> logger)
     {
         _logger = logger;
-        _pipeline = pipeline;
 
         _metricsTimer = new DispatcherTimer
         {
@@ -78,19 +84,50 @@ public partial class ActivityMonitorViewModel : ObservableObject, IDisposable
         {
             _logger.LogInformation("Initializing ActivityMonitor ViewModel");
             
-            // Subscribe to pipeline events
-            _pipeline.FrameProcessed += OnFrameProcessed;
-            _pipeline.TextDetected += OnTextDetected;
-            _pipeline.AudioPlayed += OnAudioPlayed;
-
             IsMonitoring = true;
             _metricsTimer.Start();
 
-            AddLogEntry("Activity monitoring started", ActivityLogLevel.Info);
+            MonitoringStatus = "Ready";
+            AddLogEntry("Activity monitoring initialized", ActivityLogLevel.Info);
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to initialize ActivityMonitor ViewModel");
+        }
+    }
+
+    public void AttachCaptureService(GameCaptureService captureService)
+    {
+        try
+        {
+            // Unsubscribe from previous service
+            DetachCaptureService();
+
+            _captureService = captureService;
+            
+            // Subscribe to capture service events
+            _captureService.ProgressReported += OnCaptureProgress;
+            _captureService.DialogueDetected += OnDialogueDetected;
+
+            MonitoringStatus = "Monitoring";
+            AddLogEntry("Connected to capture service", ActivityLogLevel.Info);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to attach capture service");
+        }
+    }
+
+    public void DetachCaptureService()
+    {
+        if (_captureService != null)
+        {
+            _captureService.ProgressReported -= OnCaptureProgress;
+            _captureService.DialogueDetected -= OnDialogueDetected;
+            _captureService = null;
+
+            MonitoringStatus = "Stopped";
+            AddLogEntry("Disconnected from capture service", ActivityLogLevel.Info);
         }
     }
 
@@ -129,35 +166,30 @@ public partial class ActivityMonitorViewModel : ObservableObject, IDisposable
         RefreshMetrics();
     }
 
-    private void OnFrameProcessed(object? sender, FrameProcessedEventArgs e)
+    private void OnCaptureProgress(object? sender, CaptureProgressEventArgs e)
     {
-        FramesProcessed++;
+        // Update metrics from capture statistics
+        FramesProcessed = e.Statistics.FrameCount;
+        TextboxesFound = e.Statistics.TextboxesFound;
+        CurrentFps = e.Statistics.ActualFps;
+        AverageProcessingTime = e.Statistics.AverageProcessingTimeMs;
         
-        // Track processing time
-        _processingTimes.Enqueue(e.ProcessingTimeMs);
-        if (_processingTimes.Count > MaxProcessingTimeSamples)
-            _processingTimes.Dequeue();
-
         LastActivityTime = DateTime.Now;
 
-        AddLogEntry($"Frame processed in {e.ProcessingTimeMs:F1}ms", ActivityLogLevel.Debug);
+        // Only log every 30 frames to avoid spam
+        if (e.Statistics.FrameCount % 30 == 0)
+        {
+            AddLogEntry($"Frame {e.Statistics.FrameCount}: {e.Statistics.ActualFps:F1} FPS, {e.Statistics.TextboxesFound} textboxes", ActivityLogLevel.Debug);
+        }
     }
 
-    private void OnTextDetected(object? sender, TextDetectedEventArgs e)
+    private void OnDialogueDetected(object? sender, DialogueDetectedEventArgs e)
     {
         TextDetections++;
-        LastDetectedText = e.Text;
+        LastDetectedText = e.DialogueEntry.Text;
         LastActivityTime = DateTime.Now;
 
-        AddLogEntry($"Text detected: {e.Text}", ActivityLogLevel.Info);
-    }
-
-    private void OnAudioPlayed(object? sender, AudioPlayedEventArgs e)
-    {
-        AudioPlayed++;
-        LastActivityTime = DateTime.Now;
-
-        AddLogEntry($"Audio played: {e.AudioFile}", ActivityLogLevel.Info);
+        AddLogEntry($"Dialogue: \"{e.DialogueEntry.Text}\" ({e.DialogueEntry.Speaker})", ActivityLogLevel.Info);
     }
 
     private void AddLogEntry(string message, ActivityLogLevel level)
@@ -182,9 +214,7 @@ public partial class ActivityMonitorViewModel : ObservableObject, IDisposable
     public void Dispose()
     {
         _metricsTimer?.Stop();
-        _pipeline.FrameProcessed -= OnFrameProcessed;
-        _pipeline.TextDetected -= OnTextDetected;
-        _pipeline.AudioPlayed -= OnAudioPlayed;
+        DetachCaptureService();
         _cpuCounter?.Dispose();
         _memoryCounter?.Dispose();
     }

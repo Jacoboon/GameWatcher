@@ -1,4 +1,5 @@
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging;
 using System;
 using System.IO;
 using System.Linq;
@@ -15,6 +16,7 @@ public partial class MainWindow : Window
     private readonly List<string> _watchedExecutables = new();
     private GameCaptureService? _captureService;
     private bool _gameIsRunning = false;
+    private ActivityMonitorViewModel? _activityMonitor;
 
     public MainWindow()
     {
@@ -31,6 +33,9 @@ public partial class MainWindow : Window
         
         // Initialize capture service for real-time monitoring
         InitializeCaptureService();
+        
+        // Initialize Activity Monitor
+        InitializeActivityMonitor();
         
         // Handle events
         Closing += MainWindow_Closing;
@@ -249,6 +254,53 @@ public partial class MainWindow : Window
         }
     }
 
+    private void InitializeActivityMonitor()
+    {
+        try
+        {
+            // Create a simple logger for the Activity Monitor
+            using var loggerFactory = LoggerFactory.Create(builder => builder.AddConsole());
+            var logger = loggerFactory.CreateLogger<ActivityMonitorViewModel>();
+            
+            _activityMonitor = new ActivityMonitorViewModel(logger);
+            _ = _activityMonitor.InitializeAsync();
+            
+            // Wire up property changed events to update UI
+            _activityMonitor.PropertyChanged += ActivityMonitor_PropertyChanged;
+            
+            AddActivityLogEntry("[SYSTEM] Activity Monitor initialized successfully");
+        }
+        catch (Exception ex)
+        {
+            AddActivityLogEntry($"[ERROR] Failed to initialize Activity Monitor: {ex.Message}");
+        }
+    }
+
+    private void ActivityMonitor_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        // Update UI elements when Activity Monitor properties change
+        Dispatcher.Invoke(() =>
+        {
+            if (_activityMonitor == null) return;
+
+            switch (e.PropertyName)
+            {
+                case nameof(ActivityMonitorViewModel.FramesProcessed):
+                    FramesProcessedText.Text = _activityMonitor.FramesProcessed.ToString();
+                    break;
+                case nameof(ActivityMonitorViewModel.TextDetections):
+                    DetectionsText.Text = _activityMonitor.TextDetections.ToString();
+                    break;
+                case nameof(ActivityMonitorViewModel.CurrentFps):
+                    ProcessingRateText.Text = $"{_activityMonitor.CurrentFps:F1} fps";
+                    break;
+                case nameof(ActivityMonitorViewModel.MonitoringStatus):
+                    MonitoringStatusText.Text = _activityMonitor.MonitoringStatus;
+                    break;
+            }
+        });
+    }
+
     private void CaptureService_ProgressReported(object? sender, CaptureProgressEventArgs e)
     {
         // Update Activity Monitor with capture statistics on UI thread
@@ -360,6 +412,9 @@ public partial class MainWindow : Window
                                     Dispatcher.Invoke(() => {
                                         AddActivityLogEntry($"[SYSTEM] Capture started for {gameTitle}");
                                         Console.WriteLine($"[MAIN] Capture service started for {gameTitle}");
+                                        
+                                        // Connect Activity Monitor to capture service
+                                        _activityMonitor?.AttachCaptureService(_captureService);
                                     });
                                 }
                             }
@@ -396,6 +451,9 @@ public partial class MainWindow : Window
                                 Dispatcher.Invoke(() => {
                                     AddActivityLogEntry("[SYSTEM] Capture stopped - no game detected");
                                     Console.WriteLine("[MAIN] Capture service stopped - no game detected");
+                                    
+                                    // Disconnect Activity Monitor from capture service
+                                    _activityMonitor?.DetachCaptureService();
                                 });
                             }
                         }
@@ -430,6 +488,10 @@ public partial class MainWindow : Window
                 _captureService.Dispose();
                 _captureService = null;
             }
+            
+            // Cleanup Activity Monitor
+            _activityMonitor?.Dispose();
+            _activityMonitor = null;
         }
         catch (Exception ex)
         {
