@@ -386,6 +386,8 @@ private void Stop_Click(object sender, RoutedEventArgs e)
         {
             var message = $"[DIALOGUE] \"{e.DialogueEntry.Text}\" ({e.DialogueEntry.Speaker})";
             AddActivityLogEntry(message);
+            // Also add a simple Now Playing line for visibility
+            AddActivityLogEntry($"▶ Now Playing: {e.DialogueEntry.Text}");
             
             // Always log dialogue to Serilog file (important events)
             try
