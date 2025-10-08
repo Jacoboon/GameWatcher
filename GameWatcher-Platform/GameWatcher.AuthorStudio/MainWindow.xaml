@@ -40,11 +40,6 @@
                     </DataGrid>
                 </Grid>
             </TabItem>
-            <TabItem Header="Pack Builder">
-                <StackPanel Margin="8">
-                    <TextBlock Text="Pack metadata and build (stub)"/>
-                </StackPanel>
-            </TabItem>
             <TabItem Header="Review">
                 <Grid Margin="8">
                     <Grid.RowDefinitions>
@@ -100,12 +95,8 @@
                             <DataGridComboBoxColumn Header="Voice" SelectedValueBinding="{Binding Voice, Mode=TwoWay}"
                                                      Width="150"/>
                             <DataGridTextColumn Header="Speed" Binding="{Binding Speed, Mode=TwoWay, StringFormat=F2}" Width="80"/>
-                            <DataGridTextColumn Header="Stability" Binding="{Binding Stability, Mode=TwoWay, StringFormat=F2}" Width="80"/>
-                            <DataGridTextColumn Header="Clarity" Binding="{Binding Clarity, Mode=TwoWay, StringFormat=F2}" Width="80"/>
-                            <DataGridTextColumn Header="Priority" Binding="{Binding Priority, Mode=TwoWay}" Width="80"/>
-                            <DataGridCheckBoxColumn Header="Default" Binding="{Binding IsDefault, Mode=TwoWay}" Width="80"/>
                             <DataGridTextColumn Header="Color" Binding="{Binding Color, Mode=TwoWay}" Width="100"/>
-                            <DataGridTextColumn Header="Keywords (csv)" Binding="{Binding KeywordsCsv, Mode=TwoWay}" Width="*"/>
+                            
                             <DataGridTextColumn Header="Effects" Binding="{Binding Effects, Mode=TwoWay}" Width="200"/>
                             <DataGridTemplateColumn Header="Preview" Width="100">
                                 <DataGridTemplateColumn.CellTemplate>

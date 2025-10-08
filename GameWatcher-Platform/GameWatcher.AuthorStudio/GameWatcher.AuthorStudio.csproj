@@ -12,4 +12,9 @@
     <ProjectReference Include="..\GameWatcher.Engine\GameWatcher.Engine.csproj" />
     <ProjectReference Include="..\GameWatcher.Runtime\GameWatcher.Runtime.csproj" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- Match Studio visual style -->
+    <PackageReference Include="ModernWpfUI" Version="0.9.6" />
+  </ItemGroup>
 </Project>
