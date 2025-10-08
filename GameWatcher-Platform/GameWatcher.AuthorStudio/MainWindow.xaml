@@ -14,13 +14,20 @@
 
         <!-- Header bar to match Studio -->
         <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundAccentBrush}" Padding="16,12">
-            <DockPanel>
-                <TextBlock Text="Author Studio — MVP" FontSize="18" FontWeight="SemiBold" Foreground="White"/>
-                <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
-                    <TextBlock Text="TTS:" Foreground="White" Margin="0,0,6,0"/>
-                    <TextBlock x:Name="TtsStatus" Text="TTS unavailable: Configure key" Foreground="Lime"/>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <TextBlock Grid.Column="0" Text="Author Studio — MVP" FontSize="18" FontWeight="SemiBold" Foreground="White"/>
+
+                <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                    <TextBlock Text="TTS:" Foreground="White" Margin="0,0,8,0"/>
+                    <TextBlock x:Name="TtsStatus" Text="TTS unavailable: Configure key" Foreground="LightGreen" FontWeight="SemiBold"/>
                 </StackPanel>
-            </DockPanel>
+            </Grid>
         </Border>
 
         <TabControl Grid.Row="1" Margin="12" Style="{DynamicResource DefaultTabControlStyle}">

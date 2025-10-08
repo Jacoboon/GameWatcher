@@ -38,20 +38,36 @@
 
   <Style TargetType="TabItem">
     <Setter Property="Foreground" Value="{DynamicResource SystemControlForegroundBaseHighBrush}"/>
-    <Setter Property="Background" Value="Transparent"/>
+    <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundBaseLowBrush}"/>
     <Setter Property="Padding" Value="10,6"/>
     <Setter Property="Margin" Value="0,0,8,0"/>
-    <Setter Property="BorderBrush" Value="{DynamicResource SystemControlBackgroundBaseLowBrush}"/>
-    <Style.Triggers>
-      <Trigger Property="IsMouseOver" Value="True">
-        <Setter Property="Foreground" Value="{DynamicResource SystemControlForegroundBaseHighBrush}"/>
-      </Trigger>
-      <Trigger Property="IsSelected" Value="True">
-        <Setter Property="Foreground" Value="{DynamicResource SystemControlForegroundBaseHighBrush}"/>
-        <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundAltHighBrush}"/>
-        <Setter Property="FontWeight" Value="SemiBold"/>
-      </Trigger>
-    </Style.Triggers>
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="TabItem">
+          <Border x:Name="Bd"
+                  Background="{TemplateBinding Background}"
+                  BorderBrush="{DynamicResource SystemControlBackgroundBaseLowBrush}"
+                  BorderThickness="0,0,1,1"
+                  Padding="{TemplateBinding Padding}"
+                  Margin="{TemplateBinding Margin}">
+            <ContentPresenter ContentSource="Header"/>
+          </Border>
+          <ControlTemplate.Triggers>
+            <Trigger Property="IsSelected" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SystemControlBackgroundAltHighBrush}"/>
+              <Setter Property="Foreground" Value="{DynamicResource SystemControlForegroundBaseHighBrush}"/>
+              <Setter TargetName="Bd" Property="BorderThickness" Value="0,0,1,0"/>
+            </Trigger>
+            <Trigger Property="IsMouseOver" Value="True">
+              <Setter TargetName="Bd" Property="Background" Value="{DynamicResource SystemControlBackgroundAltHighBrush}"/>
+            </Trigger>
+            <Trigger Property="IsEnabled" Value="False">
+              <Setter Property="Foreground" Value="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+            </Trigger>
+          </ControlTemplate.Triggers>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
   </Style>
 
 </ResourceDictionary>
