@@ -4,7 +4,7 @@ using System.Drawing;
 using System.Threading;
 using System.Threading.Tasks;
 using GameWatcher.Engine.Detection;
-using GameWatcher.Engine.Ocr;
+using GameWatcher.Runtime.Services.OCR;
 using GameWatcher.Runtime.Services.Capture; // ScreenCapture helper
 
 namespace GameWatcher.AuthorStudio.Services
@@ -22,7 +22,7 @@ namespace GameWatcher.AuthorStudio.Services
         public DiscoveryService()
         {
             _detector = new DynamicTextboxDetector();
-            _ocr = new WindowsOcrEngine();
+            _ocr = new WindowsOCR();
         }
 
         public bool IsRunning => _running;
@@ -96,4 +96,3 @@ namespace GameWatcher.AuthorStudio.Services
         }
     }
 }
-
