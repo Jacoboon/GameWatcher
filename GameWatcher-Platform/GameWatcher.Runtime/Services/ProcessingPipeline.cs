@@ -48,6 +48,7 @@ public class ProcessingPipeline : IProcessingPipeline, IDisposable
     private readonly IGameDetectionService _gameDetection;
     private readonly GameWatcher.Runtime.Services.Dialogue.DialogueCatalogService _catalog;
     private readonly GameWatcher.Runtime.Services.OCR.OcrPostprocessor _ocrPost;
+    private readonly GameWatcher.Runtime.Services.Audio.IAudioPlaybackService _audio;
 
     private CancellationTokenSource? _cancellationTokenSource;
     private Task? _processingTask;
@@ -71,7 +72,8 @@ public class ProcessingPipeline : IProcessingPipeline, IDisposable
         IPackManager packManager,
         IGameDetectionService gameDetection,
         GameWatcher.Runtime.Services.Dialogue.DialogueCatalogService catalog,
-        GameWatcher.Runtime.Services.OCR.OcrPostprocessor ocrPost)
+        GameWatcher.Runtime.Services.OCR.OcrPostprocessor ocrPost,
+        GameWatcher.Runtime.Services.Audio.IAudioPlaybackService audio)
     {
         _logger = logger;
         _captureService = captureService;
@@ -80,6 +82,7 @@ public class ProcessingPipeline : IProcessingPipeline, IDisposable
         _gameDetection = gameDetection;
         _catalog = catalog;
         _ocrPost = ocrPost;
+        _audio = audio;
     }
 
     public bool IsRunning => _isRunning;
@@ -355,8 +358,8 @@ public class ProcessingPipeline : IProcessingPipeline, IDisposable
             // Extract text from detected textbox area
             using var textboxImage = CropImageToTextbox(screenshot, detection.TextboxRect.Value);
             var rawText = await _ocrEngine.ExtractTextAsync(textboxImage);
-            // Apply author-curated OCR postprocess fixes
-            rawText = _ocrPost.Apply(rawText);
+            // Apply author-curated OCR postprocess fixes and normalization
+            var processedText = _ocrPost.Apply(rawText);
             
             if (string.IsNullOrWhiteSpace(rawText))
             {
@@ -366,7 +369,7 @@ public class ProcessingPipeline : IProcessingPipeline, IDisposable
             var ocrTime = DateTime.UtcNow - ocrStart;
 
             // Normalize text (remove artifacts, standardize formatting)
-            var normalizedText = NormalizeText(rawText);
+            var normalizedText = processedText; // already normalized by postprocessor
             
             // Check for duplicates (V1 optimization)
             var packId = pack.Manifest.Name;
@@ -381,7 +384,7 @@ public class ProcessingPipeline : IProcessingPipeline, IDisposable
             _lastDetectionByPack[packId] = DateTime.UtcNow;
 
             // Lookup dialogue in catalog for stable ID/speaker mapping
-            if (_catalog.TryLookup(normalizedText.ToLowerInvariant(), out var catalogEntry))
+            if (_catalog.TryLookup(normalizedText, out var catalogEntry))
             {
                 // Override normalized text to the catalog version's text if needed
                 if (!string.IsNullOrWhiteSpace(catalogEntry.Text))
@@ -393,7 +396,7 @@ public class ProcessingPipeline : IProcessingPipeline, IDisposable
             // Match speaker using pack's speaker collection (catalog speakerId takes precedence)
             var speakers = pack.GetSpeakers();
             var matchedSpeaker = speakers.MatchSpeaker(normalizedText);
-            if (_catalog.TryLookup(normalizedText.ToLowerInvariant(), out var entry2))
+            if (_catalog.TryLookup(normalizedText, out var entry2))
             {
                 if (!string.IsNullOrWhiteSpace(entry2.VoiceProfile))
                 {
@@ -403,6 +406,12 @@ public class ProcessingPipeline : IProcessingPipeline, IDisposable
                         string.Equals(s.Name, entry2.VoiceProfile, StringComparison.OrdinalIgnoreCase));
                     if (preferred != null) matchedSpeaker = preferred;
                 }
+            }
+
+            // If audio path available in catalog entry, queue playback (MVP: play immediately)
+            if (_catalog.TryLookup(normalizedText, out var audioEntry) && !string.IsNullOrWhiteSpace(audioEntry.AudioPath))
+            {
+                await _audio.PlayAsync(audioEntry.AudioPath);
             }
 
             var totalProcessingTime = DateTime.UtcNow - processingStart;

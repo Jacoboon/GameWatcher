@@ -57,6 +57,7 @@ public class Program
                 // V2 Runtime Services
                 services.AddSingleton<IPackManager, PackManager>();
                 services.AddSingleton<IGameDetectionService, GameDetectionService>();
+                services.AddSingleton<GameWatcher.Runtime.Services.Audio.IAudioPlaybackService, GameWatcher.Runtime.Services.Audio.AudioPlaybackService>();
                 services.AddSingleton<GameWatcher.Runtime.Services.Dialogue.DialogueCatalogService>();
                 services.AddSingleton<GameWatcher.Runtime.Services.OCR.OcrPostprocessor>();
                 services.AddSingleton<IProcessingPipeline, ProcessingPipeline>();
