@@ -81,3 +81,4 @@ Follow this once to create your first pack and verify playback:
 - Audio Format: choose `wav` or `mp3` for both speaker previews and generated dialogue.
 - TTS Settings: open from the top bar to add/remove your API key (stored as `GWS_OPENAI_API_KEY`).
 - Batch Previews: from Settings, click “Generate All OpenAI Voice Previews” to pre-seed engine-level previews.
+
