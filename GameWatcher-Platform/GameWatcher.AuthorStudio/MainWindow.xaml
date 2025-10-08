@@ -6,6 +6,14 @@
         Height="720" Width="1200"
         WindowStartupLocation="CenterScreen"
         ui:WindowHelper.UseModernWindowStyle="True">
+    <Window.Resources>
+        <!-- Reuse ModernWpf combo box style inside DataGrid combos -->
+        <Style x:Key="DataGridComboBoxStyle" TargetType="ComboBox" BasedOn="{DynamicResource ComboBoxStyle}">
+            <Setter Property="Foreground" Value="{DynamicResource SystemControlForegroundBaseHighBrush}"/>
+            <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundAltHighBrush}"/>
+        </Style>
+    </Window.Resources>
+
     <Grid Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
@@ -68,7 +76,14 @@
                             <DataGridTextColumn Header="Edited" Binding="{Binding EditedText, Mode=TwoWay}" Width="*"/>
                             <DataGridComboBoxColumn Header="Speaker" SelectedValueBinding="{Binding SpeakerId, Mode=TwoWay}"
                                                      SelectedValuePath="Id" DisplayMemberPath="Name"
-                                                     Width="220"/>
+                                                     Width="220">
+                                <DataGridComboBoxColumn.ElementStyle>
+                                    <Style TargetType="ComboBox" BasedOn="{StaticResource DataGridComboBoxStyle}"/>
+                                </DataGridComboBoxColumn.ElementStyle>
+                                <DataGridComboBoxColumn.EditingElementStyle>
+                                    <Style TargetType="ComboBox" BasedOn="{StaticResource DataGridComboBoxStyle}"/>
+                                </DataGridComboBoxColumn.EditingElementStyle>
+                            </DataGridComboBoxColumn>
                             <DataGridTextColumn Header="Audio" Binding="{Binding AudioPath, Mode=TwoWay}" Width="250"/>
                             <DataGridTemplateColumn Header="Play" Width="80">
                                 <DataGridTemplateColumn.CellTemplate>
