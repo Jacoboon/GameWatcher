@@ -80,11 +80,18 @@
                             <DataGridCheckBoxColumn Header="Approved" Binding="{Binding Approved, Mode=TwoWay}" Width="100"/>
                         </DataGrid.Columns>
                     </DataGrid>
-                    <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,8,0,0">
-                        <Button Content="Attach Audio..." Margin="0,0,8,0" Click="AttachAudio_Click"/>
-                        <Button Content="Generate TTS" Click="GenerateTts_Click"/>
-                    </StackPanel>
-                    <TextBlock Grid.Row="3" Text="Tip: Edit text, assign speakers, and mark Approved before exporting." Foreground="Gray" Margin="160,12,0,0"/>
+                    <!-- Attach/Generate bar with right-anchored tip -->
+                    <Grid Grid.Row="3" Margin="0,8,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Orientation="Horizontal" Grid.Column="0">
+                            <Button Content="Attach Audio..." Margin="0,0,8,0" Click="AttachAudio_Click"/>
+                            <Button Content="Generate TTS" Click="GenerateTts_Click"/>
+                        </StackPanel>
+                        <TextBlock Grid.Column="1" Text="Tip: Edit text, assign speakers, and mark Approved before exporting." Foreground="Gray" HorizontalAlignment="Right" VerticalAlignment="Center"/>
+                    </Grid>
 
                     <!-- Activity log -->
                     <Border Grid.Row="4" Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}" BorderBrush="{DynamicResource SystemControlBackgroundBaseLowBrush}" BorderThickness="1" Padding="8" Margin="0,8,0,0">
