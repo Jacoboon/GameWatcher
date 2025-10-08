@@ -17,18 +17,24 @@
 
         <TabControl Grid.Row="1" Margin="12">
             <TabItem Header="Discovery">
-                <StackPanel Margin="8">
+                <Grid Margin="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
                     <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                        <Button Content="Start" Width="90" Margin="0,0,8,0"/>
-                        <Button Content="Pause" Width="90" Margin="0,0,8,0"/>
-                        <Button Content="Stop" Width="90"/>
+                        <Button Content="Start" Width="90" Margin="0,0,8,0" Click="Start_Click"/>
+                        <Button Content="Pause" Width="90" Margin="0,0,8,0" Click="Pause_Click"/>
+                        <Button Content="Stop" Width="90" Click="Stop_Click"/>
                     </StackPanel>
-                    <TextBlock Text="Discovered Dialogue (preview)" FontWeight="SemiBold"/>
-                    <ListBox Height="400">
-                        <ListBoxItem>Example line: "Welcome to Cornelia."</ListBoxItem>
-                        <ListBoxItem>Example line: "I, Garland, will knock you all down!"</ListBoxItem>
-                    </ListBox>
-                </StackPanel>
+                    <DataGrid Grid.Row="1" x:Name="DiscoveredGrid" AutoGenerateColumns="False" IsReadOnly="True">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Timestamp" Binding="{Binding Timestamp}" Width="180"/>
+                            <DataGridTextColumn Header="Text" Binding="{Binding Text}" Width="*"/>
+                            <DataGridCheckBoxColumn Header="Approved" Binding="{Binding Approved}" Width="100"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
             </TabItem>
             <TabItem Header="Pack Builder">
                 <StackPanel Margin="8">
@@ -38,4 +44,3 @@
         </TabControl>
     </Grid>
 </Window>
-
