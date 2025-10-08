@@ -60,10 +60,15 @@
                             <DataGridComboBoxColumn Header="Speaker" SelectedValueBinding="{Binding SpeakerId, Mode=TwoWay}"
                                                      SelectedValuePath="Id" DisplayMemberPath="Name"
                                                      Width="220"/>
+                            <DataGridTextColumn Header="Audio" Binding="{Binding AudioPath, Mode=TwoWay}" Width="250"/>
                             <DataGridCheckBoxColumn Header="Approved" Binding="{Binding Approved, Mode=TwoWay}" Width="100"/>
                         </DataGrid.Columns>
                     </DataGrid>
-                    <TextBlock Grid.Row="2" Text="Tip: Edit text, assign speakers, and mark Approved before exporting." Foreground="Gray" Margin="0,8,0,0"/>
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
+                        <Button Content="Attach Audio..." Margin="0,0,8,0" Click="AttachAudio_Click"/>
+                        <Button Content="Generate TTS" Click="GenerateTts_Click"/>
+                    </StackPanel>
+                    <TextBlock Grid.Row="2" Text="Tip: Edit text, assign speakers, and mark Approved before exporting." Foreground="Gray" Margin="180,12,0,0"/>
                 </Grid>
             </TabItem>
             <TabItem Header="Speakers">
@@ -81,7 +86,8 @@
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Id" Binding="{Binding Id, Mode=TwoWay}" Width="150"/>
                             <DataGridTextColumn Header="Name" Binding="{Binding Name, Mode=TwoWay}" Width="200"/>
-                            <DataGridTextColumn Header="Voice" Binding="{Binding Voice, Mode=TwoWay}" Width="120"/>
+                            <DataGridComboBoxColumn Header="Voice" SelectedValueBinding="{Binding Voice, Mode=TwoWay}"
+                                                     Width="150"/>
                             <DataGridTextColumn Header="Speed" Binding="{Binding Speed, Mode=TwoWay, StringFormat=F2}" Width="80"/>
                             <DataGridTextColumn Header="Stability" Binding="{Binding Stability, Mode=TwoWay, StringFormat=F2}" Width="80"/>
                             <DataGridTextColumn Header="Clarity" Binding="{Binding Clarity, Mode=TwoWay, StringFormat=F2}" Width="80"/>

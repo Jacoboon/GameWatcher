@@ -5,6 +5,7 @@ using GameWatcher.AuthorStudio.Models;
 using Microsoft.Win32;
 using Forms = System.Windows.Forms;
 using System.IO;
+using System.Linq;
 
 namespace GameWatcher.AuthorStudio
 {
@@ -15,6 +16,7 @@ namespace GameWatcher.AuthorStudio
         private readonly SessionStore _sessionStore = new();
         private readonly PackExporter _exporter = new();
         private readonly PackLoader _loader = new();
+        private readonly OpenAiTtsService _tts = new();
 
         public MainWindow()
         {
@@ -25,6 +27,10 @@ namespace GameWatcher.AuthorStudio
             ReviewGrid.ItemsSource = _discovery.Discovered;
             var speakerColumn = (System.Windows.Controls.DataGridComboBoxColumn)ReviewGrid.Columns[3];
             speakerColumn.ItemsSource = _speakerStore.Speakers;
+
+            // Bind Speakers grid voice dropdown
+            var voiceColumn = (System.Windows.Controls.DataGridComboBoxColumn)SpeakersGrid.Columns[2];
+            voiceColumn.ItemsSource = OpenAiVoicesProvider.All;
         }
 
         private async void Start_Click(object sender, RoutedEventArgs e)
@@ -128,6 +134,74 @@ namespace GameWatcher.AuthorStudio
             catch (Exception ex)
             {
                 ExportStatus.Text = $"Export failed: {ex.Message}";
+                ExportStatus.Foreground = System.Windows.Media.Brushes.Red;
+            }
+        }
+
+        private void AttachAudio_Click(object sender, RoutedEventArgs e)
+        {
+            if (ReviewGrid.SelectedItem is not PendingDialogueEntry entry) return;
+            var dlg = new OpenFileDialog
+            {
+                Filter = "Audio Files|*.wav;*.mp3;*.ogg|All Files|*.*"
+            };
+            if (dlg.ShowDialog(this) == true)
+            {
+                entry.AudioPath = dlg.FileName;
+                ReviewGrid.Items.Refresh();
+            }
+        }
+
+        private async void GenerateTts_Click(object sender, RoutedEventArgs e)
+        {
+            if (ReviewGrid.SelectedItem is not PendingDialogueEntry entry) return;
+            if (!_tts.IsConfigured)
+            {
+                ExportStatus.Text = "OPENAI_API_KEY not set";
+                ExportStatus.Foreground = System.Windows.Media.Brushes.Red;
+                return;
+            }
+
+            var text = string.IsNullOrWhiteSpace(entry.EditedText) ? entry.Text : entry.EditedText!;
+            if (string.IsNullOrWhiteSpace(text)) return;
+
+            // Pick voice from assigned speaker (fallback to default voice of first speaker)
+            var voice = "alloy";
+            if (!string.IsNullOrWhiteSpace(entry.SpeakerId))
+            {
+                var sp = _speakerStore.Speakers.FirstOrDefault(s => s.Id == entry.SpeakerId);
+                if (sp != null && !string.IsNullOrWhiteSpace(sp.Voice)) voice = sp.Voice;
+            }
+            else if (_speakerStore.Speakers.Count > 0)
+            {
+                var sp = _speakerStore.Speakers.First();
+                if (!string.IsNullOrWhiteSpace(sp.Voice)) voice = sp.Voice;
+            }
+
+            // Output path: OutputFolderBox/Audio/dialogue_<hash>.wav
+            var outputBase = string.IsNullOrWhiteSpace(OutputFolderBox.Text) ? Directory.GetCurrentDirectory() : OutputFolderBox.Text.Trim();
+            var audioDir = Path.Combine(outputBase, "Audio");
+            var id = $"dialogue_{Math.Abs(text.GetHashCode()):X8}";
+            var outPath = Path.Combine(audioDir, id + ".wav");
+            try
+            {
+                var ok = await _tts.GenerateWavAsync(text, voice, outPath);
+                if (ok)
+                {
+                    entry.AudioPath = outPath;
+                    ReviewGrid.Items.Refresh();
+                    ExportStatus.Text = $"Generated TTS: {Path.GetFileName(outPath)}";
+                    ExportStatus.Foreground = System.Windows.Media.Brushes.Green;
+                }
+                else
+                {
+                    ExportStatus.Text = "TTS generation failed";
+                    ExportStatus.Foreground = System.Windows.Media.Brushes.Red;
+                }
+            }
+            catch (Exception ex)
+            {
+                ExportStatus.Text = $"TTS error: {ex.Message}";
                 ExportStatus.Foreground = System.Windows.Media.Brushes.Red;
             }
         }

@@ -19,6 +19,7 @@ namespace GameWatcher.AuthorStudio
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
         public byte[]? ScreenshotPng { get; set; }
         public bool Approved { get; set; } = false;
+        public string? AudioPath { get; set; }
     }
 
     public class DiscoverySession : IDisposable
