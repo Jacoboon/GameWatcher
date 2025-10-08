@@ -46,6 +46,7 @@ public partial class MainWindow : Window
     }
 
     private BackgroundWorker? _smartGameDetectionWorker;
+    // TODO: _isMonitoring is assigned but not used; wire to UI state (e.g., Start/Stop buttons) or remove if obsolete.
     private bool _isMonitoring = false;
     private readonly List<string> _watchedExecutables = new();
     private GameCaptureService? _captureService;

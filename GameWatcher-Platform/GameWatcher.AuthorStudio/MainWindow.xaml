@@ -41,6 +41,31 @@
                     <TextBlock Text="Pack metadata and build (stub)"/>
                 </StackPanel>
             </TabItem>
+            <TabItem Header="Review">
+                <Grid Margin="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                        <Button Content="Load Session" Margin="0,0,8,0" Click="LoadSession_Click"/>
+                        <Button Content="Save Session" Click="SaveSession_Click"/>
+                    </StackPanel>
+                    <DataGrid Grid.Row="1" x:Name="ReviewGrid" AutoGenerateColumns="False" CanUserAddRows="False">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Timestamp" Binding="{Binding Timestamp}" Width="180" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Text" Binding="{Binding Text, Mode=TwoWay}" Width="*"/>
+                            <DataGridTextColumn Header="Edited" Binding="{Binding EditedText, Mode=TwoWay}" Width="*"/>
+                            <DataGridComboBoxColumn Header="Speaker" SelectedValueBinding="{Binding SpeakerId, Mode=TwoWay}"
+                                                     SelectedValuePath="Id" DisplayMemberPath="Name"
+                                                     Width="220"/>
+                            <DataGridCheckBoxColumn Header="Approved" Binding="{Binding Approved, Mode=TwoWay}" Width="100"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+                    <TextBlock Grid.Row="2" Text="Tip: Edit text, assign speakers, and mark Approved before exporting." Foreground="Gray" Margin="0,8,0,0"/>
+                </Grid>
+            </TabItem>
             <TabItem Header="Speakers">
                 <Grid Margin="8">
                     <Grid.RowDefinitions>
@@ -67,6 +92,38 @@
                         </DataGrid.Columns>
                     </DataGrid>
                     <TextBlock Grid.Row="2" Text="Tip: Import from an existing pack’s speakers.json or build your own list here." Foreground="Gray" Margin="0,8,0,0"/>
+                </Grid>
+            </TabItem>
+            <TabItem Header="Pack Builder">
+                <Grid Margin="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                        <TextBlock Text="Pack Name" Width="120" VerticalAlignment="Center"/>
+                        <TextBox x:Name="PackNameBox" Width="300"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8" Grid.Row="1">
+                        <TextBlock Text="Display Name" Width="120" VerticalAlignment="Center"/>
+                        <TextBox x:Name="DisplayNameBox" Width="300"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8" Grid.Row="2">
+                        <TextBlock Text="Version" Width="120" VerticalAlignment="Center"/>
+                        <TextBox x:Name="VersionBox" Width="150" Text="1.0.0"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8" Grid.Row="3">
+                        <TextBlock Text="Output Folder" Width="120" VerticalAlignment="Center"/>
+                        <TextBox x:Name="OutputFolderBox" Width="480"/>
+                        <Button Content="Browse" Margin="8,0,0,0" Click="BrowseOutput_Click"/>
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Margin="0,12,0,0" Grid.Row="4">
+                        <Button Content="Export Pack" Width="150" Click="ExportPack_Click"/>
+                        <TextBlock x:Name="ExportStatus" Margin="12,0,0,0" VerticalAlignment="Center"/>
+                    </StackPanel>
                 </Grid>
             </TabItem>
         </TabControl>

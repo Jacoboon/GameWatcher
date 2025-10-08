@@ -14,6 +14,8 @@ namespace GameWatcher.AuthorStudio
     public class PendingDialogueEntry
     {
         public string Text { get; set; } = string.Empty;
+        public string? EditedText { get; set; }
+        public string? SpeakerId { get; set; }
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
         public byte[]? ScreenshotPng { get; set; }
         public bool Approved { get; set; } = false;
