@@ -16,6 +16,8 @@ namespace GameWatcher.AuthorStudio.Services
         private Timer? _timer;
         private bool _running;
         private string _lastText = string.Empty;
+        private string _lastNormalized = string.Empty;
+        private readonly System.Collections.Generic.HashSet<string> _seen = new();
 
         public ObservableCollection<PendingDialogueEntry> Discovered { get; } = new();
 
@@ -66,9 +68,13 @@ namespace GameWatcher.AuthorStudio.Services
 
                 var text = _ocr.ExtractTextFast(crop)?.Trim();
                 if (string.IsNullOrWhiteSpace(text)) return;
-                if (string.Equals(text, _lastText, StringComparison.Ordinal)) return;
+                var norm = TextNormalizer.Normalize(text);
+                if (string.Equals(norm, _lastNormalized, StringComparison.Ordinal)) return;
+                if (_seen.Contains(norm)) return; // skip duplicates in this session
 
                 _lastText = text;
+                _lastNormalized = norm;
+                _seen.Add(norm);
                 App.Current?.Dispatcher.Invoke(() =>
                 {
                     Discovered.Add(new PendingDialogueEntry
@@ -88,6 +94,7 @@ namespace GameWatcher.AuthorStudio.Services
         private void ClearTransientState()
         {
             _lastText = string.Empty;
+            _lastNormalized = string.Empty;
         }
 
         public void Dispose()

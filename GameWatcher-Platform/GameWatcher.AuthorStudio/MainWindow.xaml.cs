@@ -14,6 +14,7 @@ namespace GameWatcher.AuthorStudio
         private readonly SpeakerStore _speakerStore = new();
         private readonly SessionStore _sessionStore = new();
         private readonly PackExporter _exporter = new();
+        private readonly PackLoader _loader = new();
 
         public MainWindow()
         {
@@ -128,6 +129,47 @@ namespace GameWatcher.AuthorStudio
             {
                 ExportStatus.Text = $"Export failed: {ex.Message}";
                 ExportStatus.Foreground = System.Windows.Media.Brushes.Red;
+            }
+        }
+
+        private async void OpenPack_Click(object sender, RoutedEventArgs e)
+        {
+            using var dlg = new Forms.FolderBrowserDialog();
+            dlg.Description = "Select Pack Folder (contains Configuration and Catalog)";
+            if (dlg.ShowDialog() == Forms.DialogResult.OK)
+            {
+                var folder = dlg.SelectedPath;
+                try
+                {
+                    // Load manifest + dialogue
+                    var (name, display, version, entries) = await _loader.LoadAsync(folder);
+                    PackNameBox.Text = name;
+                    DisplayNameBox.Text = display;
+                    VersionBox.Text = string.IsNullOrWhiteSpace(version) ? "1.0.0" : version;
+                    OutputFolderBox.Text = folder;
+
+                    // Load speakers if present
+                    var speakersPath = System.IO.Path.Combine(folder, "Configuration", "speakers.json");
+                    if (File.Exists(speakersPath))
+                    {
+                        await _speakerStore.ImportAsync(speakersPath);
+                    }
+
+                    // Populate review list
+                    _discovery.Discovered.Clear();
+                    foreach (var e2 in entries)
+                    {
+                        _discovery.Discovered.Add(e2);
+                    }
+
+                    ExportStatus.Text = $"Loaded pack: {display}";
+                    ExportStatus.Foreground = System.Windows.Media.Brushes.Green;
+                }
+                catch (Exception ex)
+                {
+                    ExportStatus.Text = $"Open failed: {ex.Message}";
+                    ExportStatus.Foreground = System.Windows.Media.Brushes.Red;
+                }
             }
         }
     }

@@ -10,13 +10,7 @@ namespace GameWatcher.AuthorStudio.Services
 {
     public class PackExporter
     {
-        private static string Normalize(string s)
-        {
-            if (string.IsNullOrWhiteSpace(s)) return string.Empty;
-            var t = s.Trim().ToLowerInvariant();
-            // collapse whitespace
-            return System.Text.RegularExpressions.Regex.Replace(t, "\\s+", " ");
-        }
+        private static string Normalize(string s) => TextNormalizer.Normalize(s);
 
         private class DialogueExport
         {

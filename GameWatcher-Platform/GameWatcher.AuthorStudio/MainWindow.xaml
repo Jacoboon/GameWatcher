@@ -121,6 +121,7 @@
                         <Button Content="Browse" Margin="8,0,0,0" Click="BrowseOutput_Click"/>
                     </StackPanel>
                     <StackPanel Orientation="Horizontal" Margin="0,12,0,0" Grid.Row="4">
+                        <Button Content="Open Pack..." Width="150" Margin="0,0,8,0" Click="OpenPack_Click"/>
                         <Button Content="Export Pack" Width="150" Click="ExportPack_Click"/>
                         <TextBlock x:Name="ExportStatus" Margin="12,0,0,0" VerticalAlignment="Center"/>
                     </StackPanel>
