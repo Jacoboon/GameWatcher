@@ -13,6 +13,10 @@
         <DockPanel Grid.Row="0" Margin="12">
             <TextBlock Text="Author Studio — MVP"
                        FontSize="18" FontWeight="SemiBold"/>
+            <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center">
+                <TextBlock x:Name="TtsStatus" Text="TTS unavailable: Configure key"
+                           Foreground="Red" Margin="0,0,8,0"/>
+            </StackPanel>
         </DockPanel>
 
         <TabControl Grid.Row="1" Margin="12">
@@ -61,6 +65,13 @@
                                                      SelectedValuePath="Id" DisplayMemberPath="Name"
                                                      Width="220"/>
                             <DataGridTextColumn Header="Audio" Binding="{Binding AudioPath, Mode=TwoWay}" Width="250"/>
+                            <DataGridTemplateColumn Header="Play" Width="80">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Button Content="Play" Padding="6,2" Click="PlayReviewItem_Click"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
                             <DataGridCheckBoxColumn Header="Approved" Binding="{Binding Approved, Mode=TwoWay}" Width="100"/>
                         </DataGrid.Columns>
                     </DataGrid>
@@ -95,6 +106,13 @@
                             <DataGridCheckBoxColumn Header="Default" Binding="{Binding IsDefault, Mode=TwoWay}" Width="80"/>
                             <DataGridTextColumn Header="Color" Binding="{Binding Color, Mode=TwoWay}" Width="100"/>
                             <DataGridTextColumn Header="Keywords (csv)" Binding="{Binding KeywordsCsv, Mode=TwoWay}" Width="*"/>
+                            <DataGridTemplateColumn Header="Preview" Width="100">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Button Content="Preview" Padding="6,2" Click="PreviewSpeaker_Click"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
                         </DataGrid.Columns>
                     </DataGrid>
                     <TextBlock Grid.Row="2" Text="Tip: Import from an existing pack’s speakers.json or build your own list here." Foreground="Gray" Margin="0,8,0,0"/>
@@ -131,6 +149,38 @@
                         <Button Content="Export Pack" Width="150" Click="ExportPack_Click"/>
                         <TextBlock x:Name="ExportStatus" Margin="12,0,0,0" VerticalAlignment="Center"/>
                     </StackPanel>
+                </Grid>
+            </TabItem>
+            <TabItem Header="Settings">
+                <Grid Margin="8">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Text="Author Studio Settings" FontWeight="SemiBold" Margin="0,0,0,8"/>
+
+                    <StackPanel Orientation="Horizontal" Grid.Row="1" Margin="0,0,0,8">
+                        <TextBlock Text="Audio Format" Width="140" VerticalAlignment="Center"/>
+                        <ComboBox x:Name="AudioFormatCombo" Width="160" SelectionChanged="AudioFormatCombo_SelectionChanged">
+                            <ComboBoxItem Content="wav"/>
+                            <ComboBoxItem Content="mp3"/>
+                        </ComboBox>
+                    </StackPanel>
+
+                    <StackPanel Grid.Row="2" Orientation="Horizontal" VerticalAlignment="Center">
+                        <TextBlock Text="OpenAI API Key" Width="140" VerticalAlignment="Center"/>
+                        <PasswordBox x:Name="TtsKeyBox" Width="260"/>
+                        <Button Content="Save" Width="90" Margin="8,0,0,0" Click="SaveTtsKey_Click"/>
+                        <Button Content="Remove" Width="90" Margin="8,0,0,0" Click="RemoveTtsKey_Click"/>
+                    </StackPanel>
+
+                    <TextBlock Grid.Row="3" TextWrapping="Wrap" Foreground="Gray" Margin="0,8,0,0">
+                        The audio format applies to both generated dialogue lines and speaker previews.
+                        Use the API Key controls above to add or remove your TTS key.
+                    </TextBlock>
                 </Grid>
             </TabItem>
         </TabControl>

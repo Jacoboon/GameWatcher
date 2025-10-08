@@ -57,6 +57,8 @@ namespace GameWatcher.AuthorStudio.Services
 
             // Write dialogue catalog
             var file = new DialogueFile();
+            var audioOutDir = Path.Combine(outputDir, "Audio");
+            Directory.CreateDirectory(audioOutDir);
             var fixPairs = new Dictionary<string, string>();
             foreach (var d in dialogues)
             {
@@ -64,14 +66,36 @@ namespace GameWatcher.AuthorStudio.Services
                 if (string.IsNullOrWhiteSpace(text)) continue;
                 if (!d.Approved) continue;
                 var id = $"dialogue_{Math.Abs(text.GetHashCode()):X8}";
-                file.Entries.Add(new DialogueExport
+                var export = new DialogueExport
                 {
                     Id = id,
                     Text = text,
                     Normalized = Normalize(text),
                     SpeakerId = d.SpeakerId,
                     AudioPath = null
-                });
+                };
+
+                // If the entry has an audio file, import it into the pack
+                if (!string.IsNullOrWhiteSpace(d.AudioPath) && File.Exists(d.AudioPath))
+                {
+                    try
+                    {
+                        var ext = Path.GetExtension(d.AudioPath);
+                        if (string.IsNullOrWhiteSpace(ext)) ext = ".wav";
+                        var destFile = Path.Combine(audioOutDir, id + ext.ToLowerInvariant());
+                        if (!File.Exists(destFile) || new FileInfo(destFile).Length == 0)
+                        {
+                            File.Copy(d.AudioPath, destFile, overwrite: true);
+                        }
+                        export.AudioPath = Path.Combine("Audio", Path.GetFileName(destFile)).Replace('\\', '/');
+                    }
+                    catch
+                    {
+                        // Ignore copy issues; pack will still export
+                    }
+                }
+
+                file.Entries.Add(export);
 
                 // Build OCR fix pairs from original vs edited tokens
                 if (!string.IsNullOrWhiteSpace(d.EditedText) && !string.Equals(d.EditedText, d.Text, StringComparison.Ordinal))

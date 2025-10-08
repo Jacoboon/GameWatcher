@@ -40,6 +40,14 @@ Welcome to GameWatcher Author Studio — creation tools for building dialogue pa
 - Normalize punctuation and spacing for better matching.
 - Favor shorter voice previews while tuning settings; switch to bulk when satisfied.
 
+## TTS API Key (OpenAI)
+
+- Configure TTS from inside the app: click `TTS Settings...` in the top bar.
+- Paste your key into the password box and Save. The app stores it in your user environment as `GWS_OPENAI_API_KEY`.
+- You can Remove the key at any time from the same dialog.
+- If no key is set, you will see `TTS unavailable: Configure key` and TTS actions are disabled.
+- Advanced: a legacy fallback reads `Secrets/openai-api-key.txt` (first line). You can also set `GAMEWATCHER_SECRETS_DIR` to point at a folder containing that file.
+
 ## References
 
 - Design: `docs/design/04-Studio-Tools-Design.md`
@@ -67,3 +75,9 @@ Follow this once to create your first pack and verify playback:
 4) Play It
 - Copy the built pack into the player’s `packs/` folder.
 - Open GameWatcher Studio (Player), Load the pack, and play the same scene.
+
+## Settings
+
+- Audio Format: choose `wav` or `mp3` for both speaker previews and generated dialogue.
+- TTS Settings: open from the top bar to add/remove your API key (stored as `GWS_OPENAI_API_KEY`).
+- Batch Previews: from Settings, click “Generate All OpenAI Voice Previews” to pre-seed engine-level previews.

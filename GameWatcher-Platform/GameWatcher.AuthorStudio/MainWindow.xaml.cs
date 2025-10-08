@@ -18,6 +18,7 @@ namespace GameWatcher.AuthorStudio
         private readonly PackLoader _loader = new();
         private readonly OpenAiTtsService _tts = new();
         private readonly AudioPlaybackService _audio = new();
+        private readonly AuthorSettingsService _settings = new();
 
         public MainWindow()
         {
@@ -32,6 +33,18 @@ namespace GameWatcher.AuthorStudio
             // Bind Speakers grid voice dropdown
             var voiceColumn = (System.Windows.Controls.DataGridComboBoxColumn)SpeakersGrid.Columns[2];
             voiceColumn.ItemsSource = OpenAiVoicesProvider.All;
+
+            UpdateTtsStatus();
+
+            // Initialize settings UI
+            if (_settings.Settings.AudioFormat.Equals("mp3", System.StringComparison.OrdinalIgnoreCase))
+            {
+                AudioFormatCombo.SelectedIndex = 1; // mp3
+            }
+            else
+            {
+                AudioFormatCombo.SelectedIndex = 0; // wav
+            }
         }
 
         private async void Start_Click(object sender, RoutedEventArgs e)
@@ -159,7 +172,7 @@ namespace GameWatcher.AuthorStudio
             if (ReviewGrid.SelectedItem is not PendingDialogueEntry entry) return;
             if (!_tts.IsConfigured)
             {
-                ExportStatus.Text = "OPENAI_API_KEY not set";
+                ExportStatus.Text = "TTS unavailable: No API key (click TTS Settings)";
                 ExportStatus.Foreground = System.Windows.Media.Brushes.Red;
                 return;
             }
@@ -180,14 +193,16 @@ namespace GameWatcher.AuthorStudio
                 if (!string.IsNullOrWhiteSpace(sp.Voice)) voice = sp.Voice;
             }
 
-            // Output path: OutputFolderBox/Audio/dialogue_<hash>.wav
+            var format = _settings.Settings.AudioFormat?.ToLowerInvariant() == "mp3" ? "mp3" : "wav";
+            var ext = "." + format;
+            // Output path: OutputFolderBox/Audio/dialogue_<hash>.<ext>
             var outputBase = string.IsNullOrWhiteSpace(OutputFolderBox.Text) ? Directory.GetCurrentDirectory() : OutputFolderBox.Text.Trim();
             var audioDir = Path.Combine(outputBase, "Audio");
             var id = $"dialogue_{Math.Abs(text.GetHashCode()):X8}";
-            var outPath = Path.Combine(audioDir, id + ".wav");
+            var outPath = Path.Combine(audioDir, id + ext);
             try
             {
-                var ok = await _tts.GenerateWavAsync(text, voice, outPath);
+                var ok = await _tts.GenerateAsync(text, voice, 1.0, format, outPath);
                 if (ok)
                 {
                     entry.AudioPath = outPath;
@@ -207,6 +222,107 @@ namespace GameWatcher.AuthorStudio
                 ExportStatus.Text = $"TTS error: {ex.Message}";
                 ExportStatus.Foreground = System.Windows.Media.Brushes.Red;
             }
+        }
+
+        private void PlayReviewItem_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not FrameworkElement fe) return;
+            if (fe.DataContext is not PendingDialogueEntry entry) return;
+            if (string.IsNullOrWhiteSpace(entry.AudioPath)) return;
+            _audio.Play(entry.AudioPath);
+        }
+
+        private async void PreviewSpeaker_Click(object sender, RoutedEventArgs e)
+        {
+            if (sender is not FrameworkElement fe) return;
+            if (fe.DataContext is not SpeakerProfile sp) return;
+
+            if (!_tts.IsConfigured)
+            {
+                ExportStatus.Text = "TTS unavailable: No API key (click TTS Settings)";
+                ExportStatus.Foreground = System.Windows.Media.Brushes.Red;
+                return;
+            }
+
+            var voice = string.IsNullOrWhiteSpace(sp.Voice) ? "alloy" : sp.Voice.Trim();
+            var speed = sp.Speed <= 0 ? 1.0 : sp.Speed;
+            var nameForLine = string.IsNullOrWhiteSpace(sp.Name) ? voice : sp.Name.Trim();
+            var sampleText = $"Hi! I'm {nameForLine}. Calm. Excited! Curious? Let's begin.";
+
+            var format = _settings.Settings.AudioFormat?.ToLowerInvariant() == "mp3" ? "mp3" : "wav";
+            var samplePath = GameWatcher.Engine.Audio.VoicePreviewStore.GetPreviewPath(voice, speed, format);
+
+            if (!File.Exists(samplePath))
+            {
+                try
+                {
+                    var ok = await _tts.GenerateAsync(sampleText, voice, speed, format, samplePath);
+                    if (!ok)
+                    {
+                        ExportStatus.Text = "Preview generation failed";
+                        ExportStatus.Foreground = System.Windows.Media.Brushes.Red;
+                        return;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    ExportStatus.Text = $"Preview error: {ex.Message}";
+                    ExportStatus.Foreground = System.Windows.Media.Brushes.Red;
+                    return;
+                }
+            }
+
+            _audio.Play(samplePath);
+        }
+
+        private void UpdateTtsStatus()
+        {
+            if (TtsStatus == null) return;
+            if (_tts.IsConfigured)
+            {
+                TtsStatus.Text = "TTS ready";
+                TtsStatus.Foreground = System.Windows.Media.Brushes.Green;
+            }
+            else
+            {
+                TtsStatus.Text = "TTS unavailable: Configure key";
+                TtsStatus.Foreground = System.Windows.Media.Brushes.Red;
+            }
+        }
+
+        private void SaveTtsKey_Click(object sender, RoutedEventArgs e)
+        {
+            var key = TtsKeyBox.Password?.Trim();
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                MessageBox.Show(this, "Please enter a valid API key.", "TTS", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+            Environment.SetEnvironmentVariable("GWS_OPENAI_API_KEY", key, EnvironmentVariableTarget.User);
+            _tts.ReloadApiKey();
+            UpdateTtsStatus();
+            MessageBox.Show(this, "API key saved.", "TTS", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private void RemoveTtsKey_Click(object sender, RoutedEventArgs e)
+        {
+            Environment.SetEnvironmentVariable("GWS_OPENAI_API_KEY", null, EnvironmentVariableTarget.User);
+            TtsKeyBox.Password = string.Empty;
+            _tts.ReloadApiKey();
+            UpdateTtsStatus();
+            MessageBox.Show(this, "API key removed.", "TTS", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private void AudioFormatCombo_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        {
+            try
+            {
+                var selected = (AudioFormatCombo.SelectedItem as System.Windows.Controls.ComboBoxItem)?.Content?.ToString()?.ToLowerInvariant();
+                if (selected != "mp3" && selected != "wav") selected = "wav";
+                _settings.Settings.AudioFormat = selected!;
+                _settings.Save();
+            }
+            catch { }
         }
 
         private async void OpenPack_Click(object sender, RoutedEventArgs e)
