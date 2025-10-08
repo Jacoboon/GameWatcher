@@ -6,14 +6,6 @@
         Height="720" Width="1200"
         WindowStartupLocation="CenterScreen"
         ui:WindowHelper.UseModernWindowStyle="True">
-    <Window.Resources>
-        <!-- Reuse ModernWpf combo box style inside DataGrid combos -->
-        <Style x:Key="DataGridComboBoxStyle" TargetType="ComboBox" BasedOn="{StaticResource ComboBoxStyle}">
-            <Setter Property="Foreground" Value="{DynamicResource SystemControlForegroundBaseHighBrush}"/>
-            <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundAltHighBrush}"/>
-        </Style>
-    </Window.Resources>
-
     <Grid Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>

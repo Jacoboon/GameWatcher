@@ -9,6 +9,7 @@
                 <ui:ThemeResources />
                 <ui:XamlControlsResources />
                 <ResourceDictionary Source="Themes/AuthorStudioTheme.xaml" />
+                <ResourceDictionary Source="Themes/AuthorComboBoxTheme.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Application.Resources>

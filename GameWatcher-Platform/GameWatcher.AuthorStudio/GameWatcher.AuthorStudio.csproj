@@ -17,4 +17,8 @@
     <!-- Match Studio visual style -->
     <PackageReference Include="ModernWpfUI" Version="0.9.6" />
   </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Themes\AuthorComboBoxTheme.xaml" />
+  </ItemGroup>
 </Project>
