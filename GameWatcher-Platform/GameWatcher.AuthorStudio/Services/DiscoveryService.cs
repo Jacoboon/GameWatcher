@@ -13,6 +13,7 @@ namespace GameWatcher.AuthorStudio.Services
     {
         private readonly ITextboxDetector _detector;
         private readonly IOcrEngine _ocr;
+        private readonly OcrFixesStore _fixes = new();
         private Timer? _timer;
         private bool _running;
         private string _lastText = string.Empty;
@@ -28,6 +29,11 @@ namespace GameWatcher.AuthorStudio.Services
         }
 
         public bool IsRunning => _running;
+
+        public async Task LoadOcrFixesAsync(string packFolder)
+        {
+            await _fixes.LoadFromFolderAsync(packFolder);
+        }
 
         public Task StartAsync()
         {
@@ -67,6 +73,10 @@ namespace GameWatcher.AuthorStudio.Services
                 }
 
                 var text = _ocr.ExtractTextFast(crop)?.Trim();
+                if (!string.IsNullOrWhiteSpace(text))
+                {
+                    text = _fixes.Apply(text);
+                }
                 if (string.IsNullOrWhiteSpace(text)) return;
                 var norm = TextNormalizer.Normalize(text);
                 if (string.Equals(norm, _lastNormalized, StringComparison.Ordinal)) return;

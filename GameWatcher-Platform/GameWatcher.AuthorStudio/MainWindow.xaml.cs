@@ -17,6 +17,7 @@ namespace GameWatcher.AuthorStudio
         private readonly PackExporter _exporter = new();
         private readonly PackLoader _loader = new();
         private readonly OpenAiTtsService _tts = new();
+        private readonly AudioPlaybackService _audio = new();
 
         public MainWindow()
         {
@@ -149,6 +150,7 @@ namespace GameWatcher.AuthorStudio
             {
                 entry.AudioPath = dlg.FileName;
                 ReviewGrid.Items.Refresh();
+                _audio.Play(entry.AudioPath);
             }
         }
 
@@ -192,6 +194,7 @@ namespace GameWatcher.AuthorStudio
                     ReviewGrid.Items.Refresh();
                     ExportStatus.Text = $"Generated TTS: {Path.GetFileName(outPath)}";
                     ExportStatus.Foreground = System.Windows.Media.Brushes.Green;
+                    _audio.Play(outPath);
                 }
                 else
                 {
@@ -235,6 +238,9 @@ namespace GameWatcher.AuthorStudio
                     {
                         _discovery.Discovered.Add(e2);
                     }
+
+                    // Load OCR fixes for discovery dedupe/preview
+                    await _discovery.LoadOcrFixesAsync(folder);
 
                     ExportStatus.Text = $"Loaded pack: {display}";
                     ExportStatus.Foreground = System.Windows.Media.Brushes.Green;

@@ -41,6 +41,11 @@ public class DialogueCatalogService
                 foreach (var e in file.Entries)
                 {
                     var key = (e.Normalized ?? e.Text).Trim().ToLowerInvariant();
+                    var audio = e.AudioPath;
+                    if (!string.IsNullOrWhiteSpace(audio) && !Path.IsPathRooted(audio))
+                    {
+                        audio = Path.Combine(dir, audio);
+                    }
                     _byNormalized[key] = new DialogueEntry
                     {
                         Id = e.Id,
@@ -49,8 +54,8 @@ public class DialogueCatalogService
                         RawOcrText = e.Text,
                         VoiceProfile = e.SpeakerId ?? "",
                         IsApproved = true,
-                        HasAudio = !string.IsNullOrWhiteSpace(e.AudioPath),
-                        AudioPath = e.AudioPath ?? string.Empty
+                        HasAudio = !string.IsNullOrWhiteSpace(audio),
+                        AudioPath = audio ?? string.Empty
                     };
                 }
             }
@@ -66,4 +71,3 @@ public class DialogueCatalogService
         return _byNormalized.TryGetValue(normalized, out entry!);
     }
 }
-
