@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using System;
+using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Windows;
@@ -11,12 +12,49 @@ namespace GameWatcher.Studio.Views;
 
 public partial class MainWindow : Window
 {
-    private System.Windows.Threading.DispatcherTimer? _smartGameCheckTimer;
+    private void InitializeSettingsViewModel()
+    {
+        try
+        {
+            // Get configuration from App services
+            var services = App.Services;
+            if (services != null)
+            {
+                var configuration = services.GetService<Microsoft.Extensions.Configuration.IConfiguration>();
+                var logger = services.GetService<Microsoft.Extensions.Logging.ILogger<SettingsViewModel>>();
+                
+                if (configuration != null && logger != null)
+                {
+                    _settingsViewModel = new SettingsViewModel(logger, configuration);
+                    _ = _settingsViewModel.InitializeAsync();
+                    
+                    // Set DataContext for Settings tab binding
+                    DataContext = this;
+                    
+                    AddActivityLogEntry("[SYSTEM] Settings ViewModel initialized successfully");
+                }
+                else
+                {
+                    AddActivityLogEntry("[WARNING] Configuration or Logger service not available for Settings");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            AddActivityLogEntry($"[ERROR] Failed to initialize Settings ViewModel: {ex.Message}");
+        }
+    }
+
+    private BackgroundWorker? _smartGameDetectionWorker;
     private bool _isMonitoring = false;
     private readonly List<string> _watchedExecutables = new();
     private GameCaptureService? _captureService;
     private bool _gameIsRunning = false;
     private ActivityMonitorViewModel? _activityMonitor;
+    private SettingsViewModel? _settingsViewModel;
+    private bool _windowHasFocus = true;
+    
+    public SettingsViewModel? SettingsViewModel => _settingsViewModel;
 
     public MainWindow()
     {
@@ -269,6 +307,9 @@ public partial class MainWindow : Window
             _activityMonitor.PropertyChanged += ActivityMonitor_PropertyChanged;
             
             AddActivityLogEntry("[SYSTEM] Activity Monitor initialized successfully");
+            
+            // Initialize Settings ViewModel
+            InitializeSettingsViewModel();
         }
         catch (Exception ex)
         {
@@ -352,52 +393,91 @@ public partial class MainWindow : Window
 
     private void SetupSmartGameDetection()
     {
-        // Smart focus-based polling - only checks when window has focus
-        _smartGameCheckTimer = new System.Windows.Threading.DispatcherTimer
+        // BackgroundWorker for game detection - runs on separate thread, won't be blocked by capture service
+        _smartGameDetectionWorker = new BackgroundWorker
         {
-            Interval = TimeSpan.FromSeconds(5) // Check every 5 seconds when focused
+            WorkerSupportsCancellation = true
         };
         
-        _smartGameCheckTimer.Tick += SmartGameCheck_Tick;
+        _smartGameDetectionWorker.DoWork += SmartGameDetection_DoWork;
+        _smartGameDetectionWorker.RunWorkerCompleted += SmartGameDetection_Completed;
         
-        // Start if window is already focused
-        if (IsActive)
+        // Start the background polling
+        _windowHasFocus = IsActive;
+        if (!_smartGameDetectionWorker.IsBusy)
         {
-            _smartGameCheckTimer.Start();
-            AddActivityLogEntry("[INFO] Smart polling active - window focused");
+            _smartGameDetectionWorker.RunWorkerAsync();
+            AddActivityLogEntry("[INFO] Smart polling active - background thread started");
+        }
+    }
+
+    private void SmartGameDetection_DoWork(object? sender, DoWorkEventArgs e)
+    {
+        var worker = sender as BackgroundWorker;
+        
+        while (!worker.CancellationPending)
+        {
+            try
+            {
+                // Check for games on background thread
+                CheckForGameExecutables();
+                
+                // Sleep based on focus state - 5s when focused, 30s when unfocused  
+                var sleepTime = _windowHasFocus ? 5000 : 30000;
+                
+                // Sleep in small chunks so we can respond to cancellation quickly
+                for (int i = 0; i < sleepTime / 1000; i++)
+                {
+                    if (worker.CancellationPending)
+                    {
+                        e.Cancel = true;
+                        return;
+                    }
+                    System.Threading.Thread.Sleep(1000);
+                }
+            }
+            catch (Exception ex)
+            {
+                // Handle errors without crashing the background thread
+                Dispatcher.BeginInvoke(() => 
+                    AddActivityLogEntry($"[ERROR] Smart polling error: {ex.Message}"));
+                
+                // Wait a bit before retrying
+                System.Threading.Thread.Sleep(5000);
+            }
+        }
+        
+        e.Cancel = true;
+    }
+
+    private void SmartGameDetection_Completed(object? sender, RunWorkerCompletedEventArgs e)
+    {
+        // Restart the worker if it wasn't cancelled (e.g., if it completed due to error)
+        if (!e.Cancelled && _smartGameDetectionWorker != null)
+        {
+            AddActivityLogEntry("[INFO] Smart polling restarting background thread");
+            if (!_smartGameDetectionWorker.IsBusy)
+            {
+                _smartGameDetectionWorker.RunWorkerAsync();
+            }
         }
     }
 
     private void MainWindow_Activated(object? sender, EventArgs e)
     {
-        // Window gained focus - start smart polling
-        if (_smartGameCheckTimer != null && !_smartGameCheckTimer.IsEnabled)
-        {
-            _smartGameCheckTimer.Start();
-            AddActivityLogEntry("[INFO] Smart polling resumed - window focused");
-            
-            // Immediate check when gaining focus
-            CheckForGameExecutables();
-        }
+        // Window gained focus - enable more frequent polling
+        _windowHasFocus = true;
+        AddActivityLogEntry("[INFO] Smart polling switched to focused mode - window focused");
     }
 
     private void MainWindow_Deactivated(object? sender, EventArgs e)
     {
-        // Window lost focus - stop polling to save resources
-        if (_smartGameCheckTimer != null && _smartGameCheckTimer.IsEnabled)
-        {
-            _smartGameCheckTimer.Stop();
-            AddActivityLogEntry("[INFO] Smart polling paused - window unfocused");
-        }
+        // Window lost focus - switch to slower polling to save resources
+        _windowHasFocus = false;
+        AddActivityLogEntry("[INFO] Smart polling switched to unfocused mode - window unfocused");
     }
 
-    private void SmartGameCheck_Tick(object? sender, EventArgs e)
-    {
-        if (!_isMonitoring && IsActive) // Only auto-check when focused and not actively monitoring
-        {
-            CheckForGameExecutables();
-        }
-    }
+
 
     private void CheckForGameExecutables()
     {
@@ -509,8 +589,13 @@ public partial class MainWindow : Window
     {
         try
         {
-            _smartGameCheckTimer?.Stop();
-            _smartGameCheckTimer = null;
+            // Cancel the background worker
+            if (_smartGameDetectionWorker != null)
+            {
+                _smartGameDetectionWorker.CancelAsync();
+                _smartGameDetectionWorker.Dispose();
+                _smartGameDetectionWorker = null;
+            }
             
             // Cleanup capture service
             if (_captureService != null)

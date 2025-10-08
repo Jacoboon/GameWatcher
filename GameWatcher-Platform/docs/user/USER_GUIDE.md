@@ -1,6 +1,8 @@
-# GameWatcher Studio User Guide
+# GameWatcher Studio User Guide (Player)
 
-Welcome to **GameWatcher Studio** - the universal GUI for the GameWatcher V2 Platform! This guide will help you get started with managing game packs, monitoring performance, and configuring your voiceover experience.
+Welcome to **GameWatcher Studio** — the player app for the GameWatcher V2 Platform. This guide helps you manage packs, monitor activity, and configure playback.
+
+If you want to create voice packs, see the **Author Studio Guide**: `AUTHOR_STUDIO_USER_GUIDE.md`.
 
 ## 🚀 Getting Started
 

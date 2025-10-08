@@ -1,15 +1,15 @@
-# GameWatcher Studio - Pack Creation Tools
+# GameWatcher Author Studio - Pack Creation Tools
 
 ## Overview
 
-GameWatcher Studio empowers developers and community members to create high-quality game packs with minimal technical expertise. It provides **guided workflows**, **automated testing**, and **performance optimization** tools.
+GameWatcher Author Studio empowers developers and community members to create high-quality game packs with minimal technical expertise. It provides **guided workflows**, **automated testing**, and **performance optimization** tools.
 
 ## Studio Architecture
 
 ### Core Studio Components
 
 ```
-GameWatcher.Studio/
+GameWatcher.AuthorStudio/
 ├── 🎮 Pack Wizard           # Guided pack creation
 ├── 🔍 Detection Lab         # Visual detection testing
 ├── 🎭 Voice Studio          # Speaker mapping & TTS
@@ -38,7 +38,7 @@ foreach (var game in detectedGames)
 
 #### Pack Initialization Wizard
 ```bash
-GameWatcher.Studio.exe --new-pack
+GameWatcher.AuthorStudio.exe --new-pack
 
 🎮 New Pack Wizard
 ==================
@@ -300,7 +300,7 @@ public class PackTestSuite
 
 #### One-Click Publishing
 ```bash
-GameWatcher.Studio.exe --build --publish FF7.Original
+GameWatcher.AuthorStudio.exe --build --publish FF7.Original
 
 🔨 Building Pack...
 ├─ Compiling detection strategies... ✅
@@ -437,4 +437,4 @@ public class CustomOcrPlugin : IStudioPlugin
 
 ---
 
-*GameWatcher Studio transforms pack creation from a technical challenge into a guided, optimized workflow accessible to developers and community members alike.*
+*GameWatcher Author Studio transforms pack creation from a technical challenge into a guided, optimized workflow accessible to developers and community members alike.*

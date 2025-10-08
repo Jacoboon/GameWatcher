@@ -29,12 +29,12 @@ Currently supported via game packs:
 1. Download `GameWatcher-V2-Setup.exe` from releases
 2. Run the installer as Administrator
 3. Follow the installation wizard
-4. Launch GameWatcher Studio from Start Menu or Desktop
+4. Launch GameWatcher Studio (Player) or GameWatcher Author Studio (Creator) from Start Menu or Desktop
 
 ### Method 2: Portable Distribution
 1. Download `GameWatcher-V2-Portable.zip` 
 2. Extract to your desired installation directory
-3. Run `GameWatcher.Studio.exe` to start
+3. Run `GameWatcher.Studio.exe` (player) or `GameWatcher.AuthorStudio.exe` (creator)
 
 ### Method 3: Build from Source
 ```bash
@@ -45,16 +45,21 @@ cd GameWatcher/GameWatcher-Platform
 # Build the solution
 dotnet build GameWatcher-Platform.sln --configuration Release
 
-# Run the application
+# Run the player
 cd GameWatcher.Studio/bin/Release/net8.0-windows
 ./GameWatcher.Studio.exe
+
+# (Optional) Run the authoring tools
+cd ../../..
+cd GameWatcher.AuthorStudio/bin/Release/net8.0-windows
+./GameWatcher.AuthorStudio.exe
 ```
 
 ## 🔧 Initial Configuration
 
 ### First Launch Setup
 
-1. **Launch GameWatcher Studio**
+1. **Launch GameWatcher Studio (Player)**
    - The application will create necessary directories
    - Default configuration files will be generated
    - Available game packs will be scanned automatically
@@ -68,7 +73,8 @@ cd GameWatcher.Studio/bin/Release/net8.0-windows
 After installation, your GameWatcher directory will contain:
 ```
 GameWatcher/
-├── GameWatcher.Studio.exe          # Main application
+├── GameWatcher.Studio.exe          # Player application
+├── GameWatcher.AuthorStudio.exe    # Authoring application
 ├── GameWatcher.Engine.dll          # Core engine
 ├── GameWatcher.Runtime.dll         # Runtime services
 ├── appsettings.json                # Main configuration
@@ -110,7 +116,7 @@ GameWatcher/
 ```
 
 ### Pack Directory Configuration
-GameWatcher scans these locations for game packs:
+GameWatcher Studio scans these locations for game packs:
 - `./packs/` - Local packs directory
 - User-specified directories in configuration
 - Registry-defined pack locations (if using installer)

@@ -140,3 +140,58 @@ To add a new agent:
 
 ---
 
+## Repo-Specific Agent Guidance (V2 Naming, 2025-10)
+
+These instructions apply to the entire repository. Prefer these when working in this repo; user/developer prompts still take precedence.
+
+- Project naming (final):
+  - `GameWatcher.Studio` = Player GUI (end users)
+  - `GameWatcher.AuthorStudio` = Creator tools (pack authors)
+  - `GameWatcher.Runtime` = Headless orchestrator
+  - `GameWatcher.Engine` = Core services
+
+- Docs consistency:
+  - Keep “Studio” = player; “Author Studio” = creator. Avoid legacy “rename current Studio” guidance.
+  - Prefer ASCII arrows in docs when Unicode causes patching issues.
+
+- Code editing:
+  - Use `apply_patch` with small, focused diffs and preserve surrounding style.
+  - Don’t commit or change branches unless the user asks. Instead, propose the git plan and commands.
+
+- Build/run hints:
+  - Studio (player): `dotnet build GameWatcher-Platform/GameWatcher.Studio`
+  - Author Studio (creator): `dotnet build GameWatcher-Platform/GameWatcher.AuthorStudio`
+  - Runtime host: `dotnet run --project GameWatcher-Platform/GameWatcher.Runtime`
+
+- Git management (when requested):
+  - Branch naming: `feat/<area>-<short-topic>` or `docs/<topic>` or `fix/<area>-<issue>`
+  - Commit messages: Conventional style: `docs: align studio naming in design docs`
+  - Recommended flow:
+    1. `git checkout -b docs/studio-author-naming`
+    2. Apply patches
+    3. `git add -A && git commit -m "docs: align Studio vs Author Studio naming"`
+    4. `git push -u origin docs/studio-author-naming`
+  - Always summarize changes and link to touched paths in the MR/PR.
+
+## V1 (SimpleLoop) as Reference — Porting Guidance
+
+V2 is being built fresh. If needed, treat `Archive/SimpleLoop/` as the stable, optimized reference for specific algorithms and behaviors — but cherry‑pick sparingly.
+
+- What to consult in V1
+  - Core loop patterns and performance hints in `SimpleLoop/CaptureService.cs`
+  - Textbox detection strategy in `SimpleLoop/DynamicTextboxDetector.cs`
+  - OCR preprocessing ideas in `SimpleLoop/EnhancedOCR.cs`
+  - Dialogue catalog structure in `SimpleLoop/DialogueCatalog.cs` and `DialogueEntry`
+
+- What to avoid
+  - Legacy GUI (`SimpleLoop.Gui`) and debug scaffolding/log path hacks
+  - Ad‑hoc config or hardcoded paths; use V2 DI + options instead
+
+- Porting rules
+  - Prefer re‑implementing logic behind V2 interfaces (Engine/Runtime) over copying whole classes.
+  - Preserve proven micro‑optimizations; update naming and null/async patterns to V2 style.
+  - Write small shims only if unavoidable; plan to remove them once native V2 services cover the need.
+
+- Sanity checks when porting
+  - Compile touched projects and run a quick smoke path that exercises the change.
+  - Confirm logs/metrics are consistent with V2 expectations (not V1’s console prints).

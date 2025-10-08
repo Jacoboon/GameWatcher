@@ -65,7 +65,7 @@ SimpleLoop/
 GameWatcher.Engine/      ← Core services
 GameWatcher.Runtime/     ← Universal player  
 GameWatcher.Packs/       ← Game-specific logic
-└── GameWatcher.Studio/  ← Pack creation tools
+└── GameWatcher.AuthorStudio/  ← Pack creation tools
 ```
 
 ## Component Architecture
@@ -110,10 +110,10 @@ namespace GameWatcher.Runtime
 }
 ```
 
-### 🛠️ **GameWatcher.Studio**
+### 🛠️ GameWatcher Author Studio
 **Purpose**: Pack creation and testing tools
 ```csharp
-namespace GameWatcher.Studio
+namespace GameWatcher.AuthorStudio
 {
     class PackBuilder        // Creates new game packs
     class DetectionTester    // Tests textbox detection  

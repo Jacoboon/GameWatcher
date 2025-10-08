@@ -34,7 +34,7 @@ graph TD
     A -->|Convert| C[FF1.GamePack]
     B --> D[GameWatcher.Runtime]
     C --> D
-    D --> E[GameWatcher.Studio]
+    D --> E[GameWatcher Studio]
     
     F[SimpleLoop.Gui] -->|Replace| G[Universal GUI]
     G --> D

@@ -171,7 +171,7 @@ Based on our V1 learnings, here's how FF1 translates to the pack system:
 ### 1. **Discovery Phase**
 ```bash
 # Studio scans for new games
-GameWatcher.Studio.exe --scan
+GameWatcher.AuthorStudio.exe --scan
 > Found: "FINAL FANTASY VII.exe"
 > Suggested pack name: FF7.Original
 > Window title: "Final Fantasy VII"
@@ -180,7 +180,7 @@ GameWatcher.Studio.exe --scan
 ### 2. **Detection Development**
 ```bash
 # Studio provides detection tools
-GameWatcher.Studio.exe --detect FF7.Original
+GameWatcher.AuthorStudio.exe --detect FF7.Original
 > Opening detection wizard...
 > Capturing game screenshots...
 > Analyzing textbox patterns...
@@ -190,7 +190,7 @@ GameWatcher.Studio.exe --detect FF7.Original
 ### 3. **Voice Mapping**
 ```bash
 # Studio helps map characters to voices
-GameWatcher.Studio.exe --voices FF7.Original
+GameWatcher.AuthorStudio.exe --voices FF7.Original
 > Detected speakers: Cloud, Tifa, Barret, Aerith...
 > Suggested voices based on character analysis
 > Bulk TTS generation for common phrases
@@ -199,7 +199,7 @@ GameWatcher.Studio.exe --voices FF7.Original
 ### 4. **Testing & Validation** 
 ```bash
 # Studio provides testing harness
-GameWatcher.Studio.exe --test FF7.Original
+GameWatcher.AuthorStudio.exe --test FF7.Original
 > Running detection tests... ✅ 94.2% accuracy
 > Testing voice mapping... ✅ All speakers matched
 > Performance benchmark... ✅ 3.1ms average
@@ -209,7 +209,7 @@ GameWatcher.Studio.exe --test FF7.Original
 ### 5. **Distribution**
 ```bash
 # One-click publishing
-GameWatcher.Studio.exe --publish FF7.Original
+GameWatcher.AuthorStudio.exe --publish FF7.Original
 > Building pack... ✅
 > Uploading to community... ✅
 > Pack published: FF7.Original v1.0.0

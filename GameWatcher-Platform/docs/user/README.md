@@ -6,7 +6,8 @@ Welcome to the comprehensive documentation for GameWatcher V2 Platform - a compl
 
 ### 🚀 Getting Started
 - **[Installation Guide](INSTALLATION_GUIDE.md)** - Complete setup instructions for Windows systems
-- **[User Guide](USER_GUIDE.md)** - Operating GameWatcher Studio and managing game packs
+- **[User Guide (Player)](USER_GUIDE.md)** - Operating GameWatcher Studio and managing packs
+- **[Author Studio Guide (Creator)](AUTHOR_STUDIO_USER_GUIDE.md)** - Creating and packaging voice packs
 - **[Quick Start](#quick-start)** - 5-minute setup for new users
 
 ### 🎮 For Users
@@ -58,9 +59,10 @@ unzip GameWatcher-V2-Portable.zip
 ```
 
 ### 2. First Launch (1 minute)
-1. Run `GameWatcher.Studio.exe`
+1. Run `GameWatcher.Studio.exe` (Player)
 2. Verify FF1 pack appears in Pack Manager
 3. Click **Load Pack** to activate
+4. Creators: see [Author Studio Guide](AUTHOR_STUDIO_USER_GUIDE.md) to build your own pack
 
 ### 3. Game Integration (2 minutes)
 1. Launch Final Fantasy I Pixel Remaster

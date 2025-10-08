@@ -84,11 +84,11 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
         CaptureSettings.Add(new SettingItemViewModel
         {
             Name = "Capture Rate",
-            Description = "Frame capture rate in FPS",
+            Description = "Frame capture rate in FPS (higher = more responsive, lower = better performance)",
             Type = SettingType.Integer,
             Value = _configuration.GetValue<int>("Capture:TargetFps", 10),
             MinValue = 1,
-            MaxValue = 60
+            MaxValue = 20
         });
 
         CaptureSettings.Add(new SettingItemViewModel
@@ -163,6 +163,59 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
             Description = "Use crossfading between audio clips",
             Type = SettingType.Boolean,
             Value = _configuration.GetValue<bool>("Audio:EnableCrossfade", true)
+        });
+
+        // Add V2 Platform specific settings
+        CaptureSettings.Add(new SettingItemViewModel
+        {
+            Name = "Enable Frame Skipping",
+            Description = "Skip duplicate frames for better performance (V1 optimization)",
+            Type = SettingType.Boolean,
+            Value = _configuration.GetValue<bool>("Capture:EnableFrameSkipping", true)
+        });
+
+        CaptureSettings.Add(new SettingItemViewModel
+        {
+            Name = "Enable Duplicate Detection",
+            Description = "Detect and skip duplicate frames (V1 isBusy logic)",
+            Type = SettingType.Boolean,
+            Value = _configuration.GetValue<bool>("Capture:EnableDuplicateDetection", true)
+        });
+
+        OcrSettings.Add(new SettingItemViewModel
+        {
+            Name = "Scale Factor",
+            Description = "Image scaling for OCR preprocessing (1.0-4.0)",
+            Type = SettingType.Double,
+            Value = _configuration.GetValue<double>("OCR:ScaleFactor", 2.0),
+            MinValue = 1.0,
+            MaxValue = 4.0
+        });
+
+        OcrSettings.Add(new SettingItemViewModel
+        {
+            Name = "Convert to Grayscale",
+            Description = "Convert images to grayscale before OCR",
+            Type = SettingType.Boolean,
+            Value = _configuration.GetValue<bool>("OCR:ConvertToGrayscale", true)
+        });
+
+        AudioSettings.Add(new SettingItemViewModel
+        {
+            Name = "Default Audio Speed",
+            Description = "Default playback speed for TTS audio (0.5-2.0x)",
+            Type = SettingType.Double,
+            Value = _configuration.GetValue<double>("Audio:DefaultSpeed", 1.0),
+            MinValue = 0.5,
+            MaxValue = 2.0
+        });
+
+        AudioSettings.Add(new SettingItemViewModel
+        {
+            Name = "Enable Audio Caching",
+            Description = "Cache generated TTS audio for faster playback",
+            Type = SettingType.Boolean,
+            Value = _configuration.GetValue<bool>("Audio:EnableAudioCaching", true)
         });
 
         // Subscribe to value changes
@@ -255,6 +308,13 @@ public partial class SettingItemViewModel : ObservableObject
     {
         ValueChanged?.Invoke(this, EventArgs.Empty);
     }
+
+    // Computed properties for UI visibility binding
+    public bool IsBooleanType => Type == SettingType.Boolean;
+    public bool IsIntegerType => Type == SettingType.Integer;
+    public bool IsDoubleType => Type == SettingType.Double;
+    public bool IsStringType => Type == SettingType.String;
+    public bool IsStringListType => Type == SettingType.StringList;
 }
 
 public enum SettingType
