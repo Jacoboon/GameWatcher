@@ -46,6 +46,8 @@ public class ProcessingPipeline : IProcessingPipeline, IDisposable
     private readonly IOcrEngine _ocrEngine;
     private readonly IPackManager _packManager;
     private readonly IGameDetectionService _gameDetection;
+    private readonly GameWatcher.Runtime.Services.Dialogue.DialogueCatalogService _catalog;
+    private readonly GameWatcher.Runtime.Services.OCR.OcrPostprocessor _ocrPost;
 
     private CancellationTokenSource? _cancellationTokenSource;
     private Task? _processingTask;
@@ -67,13 +69,17 @@ public class ProcessingPipeline : IProcessingPipeline, IDisposable
         ICaptureService captureService,
         IOcrEngine ocrEngine,
         IPackManager packManager,
-        IGameDetectionService gameDetection)
+        IGameDetectionService gameDetection,
+        GameWatcher.Runtime.Services.Dialogue.DialogueCatalogService catalog,
+        GameWatcher.Runtime.Services.OCR.OcrPostprocessor ocrPost)
     {
         _logger = logger;
         _captureService = captureService;
         _ocrEngine = ocrEngine;
         _packManager = packManager;
         _gameDetection = gameDetection;
+        _catalog = catalog;
+        _ocrPost = ocrPost;
     }
 
     public bool IsRunning => _isRunning;
@@ -349,6 +355,8 @@ public class ProcessingPipeline : IProcessingPipeline, IDisposable
             // Extract text from detected textbox area
             using var textboxImage = CropImageToTextbox(screenshot, detection.TextboxRect.Value);
             var rawText = await _ocrEngine.ExtractTextAsync(textboxImage);
+            // Apply author-curated OCR postprocess fixes
+            rawText = _ocrPost.Apply(rawText);
             
             if (string.IsNullOrWhiteSpace(rawText))
             {
@@ -372,9 +380,30 @@ public class ProcessingPipeline : IProcessingPipeline, IDisposable
             _lastTextByPack[packId] = normalizedText;
             _lastDetectionByPack[packId] = DateTime.UtcNow;
 
-            // Match speaker using pack's speaker collection
+            // Lookup dialogue in catalog for stable ID/speaker mapping
+            if (_catalog.TryLookup(normalizedText.ToLowerInvariant(), out var catalogEntry))
+            {
+                // Override normalized text to the catalog version's text if needed
+                if (!string.IsNullOrWhiteSpace(catalogEntry.Text))
+                {
+                    normalizedText = NormalizeText(catalogEntry.Text);
+                }
+            }
+
+            // Match speaker using pack's speaker collection (catalog speakerId takes precedence)
             var speakers = pack.GetSpeakers();
             var matchedSpeaker = speakers.MatchSpeaker(normalizedText);
+            if (_catalog.TryLookup(normalizedText.ToLowerInvariant(), out var entry2))
+            {
+                if (!string.IsNullOrWhiteSpace(entry2.VoiceProfile))
+                {
+                    // Attempt to prefer catalog-defined speaker by name/id
+                    var preferred = speakers.GetAllSpeakers().FirstOrDefault(s =>
+                        string.Equals(s.Id, entry2.VoiceProfile, StringComparison.OrdinalIgnoreCase) ||
+                        string.Equals(s.Name, entry2.VoiceProfile, StringComparison.OrdinalIgnoreCase));
+                    if (preferred != null) matchedSpeaker = preferred;
+                }
+            }
 
             var totalProcessingTime = DateTime.UtcNow - processingStart;
 

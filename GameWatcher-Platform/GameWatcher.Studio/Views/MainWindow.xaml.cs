@@ -171,8 +171,13 @@ public partial class MainWindow : Window
         UpdatePackStatus("No pack loaded");
     }
 
-    private void Start_Click(object sender, RoutedEventArgs e)
+private void Start_Click(object sender, RoutedEventArgs e)
     {
+        if (_isMonitoring) // already running
+        {
+            AddActivityLogEntry("[INFO] Monitoring already active");
+            return;
+        }
         // First check for game
         CheckForGame();
         
@@ -196,8 +201,13 @@ public partial class MainWindow : Window
         }
     }
 
-    private void Stop_Click(object sender, RoutedEventArgs e)
+private void Stop_Click(object sender, RoutedEventArgs e)
     {
+        if (!_isMonitoring)
+        {
+            AddActivityLogEntry("[INFO] Monitoring already stopped");
+            return;
+        }
         _isMonitoring = false;
         MonitoringStatusText.Text = "Stopped";
         AddActivityLogEntry("[INFO] Monitoring stopped");

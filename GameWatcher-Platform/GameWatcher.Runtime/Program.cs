@@ -57,6 +57,8 @@ public class Program
                 // V2 Runtime Services
                 services.AddSingleton<IPackManager, PackManager>();
                 services.AddSingleton<IGameDetectionService, GameDetectionService>();
+                services.AddSingleton<GameWatcher.Runtime.Services.Dialogue.DialogueCatalogService>();
+                services.AddSingleton<GameWatcher.Runtime.Services.OCR.OcrPostprocessor>();
                 services.AddSingleton<IProcessingPipeline, ProcessingPipeline>();
                 
                 // Runtime Orchestrator (replaces old GameWatcherService)
@@ -75,19 +77,25 @@ public class GameWatcherRuntimeService : BackgroundService
     private readonly IGameDetectionService _gameDetection;
     private readonly IProcessingPipeline _pipeline;
     private readonly RuntimeConfig _config;
+    private readonly GameWatcher.Runtime.Services.Dialogue.DialogueCatalogService _catalog;
+    private readonly GameWatcher.Runtime.Services.OCR.OcrPostprocessor _ocrPost;
 
     public GameWatcherRuntimeService(
         ILogger<GameWatcherRuntimeService> logger,
         IPackManager packManager,
         IGameDetectionService gameDetection,
         IProcessingPipeline pipeline,
-        Microsoft.Extensions.Options.IOptions<RuntimeConfig> config)
+        Microsoft.Extensions.Options.IOptions<RuntimeConfig> config,
+        GameWatcher.Runtime.Services.Dialogue.DialogueCatalogService catalog,
+        GameWatcher.Runtime.Services.OCR.OcrPostprocessor ocrPost)
     {
         _logger = logger;
         _packManager = packManager;
         _gameDetection = gameDetection;
         _pipeline = pipeline;
         _config = config.Value;
+        _catalog = catalog;
+        _ocrPost = ocrPost;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -137,6 +145,10 @@ public class GameWatcherRuntimeService : BackgroundService
             string.Join(", ", packDirectories));
 
         var discoveredPacks = await _packManager.DiscoverPacksAsync(packDirectories);
+
+        // Load catalogs and OCR fixes from pack directories (supports folder-based packs)
+        await _catalog.LoadFromDirectoriesAsync(packDirectories);
+        await _ocrPost.LoadFromDirectoriesAsync(packDirectories);
 
         _logger.LogInformation("✅ Discovered {PackCount} game packs:", discoveredPacks.Count);
         
