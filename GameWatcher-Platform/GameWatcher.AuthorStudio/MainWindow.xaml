@@ -31,38 +31,37 @@
         </Border>
 
         <TabControl Grid.Row="1" Margin="12" Style="{DynamicResource DefaultTabControlStyle}">
-            <TabItem Header="Discovery">
-                <Grid Margin="8">
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                    </Grid.RowDefinitions>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
-                        <Button Content="Start" Width="90" Margin="0,0,8,0" Click="Start_Click"/>
-                        <Button Content="Pause" Width="90" Margin="0,0,8,0" Click="Pause_Click"/>
-                        <Button Content="Stop" Width="90" Click="Stop_Click"/>
-                    </StackPanel>
-                    <DataGrid Grid.Row="1" x:Name="DiscoveredGrid" AutoGenerateColumns="False" IsReadOnly="True">
-                        <DataGrid.Columns>
-                            <DataGridTextColumn Header="Timestamp" Binding="{Binding Timestamp}" Width="180"/>
-                            <DataGridTextColumn Header="Text" Binding="{Binding Text}" Width="*"/>
-                            <DataGridCheckBoxColumn Header="Approved" Binding="{Binding Approved}" Width="100"/>
-                        </DataGrid.Columns>
-                    </DataGrid>
-                </Grid>
-            </TabItem>
             <TabItem Header="Review">
                 <Grid Margin="8">
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="Auto"/>
-                        <RowDefinition Height="*"/>
-                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>   <!-- Discovery controls + status -->
+                        <RowDefinition Height="Auto"/>   <!-- Session load/save -->
+                        <RowDefinition Height="*"/>     <!-- Review grid -->
+                        <RowDefinition Height="Auto"/>   <!-- Attach/Generate bar -->
+                        <RowDefinition Height="120"/>    <!-- Activity log -->
                     </Grid.RowDefinitions>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                    <!-- Discovery controls + status -->
+                    <Grid Grid.Row="0" Margin="0,0,0,8">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Orientation="Horizontal" Grid.Column="0">
+                            <Button Content="Start" Width="90" Margin="0,0,8,0" Click="Start_Click"/>
+                            <Button Content="Pause" Width="90" Margin="0,0,8,0" Click="Pause_Click"/>
+                            <Button Content="Stop" Width="90" Click="Stop_Click"/>
+                        </StackPanel>
+                        <TextBlock Grid.Column="2" x:Name="DiscoveryStatus" Text="Stopped" VerticalAlignment="Center" Foreground="Silver"/>
+                    </Grid>
+
+                    <!-- Session controls -->
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,8">
                         <Button Content="Load Session" Margin="0,0,8,0" Click="LoadSession_Click"/>
                         <Button Content="Save Session" Click="SaveSession_Click"/>
                     </StackPanel>
-                    <DataGrid Grid.Row="1" x:Name="ReviewGrid" AutoGenerateColumns="False" CanUserAddRows="False">
+
+                    <DataGrid Grid.Row="2" x:Name="ReviewGrid" AutoGenerateColumns="False" CanUserAddRows="False">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Timestamp" Binding="{Binding Timestamp}" Width="180" IsReadOnly="True"/>
                             <DataGridTextColumn Header="Text" Binding="{Binding Text, Mode=TwoWay}" Width="*"/>
@@ -81,11 +80,16 @@
                             <DataGridCheckBoxColumn Header="Approved" Binding="{Binding Approved, Mode=TwoWay}" Width="100"/>
                         </DataGrid.Columns>
                     </DataGrid>
-                    <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
+                    <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,8,0,0">
                         <Button Content="Attach Audio..." Margin="0,0,8,0" Click="AttachAudio_Click"/>
                         <Button Content="Generate TTS" Click="GenerateTts_Click"/>
                     </StackPanel>
-                    <TextBlock Grid.Row="2" Text="Tip: Edit text, assign speakers, and mark Approved before exporting." Foreground="Gray" Margin="180,12,0,0"/>
+                    <TextBlock Grid.Row="3" Text="Tip: Edit text, assign speakers, and mark Approved before exporting." Foreground="Gray" Margin="160,12,0,0"/>
+
+                    <!-- Activity log -->
+                    <Border Grid.Row="4" Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}" BorderBrush="{DynamicResource SystemControlBackgroundBaseLowBrush}" BorderThickness="1" Padding="8" Margin="0,8,0,0">
+                        <ListBox x:Name="DiscoveryLogList" />
+                    </Border>
                 </Grid>
             </TabItem>
             <TabItem Header="Speakers">

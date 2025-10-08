@@ -21,6 +21,7 @@ namespace GameWatcher.AuthorStudio.Services
         private readonly System.Collections.Generic.HashSet<string> _seen = new();
 
         public ObservableCollection<PendingDialogueEntry> Discovered { get; } = new();
+        public ObservableCollection<string> LogLines { get; } = new();
 
         public DiscoveryService()
         {
@@ -40,6 +41,7 @@ namespace GameWatcher.AuthorStudio.Services
             if (_running) return Task.CompletedTask;
             _running = true;
             _timer = new Timer(CaptureTick, null, 0, 150); // ~6-7 FPS for MVP
+            Log("Discovery started");
             return Task.CompletedTask;
         }
 
@@ -48,6 +50,7 @@ namespace GameWatcher.AuthorStudio.Services
             if (!_running) return Task.CompletedTask;
             _timer?.Change(Timeout.Infinite, Timeout.Infinite);
             _running = false;
+            Log("Discovery paused");
             return Task.CompletedTask;
         }
 
@@ -55,6 +58,7 @@ namespace GameWatcher.AuthorStudio.Services
         {
             _ = PauseAsync();
             ClearTransientState();
+            Log("Discovery stopped");
             return Task.CompletedTask;
         }
 
@@ -93,6 +97,7 @@ namespace GameWatcher.AuthorStudio.Services
                         Timestamp = DateTime.UtcNow,
                         Approved = false
                     });
+                    Log($"Found: {Truncate(text, 80)}");
                 });
             }
             catch
@@ -110,6 +115,22 @@ namespace GameWatcher.AuthorStudio.Services
         public void Dispose()
         {
             _timer?.Dispose();
+        }
+
+        private void Log(string message)
+        {
+            try
+            {
+                var line = $"[{DateTime.Now:HH:mm:ss}] {message}";
+                App.Current?.Dispatcher.Invoke(() => LogLines.Add(line));
+            }
+            catch { }
+        }
+
+        private static string Truncate(string s, int max)
+        {
+            if (string.IsNullOrEmpty(s)) return s;
+            return s.Length <= max ? s : s.Substring(0, max - 1) + "…";
         }
     }
 }

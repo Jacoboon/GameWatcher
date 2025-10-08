@@ -23,7 +23,6 @@ namespace GameWatcher.AuthorStudio
         public MainWindow()
         {
             InitializeComponent();
-            DiscoveredGrid.ItemsSource = _discovery.Discovered;
             SpeakersGrid.ItemsSource = _speakerStore.Speakers;
             // Bind Review grid and its speaker column source
             ReviewGrid.ItemsSource = _discovery.Discovered;
@@ -45,21 +44,47 @@ namespace GameWatcher.AuthorStudio
             {
                 AudioFormatCombo.SelectedIndex = 0; // wav
             }
+
+            // Bind discovery log
+            if (System.Windows.LogicalTreeHelper.FindLogicalNode(this, "DiscoveryLogList") is System.Windows.Controls.ListBox log)
+            {
+                log.ItemsSource = _discovery.LogLines;
+            }
+            if (System.Windows.LogicalTreeHelper.FindLogicalNode(this, "DiscoveryStatus") is System.Windows.Controls.TextBlock status)
+            {
+                status.Text = _discovery.IsRunning ? "Running" : "Stopped";
+                status.Foreground = _discovery.IsRunning ? System.Windows.Media.Brushes.Lime : System.Windows.Media.Brushes.Silver;
+            }
         }
 
         private async void Start_Click(object sender, RoutedEventArgs e)
         {
             await _discovery.StartAsync();
+            if (DiscoveryStatus != null)
+            {
+                DiscoveryStatus.Text = "Running";
+                DiscoveryStatus.Foreground = System.Windows.Media.Brushes.Lime;
+            }
         }
 
         private async void Pause_Click(object sender, RoutedEventArgs e)
         {
             await _discovery.PauseAsync();
+            if (DiscoveryStatus != null)
+            {
+                DiscoveryStatus.Text = "Paused";
+                DiscoveryStatus.Foreground = System.Windows.Media.Brushes.Orange;
+            }
         }
 
         private async void Stop_Click(object sender, RoutedEventArgs e)
         {
             await _discovery.StopAsync();
+            if (DiscoveryStatus != null)
+            {
+                DiscoveryStatus.Text = "Stopped";
+                DiscoveryStatus.Foreground = System.Windows.Media.Brushes.Silver;
+            }
         }
 
         private async void ImportSpeakers_Click(object sender, RoutedEventArgs e)
@@ -281,7 +306,7 @@ namespace GameWatcher.AuthorStudio
             if (_tts.IsConfigured)
             {
                 TtsStatus.Text = "TTS ready";
-                TtsStatus.Foreground = System.Windows.Media.Brushes.Green;
+                TtsStatus.Foreground = System.Windows.Media.Brushes.Lime;
             }
             else
             {
