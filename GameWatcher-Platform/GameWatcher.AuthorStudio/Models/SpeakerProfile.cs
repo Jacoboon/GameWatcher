@@ -14,6 +14,7 @@ namespace GameWatcher.AuthorStudio.Models
         public int Priority { get; set; } = 1;
         public bool IsDefault { get; set; }
         public string Color { get; set; } = "#FFFFFF";
+        public string? Effects { get; set; } // free-form descriptors, e.g., "Cave Echo; Random pitch 0.8:1.2"
 
         // Convenience binding property
         public string KeywordsCsv
@@ -25,4 +26,3 @@ namespace GameWatcher.AuthorStudio.Models
         }
     }
 }
-

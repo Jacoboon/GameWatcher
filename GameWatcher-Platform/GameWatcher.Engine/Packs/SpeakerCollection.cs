@@ -103,7 +103,8 @@ public class SpeakerCollection : ISpeakerCollection
                 Keywords = speakerData.Keywords ?? Array.Empty<string>(),
                 Priority = speakerData.Priority,
                 IsDefault = speakerData.IsDefault,
-                Color = speakerData.Color ?? "#4A90E2"
+                Color = speakerData.Color ?? "#4A90E2",
+                Effects = speakerData.Effects
             };
             
             AddSpeaker(speaker);
@@ -140,6 +141,7 @@ public class SpeakerData
     public int Priority { get; set; } = 1;
     public bool IsDefault { get; set; }
     public string? Color { get; set; }
+    public string? Effects { get; set; }
 }
 
 public class VoiceMatchingConfig

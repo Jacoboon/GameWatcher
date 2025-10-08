@@ -411,7 +411,7 @@ public class ProcessingPipeline : IProcessingPipeline, IDisposable
             // If audio path available in catalog entry, queue playback (MVP: play immediately)
             if (_catalog.TryLookup(normalizedText, out var audioEntry) && !string.IsNullOrWhiteSpace(audioEntry.AudioPath))
             {
-                await _audio.PlayAsync(audioEntry.AudioPath);
+                await _audio.PlayAsync(audioEntry.AudioPath, matchedSpeaker?.Effects);
             }
 
             var totalProcessingTime = DateTime.UtcNow - processingStart;

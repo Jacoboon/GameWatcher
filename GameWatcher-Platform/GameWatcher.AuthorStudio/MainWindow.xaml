@@ -106,6 +106,7 @@
                             <DataGridCheckBoxColumn Header="Default" Binding="{Binding IsDefault, Mode=TwoWay}" Width="80"/>
                             <DataGridTextColumn Header="Color" Binding="{Binding Color, Mode=TwoWay}" Width="100"/>
                             <DataGridTextColumn Header="Keywords (csv)" Binding="{Binding KeywordsCsv, Mode=TwoWay}" Width="*"/>
+                            <DataGridTextColumn Header="Effects" Binding="{Binding Effects, Mode=TwoWay}" Width="200"/>
                             <DataGridTemplateColumn Header="Preview" Width="100">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>

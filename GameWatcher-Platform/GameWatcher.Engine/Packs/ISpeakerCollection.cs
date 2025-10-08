@@ -43,6 +43,7 @@ public class SpeakerProfile
     public int Priority { get; set; } = 1;
     public bool IsDefault { get; set; }
     public string Color { get; set; } = "#4A90E2";  // For UI display
+    public string? Effects { get; set; }
     
     /// <summary>
     /// Calculate match score for given dialogue text

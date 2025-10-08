@@ -1,7 +1,7 @@
 param(
-    [string[]]$Voices = @("alloy","amber","copper","onyx","shimmer","fable","echo","nova","verse","sage","aria","coral"),
+    [string[]]$Voices = @("alloy","coral","echo","fable","nova","onyx","sage","shimmer","verse"),
     [double]$Start = 0.5,
-    [double]$End = 1.4,
+    [double]$End = 1.5,
     [double]$Step = 0.1,
     [string]$Format = "mp3"
 )
