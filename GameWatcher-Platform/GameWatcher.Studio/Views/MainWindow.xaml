@@ -274,6 +274,18 @@
                                                         VerticalAlignment="Center"/>
                                                 <TextBlock Text="{Binding Value}" VerticalAlignment="Center" Margin="8,0,0,0" MinWidth="40"/>
                                             </StackPanel>
+                                            
+                                            <!-- Double Setting with Slider -->
+                                            <StackPanel Orientation="Horizontal" Visibility="{Binding IsDoubleType, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                <Slider Value="{Binding Value, Mode=TwoWay, Converter={StaticResource NumericToDoubleConverter}}" 
+                                                        Minimum="{Binding MinValue, Converter={StaticResource NumericToDoubleConverter}}" 
+                                                        Maximum="{Binding MaxValue, Converter={StaticResource NumericToDoubleConverter}}" 
+                                                        Width="200"
+                                                        TickFrequency="0.5"
+                                                        IsSnapToTickEnabled="True"
+                                                        VerticalAlignment="Center"/>
+                                                <TextBlock Text="{Binding Value, StringFormat=F1}" VerticalAlignment="Center" Margin="8,0,0,0" MinWidth="50"/>
+                                            </StackPanel>
                                         </StackPanel>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>

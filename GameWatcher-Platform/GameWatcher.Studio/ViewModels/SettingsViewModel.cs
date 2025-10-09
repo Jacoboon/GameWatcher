@@ -64,11 +64,11 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
         GeneralSettings.Add(new SettingItemViewModel
         {
             Name = "Game Detection Polling Rate",
-            Description = "How often to check for game window (in milliseconds)",
-            Type = SettingType.Integer,
-            Value = _configuration.GetValue<int>("GameWatcher:DetectionIntervalMs", 2000),
-            MinValue = 500,
-            MaxValue = 10000
+            Description = "How often to check for game window (in seconds)",
+            Type = SettingType.Double,
+            Value = _configuration.GetValue<double>("GameWatcher:DetectionIntervalSeconds", 2.0),
+            MinValue = 0.5,
+            MaxValue = 10.0
         });
 
         GeneralSettings.Add(new SettingItemViewModel
@@ -289,14 +289,36 @@ public partial class SettingItemViewModel : ObservableObject
             object? coercedValue = value;
             if (value != null)
             {
-                if (Type == SettingType.Integer && value is double doubleValue)
+                try
                 {
-                    coercedValue = (int)Math.Round(doubleValue);
+                    if (Type == SettingType.Integer && value is double doubleValue)
+                    {
+                        coercedValue = (int)Math.Round(doubleValue);
+                    }
+                    else if (Type == SettingType.Integer && value is not int)
+                    {
+                        // Try to convert other types to int
+                        coercedValue = Convert.ToInt32(value);
+                    }
+                    else if (Type == SettingType.Double && value is int intValue)
+                    {
+                        coercedValue = (double)intValue;
+                    }
+                    else if (Type == SettingType.Double && value is not double)
+                    {
+                        // Try to convert other types to double
+                        coercedValue = Convert.ToDouble(value);
+                    }
+                    else if (Type == SettingType.Boolean && value is not bool)
+                    {
+                        // Don't allow non-boolean values for Boolean settings
+                        return;
+                    }
                 }
-                else if (Type == SettingType.Boolean && value is not bool)
+                catch (Exception)
                 {
-                    // Don't allow non-boolean values for Boolean settings
-                    return;
+                    // If conversion fails, keep original value
+                    coercedValue = value;
                 }
             }
 
