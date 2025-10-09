@@ -37,6 +37,7 @@ public class BooleanToLoadedConverter : IValueConverter
 
 /// <summary>
 /// Converts numeric values to Double for Slider bindings (Minimum, Maximum, Value)
+/// Returns 0.0 for non-numeric types (strings, nulls)
 /// </summary>
 public class NumericToDoubleConverter : IValueConverter
 {
@@ -45,7 +46,19 @@ public class NumericToDoubleConverter : IValueConverter
         if (value == null)
             return 0.0;
 
-        return System.Convert.ToDouble(value);
+        // Don't try to convert strings or other non-numeric types
+        if (value is string || value is bool)
+            return 0.0;
+
+        try
+        {
+            return System.Convert.ToDouble(value);
+        }
+        catch (Exception)
+        {
+            // Return safe default for any conversion errors
+            return 0.0;
+        }
     }
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
@@ -53,11 +66,18 @@ public class NumericToDoubleConverter : IValueConverter
         if (value == null)
             return 0;
 
-        // Convert back to original type based on targetType
-        if (targetType == typeof(int) || targetType == typeof(int?))
-            return System.Convert.ToInt32(value);
-        
-        return System.Convert.ToDouble(value);
+        try
+        {
+            // Convert back to original type based on targetType
+            if (targetType == typeof(int) || targetType == typeof(int?))
+                return System.Convert.ToInt32(value);
+            
+            return System.Convert.ToDouble(value);
+        }
+        catch (Exception)
+        {
+            return 0;
+        }
     }
 }
 
