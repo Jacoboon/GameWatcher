@@ -187,14 +187,26 @@ Add a new section at the TOP of Settings tab:
 - Tooltip shows: "Pack Override: [value] (Your Default: [value])"
 - User can toggle individual overrides on/off
 
-### AuthorStudio: Pack Builder Settings Editor
+### AuthorStudio: New "Studio Settings Overrides" Tab
 
-Add a new section in AuthorStudio Settings tab:
+Add a new dedicated tab for Player Settings Overrides (separating it from AuthorStudio's own settings):
+
+**Tab Structure:**
+- Discovery
+- Speakers
+- Voice Lab
+- Pack Builder
+- **Studio Settings Overrides** ← NEW
+- **Author Studio Settings** ← RENAMED from "Settings"
+
+**UI Layout:**
 
 ```
-┌─ Player Settings Overrides (for this pack) ──────────────┐
+┌─ Studio Settings Overrides ──────────────────────────────┐
 │                                                           │
-│ Define recommended player settings for optimal playback. │
+│ Configure recommended player settings for this pack.     │
+│ These will be suggested to users when loading your pack  │
+│ in GameWatcher Studio (Player).                          │
 │                                                           │
 │ [✓] Override Capture Settings                            │
 │     Target FPS: [15] (1-60)                               │
@@ -214,12 +226,22 @@ Add a new section in AuthorStudio Settings tab:
 │     Scale Factor: [2.0] (1.0-4.0)                         │
 │     Convert to Grayscale: [✓]                             │
 │                                                           │
-│ Description:                                              │
-│ [Optimized settings for FF1 Pixel Remaster              ]│
+│ Description (why these settings?):                        │
+│ ┌─────────────────────────────────────────────────────┐   │
+│ │ Optimized for FF1's slow dialogue pace and simple  │   │
+│ │ UI. Lower FPS reduces CPU usage while maintaining  │   │
+│ │ perfect detection of text changes.                 │   │
+│ └─────────────────────────────────────────────────────┘   │
 │                                                           │
-│ [Save Pack Overrides]  [Preview JSON]                     │
+│ [Save to player-overrides.json]  [Preview JSON]  [Clear] │
 └───────────────────────────────────────────────────────────┘
 ```
+
+**Benefits of Separate Tab:**
+- Clear separation: AuthorStudio settings vs Player settings
+- More space to explain each override's purpose
+- Won't overwhelm pack authors who don't need overrides
+- Easy to find when needed
 
 ## Implementation Plan
 
@@ -275,14 +297,22 @@ Add a new section in AuthorStudio Settings tab:
 
 1. **Studio Settings Tab**
    - Add PackOverridesViewModel
-   - Render pack overrides section at top
-   - Visual indicators for overridden settings
-   - Toggle controls for accept/reject overrides
+   - Render pack overrides section at top of Settings tab
+   - Visual indicators for overridden settings (blue highlight)
+   - Toggle controls for accept/reject individual overrides
+   - "Reset to Pack Defaults" button
 
-2. **AuthorStudio Settings Tab**
-   - Add Pack Overrides editor
-   - Validation for value ranges
-   - Export to `player-overrides.json` on save
+2. **AuthorStudio New Tab: "Studio Settings Overrides"**
+   - Create new TabItem in MainWindow.xaml
+   - Rename existing "Settings" tab to "Author Studio Settings"
+   - Add StudioSettingsOverridesViewModel
+   - Three-section layout: Capture, Audio, OCR
+   - Checkbox to enable/disable each section
+   - Description text area for explaining overrides
+   - Validation for value ranges (enforce min/max)
+   - "Save to player-overrides.json" button
+   - "Preview JSON" button to show generated file
+   - "Clear All Overrides" button
 
 ### Phase 3: User Experience
 
@@ -293,6 +323,7 @@ Add a new section in AuthorStudio Settings tab:
 2. **Settings Persistence**
    - Save user's override accept/reject choices per pack
    - Restore choices on next pack load
+   - Store in user's AppData (not in pack folder)
 
 ## Settings Eligibility for Overrides
 
