@@ -88,7 +88,7 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
             Type = SettingType.Integer,
             Value = _configuration.GetValue<int>("Capture:TargetFps", 10),
             MinValue = 1,
-            MaxValue = 20
+            MaxValue = 60
         });
 
         CaptureSettings.Add(new SettingItemViewModel
@@ -111,14 +111,8 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
 
         // OCR Settings
         OcrSettings.Clear();
-        OcrSettings.Add(new SettingItemViewModel
-        {
-            Name = "Language",
-            Description = "OCR language for text recognition",
-            Type = SettingType.String,
-            Value = _configuration.GetValue<string>("OCR:Language", "en-US")
-        });
-
+        // Note: Language setting removed - not yet implemented in OCR engine
+        
         OcrSettings.Add(new SettingItemViewModel
         {
             Name = "Confidence Threshold",
@@ -168,16 +162,8 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
         // Add V2 Platform specific settings
         CaptureSettings.Add(new SettingItemViewModel
         {
-            Name = "Enable Frame Skipping",
-            Description = "Skip duplicate frames for better performance (V1 optimization)",
-            Type = SettingType.Boolean,
-            Value = _configuration.GetValue<bool>("Capture:EnableFrameSkipping", true)
-        });
-
-        CaptureSettings.Add(new SettingItemViewModel
-        {
             Name = "Enable Duplicate Detection",
-            Description = "Detect and skip duplicate frames (V1 isBusy logic)",
+            Description = "Skip duplicate frames for better performance",
             Type = SettingType.Boolean,
             Value = _configuration.GetValue<bool>("Capture:EnableDuplicateDetection", true)
         });

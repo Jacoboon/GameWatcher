@@ -7,11 +7,11 @@ using System.Windows;
 using System.IO;
 using System.Collections.Generic;
 using GameWatcher.Engine.Services;
-using GameWatcher.Engine.Ocr;
 using GameWatcher.Engine.Packs;
 using GameWatcher.Engine.Detection;
 using GameWatcher.Runtime.Services;
 using GameWatcher.Runtime.Services.Capture;
+using GameWatcher.Runtime.Services.OCR;
 using GameWatcher.Studio.ViewModels;
 using GameWatcher.Studio.Views;
 using FF1.PixelRemaster.Detection;
@@ -131,7 +131,7 @@ public partial class App : Application
                 services.AddLogging();
                 
                 // Capture services (Studio needs these to detect dialogue and play voiceovers)
-                services.AddSingleton<IOcrEngine, WindowsOcrEngine>();
+                services.AddSingleton<IOcrEngine, WindowsOCR>();
                 services.AddSingleton<ITextboxDetector>(sp =>
                 {
                     var logger = sp.GetService<ILogger<DynamicTextboxDetector>>();
