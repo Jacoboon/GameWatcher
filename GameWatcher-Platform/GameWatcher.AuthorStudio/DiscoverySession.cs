@@ -28,6 +28,47 @@ namespace GameWatcher.AuthorStudio
         public byte[]? ScreenshotPng { get; set; }
         public bool Approved { get; set; } = false;
         public string? AudioPath { get; set; }
+        
+        /// <summary>
+        /// Voice name if TTS was used to generate audio.
+        /// </summary>
+        public string? TtsVoice { get; set; }
+        
+        /// <summary>
+        /// Icon representing audio source: 🎙️ for TTS-generated, 📥 for user-imported, — for none.
+        /// </summary>
+        public string AudioSourceIcon => 
+            string.IsNullOrWhiteSpace(AudioPath) ? "—" :
+            AudioPath.Contains("tts-generated") || AudioPath.Contains("voices") || !string.IsNullOrEmpty(TtsVoice) ? "🎙️" : "📥";
+        
+        /// <summary>
+        /// Human-readable audio status text showing: voice name (TTS), filename (imported), or — (none).
+        /// </summary>
+        public string AudioStatusText
+        {
+            get
+            {
+                if (string.IsNullOrWhiteSpace(AudioPath))
+                    return "—";
+                
+                // TTS-generated: show voice name
+                if (!string.IsNullOrEmpty(TtsVoice))
+                    return $"{TtsVoice}";
+                
+                // Imported file: show filename
+                if (AudioPath.Contains("tts-generated") || AudioPath.Contains("voices"))
+                    return "TTS";
+                
+                return System.IO.Path.GetFileName(AudioPath);
+            }
+        }
+        
+        /// <summary>
+        /// Whether the regenerate button should be shown (only for TTS-generated audio).
+        /// </summary>
+        public bool CanRegenerateAudio => 
+            !string.IsNullOrWhiteSpace(AudioPath) && 
+            (AudioPath.Contains("tts-generated") || AudioPath.Contains("voices") || !string.IsNullOrEmpty(TtsVoice));
     }
 
     public class DiscoverySession : IDisposable

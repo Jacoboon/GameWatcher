@@ -1,4 +1,11 @@
-# Agents Guidance — GameWatcher-Platform
+# Agents Guidance — G- Editing & Structure
+  - Keep changes minimal, focused, and in-place; don't rename projects unless explicitly requested.
+  - Prefer dependency injection for new services; avoid hard-wiring dependencies.
+  - In docs, prefer ASCII where Unicode bullets/arrows cause patching issues.
+  - **Before removing or commenting out service registrations**, check `docs/design/APPLICATION_ARCHITECTURE.md` to verify it's not a mandatory service.
+  - **When in doubt about app responsibilities**, reference APPLICATION_ARCHITECTURE.md rather than inferring from current code state.
+
+## V1 (SimpleLoop) as Reference — Porting in V2cher-Platform
 
 Scope: This file applies to the `GameWatcher-Platform/` subtree only. Follow these conventions when editing code and docs here. User/developer prompts still take precedence.
 
@@ -10,6 +17,8 @@ Scope: This file applies to the `GameWatcher-Platform/` subtree only. Follow the
 - `GameWatcher.AuthorStudio` — creator tools (pack authors)
 - `FF1.PixelRemaster` — sample/reference pack
 - `docs/` — design and user docs (this repo)
+
+**CRITICAL:** Before modifying any application's DI configuration, consult `docs/design/APPLICATION_ARCHITECTURE.md` to verify required services. Each app has MANDATORY service requirements.
 
 ## Conventions
 

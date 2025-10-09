@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Windows;
+using System.Diagnostics;
 using GameWatcher.Studio.ViewModels;
 using GameWatcher.Runtime.Services.Capture;
 
@@ -171,6 +172,28 @@ public partial class MainWindow : Window
         UpdatePackStatus("No pack loaded");
     }
 
+    private void OpenLogsFolder_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var logsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
+            
+            // Create directory if it doesn't exist
+            Directory.CreateDirectory(logsDir);
+            
+            // Open in Windows Explorer
+            Process.Start("explorer.exe", logsDir);
+            
+            AddActivityLogEntry($"[INFO] Opened logs folder: {logsDir}");
+        }
+        catch (Exception ex)
+        {
+            AddActivityLogEntry($"[ERROR] Failed to open logs folder: {ex.Message}");
+            MessageBox.Show($"Failed to open logs folder: {ex.Message}", "Error", 
+                MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
 private void Start_Click(object sender, RoutedEventArgs e)
     {
         if (_isMonitoring) // already running
@@ -289,13 +312,22 @@ private void Stop_Click(object sender, RoutedEventArgs e)
     {
         try
         {
-            _captureService = new GameCaptureService();
-            
-            // Subscribe to capture events for Activity Monitor
-            _captureService.ProgressReported += CaptureService_ProgressReported;
-            _captureService.DialogueDetected += CaptureService_DialogueDetected;
-            
-            AddActivityLogEntry("[SYSTEM] Capture service initialized successfully");
+            // Get GameCaptureService from DI (configured with FF1 detector)
+            var services = App.Services;
+            if (services != null)
+            {
+                _captureService = services.GetRequiredService<GameCaptureService>();
+                
+                // Subscribe to capture events for Activity Monitor
+                _captureService.ProgressReported += CaptureService_ProgressReported;
+                _captureService.DialogueDetected += CaptureService_DialogueDetected;
+                
+                AddActivityLogEntry("[SYSTEM] Capture service initialized successfully with FF1 detection");
+            }
+            else
+            {
+                AddActivityLogEntry("[ERROR] DI Services not available for capture service");
+            }
         }
         catch (Exception ex)
         {

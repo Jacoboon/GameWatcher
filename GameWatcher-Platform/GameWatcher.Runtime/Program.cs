@@ -8,6 +8,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
+using FF1.PixelRemaster.Detection;
 
 namespace GameWatcher.Runtime;
 
@@ -52,7 +53,11 @@ public class Program
                 // Core Runtime Services (Working implementations)
                 services.AddSingleton<GameCaptureService>();
                 services.AddSingleton<IOcrEngine, WindowsOcrEngine>();
-                services.AddSingleton<ITextboxDetector, DynamicTextboxDetector>();
+                services.AddSingleton<ITextboxDetector>(sp =>
+                {
+                    var logger = sp.GetService<ILogger<DynamicTextboxDetector>>();
+                    return new DynamicTextboxDetector(FF1DetectionConfig.GetConfig(), logger);
+                });
                 
                 // V2 Runtime Services
                 services.AddSingleton<IPackManager, PackManager>();

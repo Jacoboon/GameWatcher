@@ -4,15 +4,16 @@ using System.Drawing;
 using System.Threading;
 using System.Threading.Tasks;
 using GameWatcher.Runtime.Services.Capture;
-using GameWatcher.Runtime.Services.Detection;
 using GameWatcher.Runtime.Services.OCR;
 using GameWatcher.Runtime.Services.Dialogue;
+using GameWatcher.Engine.Detection;
+using Microsoft.Extensions.Logging;
 
 namespace GameWatcher.Runtime.Services.Capture
 {
     /// <summary>
     /// Core game capture service for GameWatcher V2 Platform
-    /// Simplified version of SimpleLoop CaptureService focused on real-time text detection
+    /// Uses configurable ITextboxDetector for game-agnostic detection
     /// </summary>
     public class GameCaptureService : IDisposable
     {
@@ -21,8 +22,9 @@ namespace GameWatcher.Runtime.Services.Capture
         private bool _isRunning = false;
         
         // Core components
-        private ITextboxDetector _detector;
-        private IOcrEngine _ocr;
+        private readonly ITextboxDetector _detector;
+        private readonly IOcrEngine _ocr;
+        private readonly ILogger<GameCaptureService> _logger;
         
         // Frame processing state
         private Bitmap? _lastFrame;
@@ -45,8 +47,12 @@ namespace GameWatcher.Runtime.Services.Capture
         public event EventHandler<CaptureProgressEventArgs>? ProgressReported;
         public event EventHandler<DialogueDetectedEventArgs>? DialogueDetected;
         
-        public GameCaptureService()
+        public GameCaptureService(ITextboxDetector detector, IOcrEngine ocr, ILogger<GameCaptureService> logger)
         {
+            _detector = detector ?? throw new ArgumentNullException(nameof(detector));
+            _ocr = ocr ?? throw new ArgumentNullException(nameof(ocr));
+            _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            
             InitializeComponents();
         }
         
@@ -54,19 +60,16 @@ namespace GameWatcher.Runtime.Services.Capture
         {
             try
             {
-                _detector = new DynamicTextboxDetector();
-                _ocr = new WindowsOCR();
-                
-                Console.WriteLine("[GameCaptureService] Components initialized successfully");
+                _logger.LogInformation("GameCaptureService components initialized successfully");
                 
                 // Test capture to show what window we're detecting
                 var testCapture = ScreenCapture.CaptureGameWindow();
-                Console.WriteLine($"[GameCaptureService] Capture resolution: {testCapture.Width}x{testCapture.Height}");
+                _logger.LogInformation("Capture resolution: {Width}x{Height}", testCapture.Width, testCapture.Height);
                 testCapture.Dispose();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[GameCaptureService] Error initializing: {ex.Message}");
+                _logger.LogError(ex, "Error initializing GameCaptureService");
             }
         }
         

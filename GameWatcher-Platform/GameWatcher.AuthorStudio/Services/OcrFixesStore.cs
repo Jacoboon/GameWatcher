@@ -29,6 +29,36 @@ namespace GameWatcher.AuthorStudio.Services
 
         public void Clear() => _fixes.Clear();
 
+        /// <summary>
+        /// Gets all OCR fixes as a read-only dictionary.
+        /// </summary>
+        public IReadOnlyDictionary<string, string> GetAll() => _fixes;
+
+        /// <summary>
+        /// Replaces all OCR fixes with the provided collection.
+        /// </summary>
+        public void SetAll(IEnumerable<KeyValuePair<string, string>> fixes)
+        {
+            _fixes.Clear();
+            foreach (var fix in fixes)
+            {
+                if (!string.IsNullOrWhiteSpace(fix.Key) && !string.IsNullOrWhiteSpace(fix.Value))
+                {
+                    _fixes[fix.Key.Trim().ToLowerInvariant()] = fix.Value.Trim();
+                }
+            }
+        }
+
+        /// <summary>
+        /// Removes a specific OCR fix by its "from" key.
+        /// </summary>
+        public bool RemoveFix(string from)
+        {
+            if (string.IsNullOrWhiteSpace(from)) return false;
+            var key = from.Trim().ToLowerInvariant();
+            return _fixes.Remove(key);
+        }
+
         public async Task LoadFromFolderAsync(string packFolder)
         {
             _fixes.Clear();

@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
+using GameWatcher.AuthorStudio.Services;
 
 namespace GameWatcher.AuthorStudio.ViewModels;
 
@@ -11,6 +12,7 @@ namespace GameWatcher.AuthorStudio.ViewModels;
 public partial class MainWindowViewModel : ObservableObject
 {
     private readonly ILogger<MainWindowViewModel> _logger;
+    private readonly UserSettingsStore _userSettings;
 
     [ObservableProperty]
     private DiscoveryViewModel _discoveryViewModel;
@@ -38,6 +40,7 @@ public partial class MainWindowViewModel : ObservableObject
 
     public MainWindowViewModel(
         ILogger<MainWindowViewModel> logger,
+        UserSettingsStore userSettings,
         DiscoveryViewModel discoveryViewModel,
         SpeakersViewModel speakersViewModel,
         VoiceLabViewModel voiceLabViewModel,
@@ -45,6 +48,7 @@ public partial class MainWindowViewModel : ObservableObject
         SettingsViewModel settingsViewModel)
     {
         _logger = logger;
+        _userSettings = userSettings;
         _discoveryViewModel = discoveryViewModel;
         _speakersViewModel = speakersViewModel;
         _voiceLabViewModel = voiceLabViewModel;
@@ -60,11 +64,14 @@ public partial class MainWindowViewModel : ObservableObject
         {
             _logger.LogInformation("Initializing MainWindow ViewModel");
 
+            // Load user settings first
+            await _userSettings.LoadAsync();
+
             // Initialize child view models
             await DiscoveryViewModel.InitializeAsync();
             await SpeakersViewModel.InitializeAsync();
             await VoiceLabViewModel.InitializeAsync();
-            await PackBuilderViewModel.InitializeAsync();
+            await PackBuilderViewModel.InitializeAsync(); // This will auto-load last pack
             await SettingsViewModel.InitializeAsync();
 
             // Update TTS status

@@ -145,10 +145,15 @@ To add a new agent:
 These instructions apply to the entire repository. Prefer these when working in this repo; user/developer prompts still take precedence.
 
 - Project naming (final):
-  - `GameWatcher.Studio` = Player GUI (end users)
-  - `GameWatcher.AuthorStudio` = Creator tools (pack authors)
-  - `GameWatcher.Runtime` = Headless orchestrator
-  - `GameWatcher.Engine` = Core services
+  - `GameWatcher.Studio` = Player GUI (end users) - **REQUIRES full capture pipeline**
+  - `GameWatcher.AuthorStudio` = Creator tools (pack authors) - **REQUIRES full capture pipeline**
+  - `GameWatcher.Runtime` = Headless orchestrator - **REQUIRES full capture pipeline**
+  - `GameWatcher.Engine` = Core services (shared by all apps)
+
+- **Architecture compliance:**
+  - See `GameWatcher-Platform/docs/design/APPLICATION_ARCHITECTURE.md` for MANDATORY service requirements per app
+  - Don't assume an app doesn't need a service based on minimal current code - check design intent
+  - All three apps (Studio, AuthorStudio, Runtime) REQUIRE ITextboxDetector, IOcrEngine, and capture services
 
 - Docs consistency:
   - Keep “Studio” = player; “Author Studio” = creator. Avoid legacy “rename current Studio” guidance.

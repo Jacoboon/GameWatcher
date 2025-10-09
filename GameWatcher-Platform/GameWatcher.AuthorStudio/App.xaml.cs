@@ -92,13 +92,17 @@ public partial class App : Application
                 var logsDir = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs");
                 Directory.CreateDirectory(logsDir);
 
+                // Use timestamp for session-based logs (new file per session)
+                var sessionTimestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                var logPath = Path.Combine(logsDir, $"author-studio_{sessionTimestamp}.log");
+
                 config.ReadFrom.Configuration(context.Configuration)
                       .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss.fff}] [{Level:u3}] {Message:lj}{NewLine}{Exception}")
                       .WriteTo.File(
-                          Path.Combine(logsDir, "author-studio_.log"),
-                          rollingInterval: RollingInterval.Day,
-                          retainedFileCountLimit: 7,
-                          shared: true,
+                          logPath,
+                          rollingInterval: RollingInterval.Infinite, // No rolling, one file per session
+                          retainedFileCountLimit: 30, // Keep last 30 sessions
+                          shared: false, // Not shared since it's session-specific
                           flushToDiskInterval: TimeSpan.FromSeconds(1));
             })
             .ConfigureServices((context, services) =>
@@ -116,7 +120,8 @@ public partial class App : Application
                 services.AddSingleton<AudioPlaybackService>();
                 services.AddSingleton<AuthorSettingsService>();
                 services.AddSingleton<OcrFixesStore>();
-                // TextNormalizer is static - no DI registration needed
+                services.AddSingleton<UserSettingsStore>();
+                services.AddSingleton<AudioStore>();
 
                 // ViewModels (to be created)
                 services.AddTransient<MainWindowViewModel>();

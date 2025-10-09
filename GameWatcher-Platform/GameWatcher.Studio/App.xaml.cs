@@ -9,9 +9,12 @@ using System.Collections.Generic;
 using GameWatcher.Engine.Services;
 using GameWatcher.Engine.Ocr;
 using GameWatcher.Engine.Packs;
+using GameWatcher.Engine.Detection;
 using GameWatcher.Runtime.Services;
+using GameWatcher.Runtime.Services.Capture;
 using GameWatcher.Studio.ViewModels;
 using GameWatcher.Studio.Views;
+using FF1.PixelRemaster.Detection;
 using ModernWpf;
 
 namespace GameWatcher.Studio;
@@ -104,25 +107,39 @@ public partial class App : Application
                 Console.WriteLine($"[SERILOG] Runtime logs: {runtimeLogsDir}");
                 Console.WriteLine($"[SERILOG] Project logs: {projectLogsDir}");
 
+                // Use timestamp for session-based logs (new file per session)
+                var sessionTimestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+                
                 config.ReadFrom.Configuration(context.Configuration)
                       .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss.fff}] [{Level:u3}] {Message:lj}{NewLine}{Exception}")
                       .WriteTo.File(
-                          Path.Combine(runtimeLogsDir, "gamewatcher-studio_.log"),
-                          rollingInterval: RollingInterval.Day,
-                          retainedFileCountLimit: 7,
-                          shared: true,
+                          Path.Combine(runtimeLogsDir, $"gamewatcher-studio_{sessionTimestamp}.log"),
+                          rollingInterval: RollingInterval.Infinite, // No rolling, one file per session
+                          retainedFileCountLimit: 30, // Keep last 30 sessions
+                          shared: false,
                           flushToDiskInterval: TimeSpan.FromSeconds(1))
                       .WriteTo.File(
-                          Path.Combine(projectLogsDir, "gamewatcher-studio_.log"),
-                          rollingInterval: RollingInterval.Day,
-                          retainedFileCountLimit: 7,
-                          shared: true,
+                          Path.Combine(projectLogsDir, $"gamewatcher-studio_{sessionTimestamp}.log"),
+                          rollingInterval: RollingInterval.Infinite,
+                          retainedFileCountLimit: 30,
+                          shared: false,
                           flushToDiskInterval: TimeSpan.FromSeconds(1));
             })
             .ConfigureServices((context, services) =>
             {
-                // Minimal working services - add complexity later
+                // Core Engine Services for capture & detection
                 services.AddLogging();
+                
+                // Capture services (Studio needs these to detect dialogue and play voiceovers)
+                services.AddSingleton<IOcrEngine, WindowsOcrEngine>();
+                services.AddSingleton<ITextboxDetector>(sp =>
+                {
+                    var logger = sp.GetService<ILogger<DynamicTextboxDetector>>();
+                    return new DynamicTextboxDetector(FF1DetectionConfig.GetConfig(), logger);
+                });
+                services.AddSingleton<GameCaptureService>();
+                
+                // UI
                 services.AddSingleton<MainWindow>();
             });
     }

@@ -1,23 +1,33 @@
 using System.Drawing;
 using GameWatcher.Engine.Detection;
+using Microsoft.Extensions.Logging;
 
 namespace GameWatcher.Engine.Detection;
 
 /// <summary>
-/// Enhanced textbox detector ported from V1 with all optimizations preserved
-/// Dynamically finds dialogue boxes using targeted search areas (79.3% reduction)
+/// Enhanced textbox detector ported from V1 with all optimizations preserved.
+/// Now configurable per game pack via TextboxDetectionConfig.
+/// Dynamically finds dialogue boxes using targeted search areas (79.3% reduction for FF1).
 /// </summary>
 public class DynamicTextboxDetector : ITextboxDetector
 {
+    private readonly TextboxDetectionConfig _config;
+    private readonly ILogger<DynamicTextboxDetector>? _logger;
     private Rectangle? _lastKnownTextbox = null;
     private int _consecutiveFailures = 0;
+    
+    public DynamicTextboxDetector(TextboxDetectionConfig config, ILogger<DynamicTextboxDetector>? logger = null)
+    {
+        _config = config ?? throw new ArgumentNullException(nameof(config));
+        _logger = logger;
+    }
     
     public Rectangle? DetectTextbox(Bitmap screenshot)
     {
         // Strategy 1: Check near last known position first (V1 optimization)
         if (_lastKnownTextbox.HasValue)
         {
-            var expandedSearch = ExpandRectangle(_lastKnownTextbox.Value, 50);
+            var expandedSearch = ExpandRectangle(_lastKnownTextbox.Value, _config.CachedPositionExpansion);
             var nearbyResult = SearchForTextboxInRegion(screenshot, expandedSearch, "nearby");
             
             if (nearbyResult.HasValue)
@@ -30,11 +40,11 @@ public class DynamicTextboxDetector : ITextboxDetector
             _consecutiveFailures++;
             
             // Clear cache after failures (V1 stability logic)
-            if (_consecutiveFailures > 3)
+            if (_consecutiveFailures > _config.MaxConsecutiveFailures)
             {
                 _lastKnownTextbox = null;
                 _consecutiveFailures = 0;
-                Console.WriteLine("🔄 Cleared cached textbox location after consecutive failures");
+                _logger?.LogDebug("🔄 Cleared cached textbox location after consecutive failures");
             }
         }
         
@@ -45,7 +55,7 @@ public class DynamicTextboxDetector : ITextboxDetector
         {
             _lastKnownTextbox = fullScreenResult;
             _consecutiveFailures = 0;
-            Console.WriteLine($"🎯 TEXTBOX FOUND: {fullScreenResult.Value}");
+            _logger?.LogInformation("🎯 TEXTBOX FOUND: {TextboxRect}", fullScreenResult.Value);
             return fullScreenResult;
         }
         
@@ -75,7 +85,7 @@ public class DynamicTextboxDetector : ITextboxDetector
                         var dialogueRect = TraceDialogueRectangle(screenshot, x, y);
                         if (dialogueRect.HasValue && IsValidDialogueBoxSize(dialogueRect.Value))
                         {
-                            Console.WriteLine($"✅ Found textbox in {regionName}: {dialogueRect.Value}");
+                            _logger?.LogDebug("✅ Found textbox in {RegionName}: {TextboxRect}", regionName, dialogueRect.Value);
                             return dialogueRect.Value;
                         }
                     }
@@ -86,38 +96,50 @@ public class DynamicTextboxDetector : ITextboxDetector
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"❌ Error searching {regionName} region: {ex.Message}");
+            _logger?.LogWarning(ex, "❌ Error searching {RegionName} region", regionName);
             return null;
         }
     }
     
     private Rectangle? FindDialogueBoxInTargetedArea(Bitmap screenshot)
     {
-        // V1's proven targeted search coordinates (79.3% reduction)
-        // Based on FF1 analysis: X=0.196875, Y=0.050926, Width=0.604688, Height=0.282407
-        var targetX = (int)(screenshot.Width * 0.196875) - 25;
-        var targetY = (int)(screenshot.Height * 0.050926) - 25;
-        var targetWidth = (int)(screenshot.Width * 0.604688) + 50;
-        var targetHeight = (int)(screenshot.Height * 0.282407) + 50;
+        Rectangle searchArea;
         
-        // Ensure bounds stay within screen
-        targetX = Math.Max(0, targetX);
-        targetY = Math.Max(0, targetY);
-        targetWidth = Math.Min(targetWidth, screenshot.Width - targetX);
-        targetHeight = Math.Min(targetHeight, screenshot.Height - targetY);
+        if (_config.TargetSearchArea.HasValue)
+        {
+            // Use configured target area (normalized percentages converted to pixels)
+            var target = _config.TargetSearchArea.Value;
+            var targetX = (int)(screenshot.Width * target.X / 100.0) - 25;
+            var targetY = (int)(screenshot.Height * target.Y / 100.0) - 25;
+            var targetWidth = (int)(screenshot.Width * target.Width / 100.0) + 50;
+            var targetHeight = (int)(screenshot.Height * target.Height / 100.0) + 50;
+            
+            // Ensure bounds stay within screen
+            targetX = Math.Max(0, targetX);
+            targetY = Math.Max(0, targetY);
+            targetWidth = Math.Min(targetWidth, screenshot.Width - targetX);
+            targetHeight = Math.Min(targetHeight, screenshot.Height - targetY);
+            
+            searchArea = new Rectangle(targetX, targetY, targetWidth, targetHeight);
+            
+            // Calculate performance improvement
+            var searchAreaPixels = searchArea.Width * searchArea.Height;
+            var fullScreenPixels = screenshot.Width * screenshot.Height;
+            var reductionPercent = (1.0 - (double)searchAreaPixels / fullScreenPixels) * 100;
+            
+            _logger?.LogDebug("🎯 Targeted search: {Width}x{Height} ({Reduction:F1}% reduction)", 
+                searchArea.Width, searchArea.Height, reductionPercent);
+        }
+        else
+        {
+            // Full screen search (no optimization)
+            searchArea = new Rectangle(0, 0, screenshot.Width, screenshot.Height);
+            _logger?.LogDebug("🔍 Full screen search: {Width}x{Height}", searchArea.Width, searchArea.Height);
+        }
         
-        var searchArea = new Rectangle(targetX, targetY, targetWidth, targetHeight);
-        
-        // Calculate performance improvement
-        var searchAreaPixels = searchArea.Width * searchArea.Height;
-        var fullScreenPixels = screenshot.Width * screenshot.Height;
-        var reductionPercent = (1.0 - (double)searchAreaPixels / fullScreenPixels) * 100;
-        
-        Console.WriteLine($"🎯 Targeted search: {searchArea.Width}x{searchArea.Height} ({reductionPercent:F1}% reduction)");
-        
-        // Search within targeted area only
+        // Search within targeted area
         var candidates = new List<Rectangle>();
-        var stepSize = Math.Max(10, Math.Min(targetWidth, targetHeight) / 100);
+        var stepSize = Math.Max(10, Math.Min(searchArea.Width, searchArea.Height) / 100);
         
         for (int y = searchArea.Top; y < searchArea.Bottom; y += stepSize)
         {
@@ -146,7 +168,7 @@ public class DynamicTextboxDetector : ITextboxDetector
         {
             candidates.Sort((a, b) => (b.Width * b.Height).CompareTo(a.Width * a.Height));
             var bestCandidate = candidates[0];
-            Console.WriteLine($"🎯 Best dialogue box from {candidates.Count} candidates: {bestCandidate}");
+            _logger?.LogDebug("🎯 Best dialogue box from {Count} candidates: {BestCandidate}", candidates.Count, bestCandidate);
             return bestCandidate;
         }
         
@@ -242,45 +264,27 @@ public class DynamicTextboxDetector : ITextboxDetector
     
     private bool IsValidDialogueBoxSize(Rectangle rect)
     {
-        // Dialogue box size constraints from V1
-        bool validSize = rect.Width >= 200 && rect.Width <= 1920 && 
-                        rect.Height >= 100 && rect.Height <= 800;
+        // Use configurable size constraints
+        bool validSize = rect.Width >= _config.MinSize.Width && rect.Width <= _config.MaxSize.Width && 
+                        rect.Height >= _config.MinSize.Height && rect.Height <= _config.MaxSize.Height;
         
-        // Should be wider than tall (landscape orientation)
-        bool validAspectRatio = rect.Width > rect.Height;
+        // Check aspect ratio if required
+        bool validAspectRatio = !_config.RequireLandscapeAspect || rect.Width > rect.Height;
         
         return validSize && validAspectRatio;
     }
     
     private bool IsDialogueBoxBorder(Color pixel)
     {
-        // Enhanced border detection from V1 - covers multiple game types
-        var borderColors = new[]
+        // Use configured border colors with tolerance
+        foreach (var borderColor in _config.BorderColors)
         {
-            Color.FromArgb(66, 66, 231),   // FF1 dark blue
-            Color.FromArgb(99, 99, 255),   // FF1 medium blue  
-            Color.FromArgb(33, 33, 165),   // FF1 very dark blue
-            Color.FromArgb(0, 88, 248),    // FF1 bright blue
-            Color.FromArgb(82, 82, 247),   // FF1 variant
-            // Add other game border colors as needed
-        };
-        
-        const int tolerance = 80; // Color matching tolerance
-        
-        foreach (var borderColor in borderColors)
-        {
-            if (Math.Abs(pixel.R - borderColor.R) <= tolerance &&
-                Math.Abs(pixel.G - borderColor.G) <= tolerance &&
-                Math.Abs(pixel.B - borderColor.B) <= tolerance)
+            if (Math.Abs(pixel.R - borderColor.R) <= _config.ColorTolerance &&
+                Math.Abs(pixel.G - borderColor.G) <= _config.ColorTolerance &&
+                Math.Abs(pixel.B - borderColor.B) <= _config.ColorTolerance)
             {
                 return true;
             }
-        }
-        
-        // General blue-dominant pixel check
-        if (pixel.B > pixel.R + 50 && pixel.B > pixel.G + 50 && pixel.B > 100)
-        {
-            return true;
         }
         
         return false;

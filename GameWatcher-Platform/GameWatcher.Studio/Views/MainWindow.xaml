@@ -70,7 +70,7 @@
                     </DataGrid>
 
                     <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,16,0,0">
-                        <Button Content="Load Pack" Margin="0,0,8,0" Padding="12,6" Click="LoadPack_Click"/>
+                        <Button Content="📂 Load Pack..." Margin="0,0,8,0" Padding="12,6" Click="LoadPack_Click"/>
                         <Button Content="Unload Pack" Margin="0,0,8,0" Padding="12,6" Click="UnloadPack_Click"/>
                         <Button Content="🔄 Refresh" Padding="12,6" Click="Refresh_Click"/>
                     </StackPanel>
@@ -272,6 +272,25 @@
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
+                        </GroupBox>
+
+                        <!-- Diagnostics -->
+                        <GroupBox Header="Diagnostics" Margin="0,0,0,16">
+                            <StackPanel Margin="8">
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="140"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Logs Folder" VerticalAlignment="Center"/>
+                                    <Button Grid.Column="1" Content="📂 Open Logs Folder" 
+                                            Click="OpenLogsFolder_Click"
+                                            HorizontalAlignment="Left" 
+                                            Padding="12,6"/>
+                                </Grid>
+                                <TextBlock Text="Logs are written to: bin\Debug\...\logs\gamewatcher-studio_*.log" 
+                                           TextWrapping="Wrap" Foreground="Gray" FontSize="11"/>
+                            </StackPanel>
                         </GroupBox>
 
                         <!-- Save Settings Button -->

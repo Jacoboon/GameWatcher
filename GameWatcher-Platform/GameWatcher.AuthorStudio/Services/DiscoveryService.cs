@@ -1,12 +1,14 @@
 using System;
 using System.Collections.ObjectModel;
 using System.Drawing;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 using GameWatcher.Engine.Detection;
 using GameWatcher.Runtime.Services.OCR;
 using GameWatcher.Runtime.Services.Capture; // ScreenCapture helper
 using Microsoft.Extensions.Logging;
+using FF1.PixelRemaster.Detection;
 
 namespace GameWatcher.AuthorStudio.Services
 {
@@ -16,11 +18,15 @@ namespace GameWatcher.AuthorStudio.Services
         private readonly IOcrEngine _ocr;
         private readonly OcrFixesStore _fixes;
         private readonly ILogger<DiscoveryService> _logger;
+        private readonly ILoggerFactory? _loggerFactory;
+        private readonly AudioPlaybackService _audioPlayer;
+        private readonly AudioStore _audioStore;
         private Timer? _timer;
         private bool _running;
         private string _lastText = string.Empty;
         private string _lastNormalized = string.Empty;
         private readonly System.Collections.Generic.HashSet<string> _seen = new();
+        private string? _currentPackFolder = null;
 
         // V1 Performance optimizations
         private bool _isBusy = false;
@@ -31,11 +37,32 @@ namespace GameWatcher.AuthorStudio.Services
         public ObservableCollection<PendingDialogueEntry> Discovered { get; } = new();
         public ObservableCollection<string> LogLines { get; } = new();
 
-        public DiscoveryService(OcrFixesStore fixes, ILogger<DiscoveryService> logger)
+        public DiscoveryService(
+            OcrFixesStore fixes, 
+            ILogger<DiscoveryService> logger,
+            AudioPlaybackService audioPlayer,
+            AudioStore audioStore,
+            ILoggerFactory? loggerFactory = null,
+            ITextboxDetector? detector = null)
         {
             _fixes = fixes;
             _logger = logger;
-            _detector = new DynamicTextboxDetector();
+            _audioPlayer = audioPlayer;
+            _audioStore = audioStore;
+            _loggerFactory = loggerFactory;
+            
+            // Use injected detector or create FF1 detector as default for V2
+            // Future: This will come from IGamePack.CreateDetector()
+            if (detector != null)
+            {
+                _detector = detector;
+            }
+            else
+            {
+                var detectorLogger = _loggerFactory?.CreateLogger<DynamicTextboxDetector>();
+                _detector = new DynamicTextboxDetector(FF1DetectionConfig.GetConfig(), detectorLogger);
+            }
+            
             _ocr = new WindowsOCR();
         }
 
@@ -43,7 +70,9 @@ namespace GameWatcher.AuthorStudio.Services
 
         public async Task LoadOcrFixesAsync(string packFolder)
         {
+            _currentPackFolder = packFolder;
             await _fixes.LoadFromFolderAsync(packFolder);
+            await _audioStore.SetPackFolderAsync(packFolder);
         }
 
         public Task StartAsync()
@@ -52,6 +81,7 @@ namespace GameWatcher.AuthorStudio.Services
             _running = true;
             _timer = new Timer(CaptureTick, null, 0, 67); // 15 FPS like V1 (was 150ms/6.7 FPS)
             Log("Discovery started (15 FPS)");
+            _logger.LogInformation("[Activity] Discovery started (15 FPS)");
             return Task.CompletedTask;
         }
 
@@ -61,6 +91,7 @@ namespace GameWatcher.AuthorStudio.Services
             _timer?.Change(Timeout.Infinite, Timeout.Infinite);
             _running = false;
             Log("Discovery paused");
+            _logger.LogInformation("[Activity] Discovery paused");
             return Task.CompletedTask;
         }
 
@@ -69,6 +100,7 @@ namespace GameWatcher.AuthorStudio.Services
             _ = PauseAsync();
             ClearTransientState();
             Log("Discovery stopped");
+            _logger.LogInformation("[Activity] Discovery stopped");
             return Task.CompletedTask;
         }
 
@@ -103,7 +135,7 @@ namespace GameWatcher.AuthorStudio.Services
                         // Fuzzy match + not busy = new stable frame detected, process it
                         _isBusy = true;
                         Log("📸 Stable frame detected - searching for textbox...");
-                        _logger.LogDebug("Stable frame detected (fuzzy) - processing for textbox");
+                        _logger.LogDebug("[Activity] Stable frame detected - searching for textbox");
                         // Continue to textbox detection below
                     }
                     else if (frameMatches && _isBusy)
@@ -118,7 +150,7 @@ namespace GameWatcher.AuthorStudio.Services
                         if (_isBusy)
                         {
                             Log("🔄 Scene change detected - resetting capture state");
-                            _logger.LogDebug("Scene change detected - resetting state");
+                            _logger.LogDebug("[Activity] Scene change detected - resetting capture state");
                         }
 
                         _isBusy = false;
@@ -137,11 +169,14 @@ namespace GameWatcher.AuthorStudio.Services
                 if (!textboxRect.HasValue)
                 {
                     Log("⚠️ No textbox found in stable frame");
+                    _logger.LogDebug("[Activity] No textbox found in stable frame");
                     currentFrame.Dispose();
                     return;
                 }
 
                 Log($"🎯 Textbox detected at {textboxRect.Value.X},{textboxRect.Value.Y} ({textboxRect.Value.Width}x{textboxRect.Value.Height})");
+                _logger.LogDebug("[Activity] Textbox detected at {X},{Y} ({W}x{H})", 
+                    textboxRect.Value.X, textboxRect.Value.Y, textboxRect.Value.Width, textboxRect.Value.Height);
 
                 // Step 4: Crop textbox area and check for content changes (V1 optimization)
                 using var textboxImage = CropImage(currentFrame, textboxRect.Value);
@@ -151,13 +186,14 @@ namespace GameWatcher.AuthorStudio.Services
                 if (textboxHash == _lastTextboxHash)
                 {
                     Log("⏭️ Textbox content unchanged - skipping OCR");
+                    _logger.LogDebug("[Activity] Textbox content unchanged - skipping OCR");
                     currentFrame.Dispose();
                     return; // Same textbox content, skip OCR
                 }
 
                 _lastTextboxHash = textboxHash;
                 Log("✨ New textbox content detected - running OCR...");
-                _logger.LogDebug("Unique textbox detected, processing OCR");
+                _logger.LogDebug("[Activity] New textbox content detected - running OCR");
 
                 // Step 5: OCR the text (async to not block the capture loop - V1 optimization)
                 var textboxCopy = new Bitmap(textboxImage);
@@ -169,10 +205,12 @@ namespace GameWatcher.AuthorStudio.Services
                     {
                         var text = _ocr.ExtractTextFast(textboxCopy)?.Trim();
                         Log($"📝 OCR extracted: '{Truncate(text ?? string.Empty, 60)}'");
+                        _logger.LogDebug("[Activity] OCR extracted: '{Text}'", Truncate(text ?? string.Empty, 100));
                         
                         if (string.IsNullOrWhiteSpace(text)) 
                         {
                             Log("⚠️ OCR returned empty text");
+                            _logger.LogDebug("[Activity] OCR returned empty text");
                             return;
                         }
 
@@ -183,6 +221,8 @@ namespace GameWatcher.AuthorStudio.Services
                         if (text != originalOcrText)
                         {
                             Log($"🔧 OCR fixes applied: '{Truncate(text, 60)}'");
+                            _logger.LogDebug("[Activity] OCR fixes applied: '{Before}' -> '{After}'", 
+                                Truncate(originalOcrText, 100), Truncate(text, 100));
                         }
 
                         if (string.IsNullOrWhiteSpace(text)) return;
@@ -193,11 +233,13 @@ namespace GameWatcher.AuthorStudio.Services
                             if (string.Equals(norm, _lastNormalized, StringComparison.Ordinal))
                             {
                                 Log("⏭️ Duplicate dialogue (normalized match) - skipping");
+                                _logger.LogDebug("[Activity] Duplicate dialogue (normalized match) - skipping");
                                 return;
                             }
                             if (_seen.Contains(norm))
                             {
                                 Log("⏭️ Duplicate dialogue (seen in session) - skipping");
+                                _logger.LogDebug("[Activity] Duplicate dialogue (seen in session) - skipping");
                                 return; // skip duplicates in this session
                             }
 
@@ -208,14 +250,20 @@ namespace GameWatcher.AuthorStudio.Services
 
                         await App.Current.Dispatcher.InvokeAsync(() =>
                         {
-                            Discovered.Add(new PendingDialogueEntry
+                            var entry = new PendingDialogueEntry
                             {
                                 Text = text,
                                 OriginalOcrText = originalOcrText,
                                 Timestamp = DateTime.UtcNow,
                                 Approved = false
-                            });
+                            };
+                            
+                            Discovered.Add(entry);
                             Log($"✅ Found: {Truncate(text, 80)}");
+                            _logger.LogInformation("[Activity] Found unique dialogue: {Text}", Truncate(text, 100));
+                            
+                            // Try to find and play existing audio for this dialogue
+                            TryPlayExistingAudio(entry);
                         });
                     }
                     catch (Exception ex)
@@ -266,6 +314,53 @@ namespace GameWatcher.AuthorStudio.Services
         {
             if (string.IsNullOrEmpty(s)) return s;
             return s.Length <= max ? s : s.Substring(0, max - 1) + "…";
+        }
+
+        /// <summary>
+        /// Attempts to find and play existing audio for a dialogue entry using AudioStore.
+        /// </summary>
+        private void TryPlayExistingAudio(PendingDialogueEntry entry)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(_currentPackFolder))
+                {
+                    _logger.LogDebug("No pack folder set - skipping audio lookup");
+                    return;
+                }
+
+                // Check AudioStore for existing audio
+                var audioEntry = _audioStore.GetAudioEntry(entry.Text);
+                if (audioEntry != null)
+                {
+                    var fullPath = Path.Combine(_currentPackFolder, audioEntry.Path);
+                    if (File.Exists(fullPath))
+                    {
+                        // Update entry with audio metadata
+                        entry.AudioPath = audioEntry.Path;
+                        entry.TtsVoice = audioEntry.VoiceName;
+                        
+                        // Play the audio
+                        _audioPlayer.Play(fullPath);
+                        
+                        var voiceInfo = !string.IsNullOrEmpty(audioEntry.VoiceName) ? $" ({audioEntry.VoiceName})" : "";
+                        Log($"🔊 Playing audio{voiceInfo}: {Path.GetFileName(fullPath)}");
+                        _logger.LogInformation("[Activity] Playing existing audio for dialogue: {File}", Path.GetFileName(fullPath));
+                    }
+                    else
+                    {
+                        _logger.LogWarning("Audio manifest references missing file: {Path}", audioEntry.Path);
+                    }
+                }
+                else
+                {
+                    _logger.LogDebug("No audio found in manifest for: {Text}", Truncate(entry.Text, 50));
+                }
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to lookup/play audio for dialogue");
+            }
         }
 
         #region V1 Performance Helper Methods

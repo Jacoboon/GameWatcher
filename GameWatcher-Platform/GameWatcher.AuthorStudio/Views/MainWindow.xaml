@@ -14,6 +14,30 @@
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
         <local:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
+        <local:CountToVisibilityConverter x:Key="CountToVisibilityConverter"/>
+        <local:LogLineColorConverter x:Key="LogLineColorConverter"/>
+        
+        <!-- Global ComboBox style for dark theme -->
+        <Style TargetType="ComboBox" x:Key="DarkComboBoxStyle">
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style TargetType="ComboBoxItem">
+                        <Setter Property="Foreground" Value="White"/>
+                        <Setter Property="Background" Value="#2D2D30"/>
+                        <Style.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter Property="Background" Value="#3E3E42"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="#007ACC"/>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
 
     <Grid>
@@ -51,6 +75,8 @@
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="200"/>
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
@@ -101,28 +127,121 @@
                               CellEditEnding="DiscoveryGrid_CellEditEnding"
                               Margin="0,0,0,16">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="Timestamp" Binding="{Binding Timestamp}" Width="160" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Timestamp" Binding="{Binding Timestamp, StringFormat='HH:mm:ss'}" Width="90" IsReadOnly="True"/>
                             <DataGridTextColumn Header="Dialogue Text" Binding="{Binding Text, Mode=TwoWay}" Width="*"/>
-                            <DataGridTextColumn Header="Speaker" Binding="{Binding SpeakerId}" Width="150"/>
-                            <DataGridTextColumn Header="Audio" Binding="{Binding AudioPath}" Width="180"/>
-                            <DataGridCheckBoxColumn Header="Approved" Binding="{Binding Approved}" Width="90"/>
+                            <DataGridComboBoxColumn Header="Speaker" 
+                                                    SelectedItemBinding="{Binding SpeakerId, Mode=TwoWay}" 
+                                                    Width="150">
+                                <DataGridComboBoxColumn.ElementStyle>
+                                    <Style TargetType="ComboBox">
+                                        <Setter Property="ItemsSource" Value="{Binding DataContext.SpeakersViewModel.Speakers, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                                        <Setter Property="DisplayMemberPath" Value="Name"/>
+                                        <Setter Property="SelectedValuePath" Value="Id"/>
+                                    </Style>
+                                </DataGridComboBoxColumn.ElementStyle>
+                                <DataGridComboBoxColumn.EditingElementStyle>
+                                    <Style TargetType="ComboBox" BasedOn="{StaticResource DarkComboBoxStyle}">
+                                        <Setter Property="ItemsSource" Value="{Binding DataContext.SpeakersViewModel.Speakers, RelativeSource={RelativeSource AncestorType=Window}}"/>
+                                        <Setter Property="DisplayMemberPath" Value="Name"/>
+                                        <Setter Property="SelectedValuePath" Value="Id"/>
+                                    </Style>
+                                </DataGridComboBoxColumn.EditingElementStyle>
+                            </DataGridComboBoxColumn>
+                            <DataGridTemplateColumn Header="Audio" Width="*" MinWidth="180">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock VerticalAlignment="Center" FontSize="11" TextTrimming="CharacterEllipsis">
+                                            <Run Text="{Binding AudioSourceIcon}" FontSize="14"/>
+                                            <Run Text=" "/>
+                                            <Run Text="{Binding AudioStatusText}"/>
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTemplateColumn Header="" Width="40">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Button Content="�" Padding="4,2" ToolTip="Attach audio file"
+                                                FontSize="14"
+                                                Click="AttachAudioFile_Click" Tag="{Binding}"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTemplateColumn Header="" Width="40">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Button Content="🎤" Padding="4,2" ToolTip="Generate TTS"
+                                                FontSize="14"
+                                                Click="GenerateTts_Click" Tag="{Binding}"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTemplateColumn Header="" Width="40">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Button Content="✓" Padding="6,2" Foreground="LimeGreen" FontWeight="Bold" ToolTip="Accept and move to Accepted list"
+                                                Click="AcceptDiscoveryEntry_Click" Tag="{Binding}"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTemplateColumn Header="" Width="40">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Button Content="✖" Padding="4,2" Foreground="Red" ToolTip="Delete entry"
+                                                Click="DeleteDiscoveryEntry_Click" Tag="{Binding}"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
                         </DataGrid.Columns>
                     </DataGrid>
 
                     <!-- Activity Log -->
                     <Border Grid.Row="3" Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}" 
                             BorderBrush="{DynamicResource SystemControlBackgroundBaseLowBrush}" 
-                            BorderThickness="1" Padding="8" Height="120">
-                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            BorderThickness="1" Padding="8" Height="120" Margin="0,0,0,16">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto" x:Name="ActivityLogScrollViewer">
                             <ItemsControl ItemsSource="{Binding DiscoveryViewModel.LogLines}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
-                                        <TextBlock Text="{Binding}" FontFamily="Consolas" FontSize="11" Foreground="LimeGreen"/>
+                                        <TextBlock Text="{Binding}" FontFamily="Consolas" FontSize="11" 
+                                                   Foreground="{Binding Converter={StaticResource LogLineColorConverter}}"
+                                                   TextWrapping="Wrap"/>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
                         </ScrollViewer>
                     </Border>
+
+                    <!-- Accepted Dialogue Section -->
+                    <TextBlock Grid.Row="4" Text="Accepted Dialogue (Ready for Export)" FontSize="14" FontWeight="SemiBold" Margin="0,0,0,8" VerticalAlignment="Top"/>
+                    <DataGrid Grid.Row="4" ItemsSource="{Binding DiscoveryViewModel.AcceptedDialogue}" 
+                              AutoGenerateColumns="False" CanUserAddRows="False" HeadersVisibility="Column"
+                              IsReadOnly="True" Margin="0,28,0,0">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Dialogue Text" Binding="{Binding Text}" Width="*"/>
+                            <DataGridTextColumn Header="Speaker" Binding="{Binding SpeakerId}" Width="150"/>
+                            <DataGridTemplateColumn Header="Audio" Width="120" IsReadOnly="False">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <TextBlock>
+                                            <Run Text="{Binding AudioSourceIcon}"/>
+                                            <Run Text=" "/>
+                                            <Run Text="{Binding AudioStatusText}"/>
+                                        </TextBlock>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                            <DataGridTemplateColumn Header="" Width="50" IsReadOnly="False">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Button Content="↩" Padding="6,2" ToolTip="Demote back to Discovery"
+                                                FontWeight="Bold" Foreground="Orange"
+                                                Click="DemoteToDiscovery_Click" Tag="{Binding}"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
                 </Grid>
             </TabItem>
 
@@ -154,7 +273,48 @@
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="150"/>
                             <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="200"/>
-                            <DataGridTextColumn Header="Voice" Binding="{Binding Voice}" Width="120"/>
+                            <DataGridComboBoxColumn Header="Voice" 
+                                                    SelectedItemBinding="{Binding Voice}" 
+                                                    Width="120">
+                                <DataGridComboBoxColumn.ElementStyle>
+                                    <Style TargetType="ComboBox">
+                                        <Setter Property="ItemsSource">
+                                            <Setter.Value>
+                                                <x:Array Type="sys:String" xmlns:sys="clr-namespace:System;assembly=mscorlib">
+                                                    <sys:String>alloy</sys:String>
+                                                    <sys:String>coral</sys:String>
+                                                    <sys:String>echo</sys:String>
+                                                    <sys:String>fable</sys:String>
+                                                    <sys:String>nova</sys:String>
+                                                    <sys:String>onyx</sys:String>
+                                                    <sys:String>sage</sys:String>
+                                                    <sys:String>shimmer</sys:String>
+                                                    <sys:String>verse</sys:String>
+                                                </x:Array>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </DataGridComboBoxColumn.ElementStyle>
+                                <DataGridComboBoxColumn.EditingElementStyle>
+                                    <Style TargetType="ComboBox" BasedOn="{StaticResource DarkComboBoxStyle}">
+                                        <Setter Property="ItemsSource">
+                                            <Setter.Value>
+                                                <x:Array Type="sys:String" xmlns:sys="clr-namespace:System;assembly=mscorlib">
+                                                    <sys:String>alloy</sys:String>
+                                                    <sys:String>coral</sys:String>
+                                                    <sys:String>echo</sys:String>
+                                                    <sys:String>fable</sys:String>
+                                                    <sys:String>nova</sys:String>
+                                                    <sys:String>onyx</sys:String>
+                                                    <sys:String>sage</sys:String>
+                                                    <sys:String>shimmer</sys:String>
+                                                    <sys:String>verse</sys:String>
+                                                </x:Array>
+                                            </Setter.Value>
+                                        </Setter>
+                                    </Style>
+                                </DataGridComboBoxColumn.EditingElementStyle>
+                            </DataGridComboBoxColumn>
                             <DataGridTextColumn Header="Speed" Binding="{Binding Speed, StringFormat=F2}" Width="80"/>
                             <DataGridTextColumn Header="Effects" Binding="{Binding Effects}" Width="*"/>
                             <DataGridTemplateColumn Header="Preview" Width="100">
@@ -234,9 +394,15 @@
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="140"/>
                                 <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
                             </Grid.ColumnDefinitions>
                             <TextBlock Text="Output Folder" VerticalAlignment="Center"/>
-                            <TextBox Grid.Column="1" Text="{Binding PackBuilderViewModel.OutputFolder, UpdateSourceTrigger=PropertyChanged}"/>
+                            <TextBox Grid.Column="1" 
+                                     Text="{Binding PackBuilderViewModel.OutputFolder, UpdateSourceTrigger=PropertyChanged}"
+                                     Margin="0,0,8,0"/>
+                            <Button Grid.Column="2" Content="📁" Padding="8,6" 
+                                    ToolTip="Browse for folder"
+                                    Click="BrowseOutputFolder_Click"/>
                         </Grid>
 
                         <StackPanel Orientation="Horizontal">
@@ -245,6 +411,46 @@
                             <Button Content="📦 Export Pack" Padding="12,6" Background="DodgerBlue" Foreground="White"
                                     Command="{Binding PackBuilderViewModel.ExportPackCommand}"/>
                         </StackPanel>
+
+                        <!-- Recent Packs -->
+                        <GroupBox Header="Recent Packs" Margin="0,24,0,0" 
+                                  Visibility="{Binding PackBuilderViewModel.RecentPacks.Count, Converter={StaticResource CountToVisibilityConverter}}">
+                            <ItemsControl ItemsSource="{Binding PackBuilderViewModel.RecentPacks}" Margin="8">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Content="{Binding}" 
+                                                HorizontalAlignment="Stretch" 
+                                                HorizontalContentAlignment="Left"
+                                                Padding="8,4" 
+                                                Margin="0,2"
+                                                Command="{Binding DataContext.PackBuilderViewModel.OpenRecentPackCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}"
+                                                Background="Transparent"
+                                                BorderThickness="1">
+                                            <Button.Template>
+                                                <ControlTemplate TargetType="Button">
+                                                    <Border Background="{TemplateBinding Background}" 
+                                                            BorderBrush="{DynamicResource SystemControlBackgroundBaseLowBrush}" 
+                                                            BorderThickness="1" 
+                                                            Padding="{TemplateBinding Padding}"
+                                                            CornerRadius="4">
+                                                        <TextBlock Text="{TemplateBinding Content}" 
+                                                                   FontFamily="Consolas" 
+                                                                   FontSize="11"
+                                                                   TextTrimming="CharacterEllipsis"/>
+                                                    </Border>
+                                                    <ControlTemplate.Triggers>
+                                                        <Trigger Property="IsMouseOver" Value="True">
+                                                            <Setter Property="Background" Value="{DynamicResource SystemControlBackgroundListMediumBrush}"/>
+                                                        </Trigger>
+                                                    </ControlTemplate.Triggers>
+                                                </ControlTemplate>
+                                            </Button.Template>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </GroupBox>
                     </StackPanel>
 
                     <TextBlock Grid.Row="2" Text="{Binding PackBuilderViewModel.StatusMessage}" 
@@ -272,9 +478,12 @@
                                         <ColumnDefinition Width="*"/>
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Text="Audio Format" VerticalAlignment="Center"/>
-                                    <ComboBox Grid.Column="1" SelectedItem="{Binding SettingsViewModel.AudioFormat}">
-                                        <ComboBoxItem Content="mp3"/>
-                                        <ComboBoxItem Content="wav"/>
+                                    <ComboBox Grid.Column="1" 
+                                              SelectedValue="{Binding SettingsViewModel.AudioFormat, Mode=TwoWay}"
+                                              SelectedValuePath="Tag"
+                                              SelectionChanged="AudioFormat_SelectionChanged">
+                                        <ComboBoxItem Content="MP3 (smaller file size)" Tag="mp3"/>
+                                        <ComboBoxItem Content="WAV (higher quality)" Tag="wav"/>
                                     </ComboBox>
                                 </Grid>
                                 <TextBlock Text="This format applies to both speaker previews and generated dialogue lines." 
@@ -298,6 +507,75 @@
                                 </Grid>
                                 <TextBlock Text="Your API key is stored in your user environment as GWS_OPENAI_API_KEY." 
                                            TextWrapping="Wrap" Foreground="Gray" FontSize="11"/>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <GroupBox Header="Diagnostics" Margin="0,0,0,16">
+                            <StackPanel Margin="8">
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="140"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Logs Folder" VerticalAlignment="Center"/>
+                                    <Button Grid.Column="1" Content="📂 Open Logs Folder" 
+                                            Click="OpenLogsFolder_Click"
+                                            HorizontalAlignment="Left" 
+                                            Padding="12,6"/>
+                                </Grid>
+                                <TextBlock Text="Logs are written to: bin\Debug\...\logs\author-studio_*.log" 
+                                           TextWrapping="Wrap" Foreground="Gray" FontSize="11"/>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <GroupBox Header="OCR Correction Rules" Margin="0,0,0,16">
+                            <StackPanel Margin="8">
+                                <TextBlock Text="Manage automatic OCR corrections. These rules are applied during text recognition." 
+                                           TextWrapping="Wrap" Foreground="Gray" FontSize="11" Margin="0,0,0,8"/>
+                                
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,8">
+                                    <Button Content="➕ Add Rule" 
+                                            Command="{Binding SettingsViewModel.AddOcrFixCommand}"
+                                            Padding="12,6" Margin="0,0,8,0"/>
+                                    <Button Content="💾 Save All" 
+                                            Command="{Binding SettingsViewModel.SaveOcrFixesCommand}"
+                                            Padding="12,6" Margin="0,0,8,0"/>
+                                    <Button Content="🔄 Refresh" 
+                                            Command="{Binding SettingsViewModel.RefreshOcrFixesCommand}"
+                                            Padding="12,6"/>
+                                </StackPanel>
+
+                                <Border BorderBrush="{DynamicResource SystemControlBackgroundBaseLowBrush}" 
+                                        BorderThickness="1" MaxHeight="300">
+                                    <DataGrid ItemsSource="{Binding SettingsViewModel.OcrFixes}" 
+                                              AutoGenerateColumns="False" 
+                                              CanUserAddRows="False" 
+                                              HeadersVisibility="Column">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="From (OCR Error)" 
+                                                                Binding="{Binding From, UpdateSourceTrigger=PropertyChanged}" 
+                                                                Width="*"/>
+                                            <DataGridTextColumn Header="To (Correct Text)" 
+                                                                Binding="{Binding To, UpdateSourceTrigger=PropertyChanged}" 
+                                                                Width="*"/>
+                                            <DataGridTemplateColumn Header="" Width="60">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate>
+                                                        <Button Content="🗑️" 
+                                                                Command="{Binding DataContext.SettingsViewModel.DeleteOcrFixCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                CommandParameter="{Binding}"
+                                                                Padding="6,2" 
+                                                                ToolTip="Delete this rule"
+                                                                Foreground="Red"/>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                </Border>
+                                
+                                <TextBlock Text="💡 Tip: Rules are automatically generated when you edit dialogue text in the Discovery tab." 
+                                           TextWrapping="Wrap" Foreground="DodgerBlue" FontSize="11" Margin="0,8,0,0"/>
                             </StackPanel>
                         </GroupBox>
 
