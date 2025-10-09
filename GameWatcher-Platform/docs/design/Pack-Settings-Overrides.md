@@ -51,9 +51,6 @@ Allow pack authors to define **recommended overrides** for Player settings in th
       "enable_preprocessing": true,
       "scale_factor": 2.0,
       "convert_to_grayscale": true
-    },
-    "general": {
-      "detection_interval_ms": 2000
     }
   }
 }
@@ -157,44 +154,6 @@ Allow pack authors to define **recommended overrides** for Player settings in th
               "description": "Convert to grayscale before OCR"
             }
           }
-        },
-        "general": {
-          "type": "object",
-          "properties": {
-            "detection_interval_ms": {
-              "type": "integer",
-              "minimum": 500,
-              "maximum": 10000,
-              "description": "Game window detection interval in milliseconds"
-            }
-          }
-        }
-      }
-    }
-  },
-  "required": ["version", "overrides"]
-}
-```
-          "properties": {
-            "fps": { "type": "integer", "minimum": 1, "maximum": 60 },
-            "confidence_threshold": { "type": "number", "minimum": 0.0, "maximum": 1.0 }
-          }
-        },
-        "audio": {
-          "type": "object",
-          "properties": {
-            "gap_threshold_ms": { "type": "integer", "minimum": 0, "maximum": 5000 },
-            "fade_in_ms": { "type": "integer", "minimum": 0, "maximum": 1000 },
-            "fade_out_ms": { "type": "integer", "minimum": 0, "maximum": 1000 },
-            "volume": { "type": "number", "minimum": 0.0, "maximum": 1.0 }
-          }
-        },
-        "ocr": {
-          "type": "object",
-          "properties": {
-            "min_confidence": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
-            "enable_autocorrect": { "type": "boolean" }
-          }
         }
       }
     }
@@ -218,7 +177,6 @@ Add a new section at the TOP of Settings tab:
 │ ✓ Capture: Target FPS → 15 (default: 10)                 │
 │ ✓ Capture: Confidence Threshold → 0.85 (default: 0.7)    │
 │ ✓ OCR: Scale Factor → 2.5 (default: 2.0)                 │
-│ ✓ General: Detection Interval → 3000ms (default: 2000ms) │
 │                                                           │
 │ [Use Pack Settings]  [Ignore and Use Defaults]  [Edit]   │
 └───────────────────────────────────────────────────────────┘
@@ -256,9 +214,6 @@ Add a new section in AuthorStudio Settings tab:
 │     Scale Factor: [2.0] (1.0-4.0)                         │
 │     Convert to Grayscale: [✓]                             │
 │                                                           │
-│ [ ] Override General Settings                            │
-│     Detection Interval: [2000] ms (500-10000)             │
-│                                                           │
 │ Description:                                              │
 │ [Optimized settings for FF1 Pixel Remaster              ]│
 │                                                           │
@@ -279,7 +234,6 @@ Add a new section in AuthorStudio Settings tab:
        public CaptureOverrides? Capture { get; set; }
        public AudioOverrides? Audio { get; set; }
        public OcrOverrides? Ocr { get; set; }
-       public GeneralOverrides? General { get; set; }
    }
    
    public class CaptureOverrides
@@ -305,11 +259,6 @@ Add a new section in AuthorStudio Settings tab:
        public bool? EnablePreprocessing { get; set; }
        public double? ScaleFactor { get; set; }
        public bool? ConvertToGrayscale { get; set; }
-   }
-   
-   public class GeneralOverrides
-   {
-       public int? DetectionIntervalMs { get; set; }
    }
    ```
 
@@ -383,21 +332,18 @@ Based on user feedback, the following settings are eligible for pack-specific ov
 - **Enable Caching** - Audio file caching
   - Reason: Performance tradeoff varies by pack size
 
-**General Settings:**
-- **Detection Interval** - Game window detection polling rate (500-10000ms)
-  - Reason: Some games need faster detection (alt-tab frequently), others can be slower
-
 ### ❌ **Ineligible Settings** (Pack CANNOT override)
 
-**General Settings (User Preferences):**
+**General Settings (User Preferences & System Config):**
 - Auto Start Monitoring - User workflow preference
+- Game Detection Polling Rate - System-specific (not game-specific)
 - Pack Directories - File system configuration
 - Theme/appearance - Personal choice
 - Hotkeys - Muscle memory
 - Diagnostics/logging - Developer settings
 - Window position/size - User preference
 
-**Rationale:** These settings are personal preferences or system-specific configurations that should never be controlled by pack authors.
+**Rationale:** These settings are personal preferences or system-specific configurations that should never be controlled by pack authors. Detection polling rate is about how often to check if the game window exists - this is a system performance preference, not a game-specific requirement.
 
 ### 📋 **Summary: Override Scope**
 
@@ -405,9 +351,9 @@ Based on user feedback, the following settings are eligible for pack-specific ov
 - ✅ All Capture settings (4 settings)
 - ✅ All OCR settings (4 settings)
 - ✅ All Audio settings (5 settings)
-- ✅ General: Detection Interval only (1 setting)
+- ❌ General settings (not game-specific)
 
-**Total:** 14 overridable settings out of 17 total settings
+**Total:** 13 overridable settings out of 16 total settings
 
 ## Security & Validation
 
@@ -439,9 +385,6 @@ Based on user feedback, the following settings are eligible for pack-specific ov
     "ocr": {
       "scale_factor": 2.5,
       "enable_preprocessing": true
-    },
-    "general": {
-      "detection_interval_ms": 3000
     }
   }
 }

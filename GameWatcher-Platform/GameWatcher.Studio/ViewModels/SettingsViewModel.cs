@@ -63,8 +63,8 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
 
         GeneralSettings.Add(new SettingItemViewModel
         {
-            Name = "Detection Interval",
-            Description = "Game detection check interval in milliseconds",
+            Name = "Game Detection Polling Rate",
+            Description = "How often to check for game window (in milliseconds)",
             Type = SettingType.Integer,
             Value = _configuration.GetValue<int>("GameWatcher:DetectionIntervalMs", 2000),
             MinValue = 500,
@@ -279,8 +279,33 @@ public partial class SettingItemViewModel : ObservableObject
     [ObservableProperty]
     private SettingType _type;
 
-    [ObservableProperty]
     private object? _value;
+    public object? Value
+    {
+        get => _value;
+        set
+        {
+            // Coerce value to correct type based on SettingType
+            object? coercedValue = value;
+            if (value != null)
+            {
+                if (Type == SettingType.Integer && value is double doubleValue)
+                {
+                    coercedValue = (int)Math.Round(doubleValue);
+                }
+                else if (Type == SettingType.Boolean && value is not bool)
+                {
+                    // Don't allow non-boolean values for Boolean settings
+                    return;
+                }
+            }
+
+            if (SetProperty(ref _value, coercedValue))
+            {
+                ValueChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+    }
 
     [ObservableProperty]
     private object? _minValue;
@@ -289,11 +314,6 @@ public partial class SettingItemViewModel : ObservableObject
     private object? _maxValue;
 
     public event EventHandler? ValueChanged;
-
-    partial void OnValueChanged(object? value)
-    {
-        ValueChanged?.Invoke(this, EventArgs.Empty);
-    }
 
     // Computed properties for UI visibility binding
     public bool IsBooleanType => Type == SettingType.Boolean;

@@ -157,7 +157,9 @@
                                                 <Slider Value="{Binding Value, Mode=TwoWay}" 
                                                         Minimum="{Binding MinValue}" 
                                                         Maximum="{Binding MaxValue}" 
-                                                        Width="200" 
+                                                        Width="200"
+                                                        TickFrequency="1"
+                                                        IsSnapToTickEnabled="True"
                                                         VerticalAlignment="Center"/>
                                                 <TextBlock Text="{Binding Value}" VerticalAlignment="Center" Margin="8,0,0,0" MinWidth="40"/>
                                             </StackPanel>
@@ -225,7 +227,9 @@
                                                 <Slider Value="{Binding Value, Mode=TwoWay}" 
                                                         Minimum="{Binding MinValue}" 
                                                         Maximum="{Binding MaxValue}" 
-                                                        Width="200" 
+                                                        Width="200"
+                                                        TickFrequency="1"
+                                                        IsSnapToTickEnabled="True"
                                                         VerticalAlignment="Center"/>
                                                 <TextBlock Text="{Binding Value}" VerticalAlignment="Center" Margin="8,0,0,0" MinWidth="40"/>
                                             </StackPanel>
@@ -264,7 +268,9 @@
                                                 <Slider Value="{Binding Value, Mode=TwoWay}" 
                                                         Minimum="{Binding MinValue}" 
                                                         Maximum="{Binding MaxValue}" 
-                                                        Width="200" 
+                                                        Width="200"
+                                                        TickFrequency="1"
+                                                        IsSnapToTickEnabled="True"
                                                         VerticalAlignment="Center"/>
                                                 <TextBlock Text="{Binding Value}" VerticalAlignment="Center" Margin="8,0,0,0" MinWidth="40"/>
                                             </StackPanel>
