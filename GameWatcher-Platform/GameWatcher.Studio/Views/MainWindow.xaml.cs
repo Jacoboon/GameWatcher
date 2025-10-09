@@ -540,20 +540,24 @@ private void Stop_Click(object sender, RoutedEventArgs e)
                 if (foundProcess != null)
                 {
                     // Found a matching process
-                    var currentPackStatus = PackStatusText.Text;
-                    
-                    if (currentPackStatus == "No pack loaded")
-                    {
-                        // Auto-load matching pack
-                        AutoLoadMatchingPack("FF1.PixelRemaster");
-                    }
-                    
                     var gameTitle = string.IsNullOrEmpty(foundProcess.MainWindowTitle) 
                         ? foundProcess.ProcessName 
                         : foundProcess.MainWindowTitle;
+                    
+                    // Marshal UI updates to UI thread
+                    Dispatcher.BeginInvoke(() =>
+                    {
+                        var currentPackStatus = PackStatusText.Text;
                         
-                    UpdateGameStatus($"Final Fantasy detected - {gameTitle}");
-                    BottomStatusText.Text = "GameWatcher V2 Platform - FF Game Ready (Smart Detection)";
+                        if (currentPackStatus == "No pack loaded")
+                        {
+                            // Auto-load matching pack
+                            AutoLoadMatchingPack("FF1.PixelRemaster");
+                        }
+                        
+                        UpdateGameStatus($"Final Fantasy detected - {gameTitle}");
+                        BottomStatusText.Text = "GameWatcher V2 Platform - FF Game Ready (Smart Detection)";
+                    });
                     
                     // Start capture service automatically when game is detected
                     if (!_gameIsRunning)
@@ -589,11 +593,20 @@ private void Stop_Click(object sender, RoutedEventArgs e)
             }
             
             // No games found - stop capture service if running
-            if (GameStatusText.Text != "No game detected")
+            // Marshal UI check to UI thread
+            bool shouldStopCapture = false;
+            Dispatcher.Invoke(() =>
             {
-                UpdateGameStatus("No game detected");
-                BottomStatusText.Text = "GameWatcher V2 Platform - Ready (No game)";
-                
+                shouldStopCapture = GameStatusText.Text != "No game detected";
+                if (shouldStopCapture)
+                {
+                    UpdateGameStatus("No game detected");
+                    BottomStatusText.Text = "GameWatcher V2 Platform - Ready (No game)";
+                }
+            });
+            
+            if (shouldStopCapture)
+            {
                 // Stop capture service when game is no longer detected
                 if (_gameIsRunning)
                 {
@@ -621,12 +634,16 @@ private void Stop_Click(object sender, RoutedEventArgs e)
                         }
                     });
                 }
-            }
+            } // Close shouldStopCapture if block
         }
         catch (Exception ex)
         {
-            UpdateGameStatus("Error detecting game");
-            BottomStatusText.Text = $"GameWatcher V2 Platform - Error: {ex.Message}";
+            // Marshal error handling to UI thread
+            Dispatcher.BeginInvoke(() =>
+            {
+                UpdateGameStatus("Error detecting game");
+                BottomStatusText.Text = $"GameWatcher V2 Platform - Error: {ex.Message}";
+            });
         }
     }
 
