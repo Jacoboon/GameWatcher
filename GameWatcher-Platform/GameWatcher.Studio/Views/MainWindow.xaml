@@ -150,13 +150,13 @@
                                             <TextBlock Text="{Binding Description}" FontSize="11" Foreground="Gray" Margin="0,0,0,4"/>
                                             
                                             <!-- Boolean Setting -->
-                                            <CheckBox Content="" IsChecked="{Binding Value, Mode=TwoWay}" Visibility="{Binding IsBooleanType, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                            <CheckBox Content="" IsChecked="{Binding Value, Mode=TwoWay, Converter={StaticResource SafeBooleanConverter}}" Visibility="{Binding IsBooleanType, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                                             
                                             <!-- Integer Setting with Slider -->
                                             <StackPanel Orientation="Horizontal" Visibility="{Binding IsIntegerType, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                                <Slider Value="{Binding Value, Mode=TwoWay}" 
-                                                        Minimum="{Binding MinValue}" 
-                                                        Maximum="{Binding MaxValue}" 
+                                                <Slider Value="{Binding Value, Mode=TwoWay, Converter={StaticResource NumericToDoubleConverter}}" 
+                                                        Minimum="{Binding MinValue, Converter={StaticResource NumericToDoubleConverter}}" 
+                                                        Maximum="{Binding MaxValue, Converter={StaticResource NumericToDoubleConverter}}" 
                                                         Width="200"
                                                         TickFrequency="1"
                                                         IsSnapToTickEnabled="True"
@@ -166,9 +166,9 @@
                                             
                                             <!-- Double Setting with Slider -->
                                             <StackPanel Orientation="Horizontal" Visibility="{Binding IsDoubleType, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                                <Slider Value="{Binding Value, Mode=TwoWay}" 
-                                                        Minimum="{Binding MinValue}" 
-                                                        Maximum="{Binding MaxValue}" 
+                                                <Slider Value="{Binding Value, Mode=TwoWay, Converter={StaticResource NumericToDoubleConverter}}" 
+                                                        Minimum="{Binding MinValue, Converter={StaticResource NumericToDoubleConverter}}" 
+                                                        Maximum="{Binding MaxValue, Converter={StaticResource NumericToDoubleConverter}}" 
                                                         Width="200"
                                                         TickFrequency="0.05"
                                                         IsSnapToTickEnabled="True"
@@ -191,13 +191,13 @@
                                             <TextBlock Text="{Binding Description}" FontSize="11" Foreground="Gray" Margin="0,0,0,4"/>
                                             
                                             <!-- Boolean Setting -->
-                                            <CheckBox Content="" IsChecked="{Binding Value, Mode=TwoWay}" Visibility="{Binding IsBooleanType, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                            <CheckBox Content="" IsChecked="{Binding Value, Mode=TwoWay, Converter={StaticResource SafeBooleanConverter}}" Visibility="{Binding IsBooleanType, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                                             
                                             <!-- Double Setting with Slider -->
                                             <StackPanel Orientation="Horizontal" Visibility="{Binding IsDoubleType, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                                <Slider Value="{Binding Value, Mode=TwoWay}" 
-                                                        Minimum="{Binding MinValue}" 
-                                                        Maximum="{Binding MaxValue}" 
+                                                <Slider Value="{Binding Value, Mode=TwoWay, Converter={StaticResource NumericToDoubleConverter}}" 
+                                                        Minimum="{Binding MinValue, Converter={StaticResource NumericToDoubleConverter}}" 
+                                                        Maximum="{Binding MaxValue, Converter={StaticResource NumericToDoubleConverter}}" 
                                                         Width="200"
                                                         TickFrequency="0.05"
                                                         IsSnapToTickEnabled="True"
@@ -220,13 +220,13 @@
                                             <TextBlock Text="{Binding Description}" FontSize="11" Foreground="Gray" Margin="0,0,0,4"/>
                                             
                                             <!-- Boolean Setting -->
-                                            <CheckBox Content="" IsChecked="{Binding Value, Mode=TwoWay}" Visibility="{Binding IsBooleanType, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                            <CheckBox Content="" IsChecked="{Binding Value, Mode=TwoWay, Converter={StaticResource SafeBooleanConverter}}" Visibility="{Binding IsBooleanType, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                                             
                                             <!-- Integer Setting with Slider -->
                                             <StackPanel Orientation="Horizontal" Visibility="{Binding IsIntegerType, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                                <Slider Value="{Binding Value, Mode=TwoWay}" 
-                                                        Minimum="{Binding MinValue}" 
-                                                        Maximum="{Binding MaxValue}" 
+                                                <Slider Value="{Binding Value, Mode=TwoWay, Converter={StaticResource NumericToDoubleConverter}}" 
+                                                        Minimum="{Binding MinValue, Converter={StaticResource NumericToDoubleConverter}}" 
+                                                        Maximum="{Binding MaxValue, Converter={StaticResource NumericToDoubleConverter}}" 
                                                         Width="200"
                                                         TickFrequency="1"
                                                         IsSnapToTickEnabled="True"
@@ -236,9 +236,9 @@
                                             
                                             <!-- Double Setting with Slider -->
                                             <StackPanel Orientation="Horizontal" Visibility="{Binding IsDoubleType, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                                <Slider Value="{Binding Value, Mode=TwoWay}" 
-                                                        Minimum="{Binding MinValue}" 
-                                                        Maximum="{Binding MaxValue}" 
+                                                <Slider Value="{Binding Value, Mode=TwoWay, Converter={StaticResource NumericToDoubleConverter}}" 
+                                                        Minimum="{Binding MinValue, Converter={StaticResource NumericToDoubleConverter}}" 
+                                                        Maximum="{Binding MaxValue, Converter={StaticResource NumericToDoubleConverter}}" 
                                                         Width="200"
                                                         TickFrequency="0.1"
                                                         IsSnapToTickEnabled="True"
@@ -261,13 +261,13 @@
                                             <TextBlock Text="{Binding Description}" FontSize="11" Foreground="Gray" Margin="0,0,0,4"/>
                                             
                                             <!-- Boolean Setting -->
-                                            <CheckBox Content="" IsChecked="{Binding Value, Mode=TwoWay}" Visibility="{Binding IsBooleanType, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                            <CheckBox Content="" IsChecked="{Binding Value, Mode=TwoWay, Converter={StaticResource SafeBooleanConverter}}" Visibility="{Binding IsBooleanType, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                                             
                                             <!-- Integer Setting with Slider -->
                                             <StackPanel Orientation="Horizontal" Visibility="{Binding IsIntegerType, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                                <Slider Value="{Binding Value, Mode=TwoWay}" 
-                                                        Minimum="{Binding MinValue}" 
-                                                        Maximum="{Binding MaxValue}" 
+                                                <Slider Value="{Binding Value, Mode=TwoWay, Converter={StaticResource NumericToDoubleConverter}}" 
+                                                        Minimum="{Binding MinValue, Converter={StaticResource NumericToDoubleConverter}}" 
+                                                        Maximum="{Binding MaxValue, Converter={StaticResource NumericToDoubleConverter}}" 
                                                         Width="200"
                                                         TickFrequency="1"
                                                         IsSnapToTickEnabled="True"
