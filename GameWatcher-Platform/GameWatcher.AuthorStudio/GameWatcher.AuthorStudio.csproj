@@ -7,18 +7,38 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <AssemblyTitle>GameWatcher Author Studio</AssemblyTitle>
     <AssemblyDescription>Creator tools for building dialogue packs</AssemblyDescription>
+    <AssemblyVersion>2.0.0.0</AssemblyVersion>
   </PropertyGroup>
+
   <ItemGroup>
     <ProjectReference Include="..\GameWatcher.Engine\GameWatcher.Engine.csproj" />
     <ProjectReference Include="..\GameWatcher.Runtime\GameWatcher.Runtime.csproj" />
   </ItemGroup>
 
   <ItemGroup>
-    <!-- Match Studio visual style -->
-    <PackageReference Include="ModernWpfUI" Version="0.9.6" />
+    <!-- Configuration Files -->
+    <None Update="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 
   <ItemGroup>
-    <Resource Include="Themes\AuthorComboBoxTheme.xaml" />
+    <!-- WPF and MVVM -->
+    <PackageReference Include="Microsoft.Extensions.Hosting" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
+    
+    <!-- Configuration and Logging -->
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="8.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging" Version="8.0.0" />
+    <PackageReference Include="Serilog.Extensions.Hosting" Version="8.0.0" />
+    <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0" />
+    <PackageReference Include="Serilog.Sinks.File" Version="5.0.0" />
+    <PackageReference Include="Serilog.Settings.Configuration" Version="8.0.2" />
+    
+    <!-- UI Enhancement -->
+    <PackageReference Include="ModernWpfUI" Version="0.9.6" />
+    <PackageReference Include="System.Drawing.Common" Version="8.0.8" />
   </ItemGroup>
+
 </Project>

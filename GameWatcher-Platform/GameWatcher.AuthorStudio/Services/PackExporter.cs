@@ -59,10 +59,10 @@ namespace GameWatcher.AuthorStudio.Services
             var file = new DialogueFile();
             var audioOutDir = Path.Combine(outputDir, "Audio");
             Directory.CreateDirectory(audioOutDir);
-            var fixPairs = new Dictionary<string, string>();
+            
             foreach (var d in dialogues)
             {
-                var text = d.EditedText ?? d.Text;
+                var text = d.Text; // Text is now the editable field
                 if (string.IsNullOrWhiteSpace(text)) continue;
                 if (!d.Approved) continue;
                 var id = $"dialogue_{Math.Abs(text.GetHashCode()):X8}";
@@ -96,42 +96,14 @@ namespace GameWatcher.AuthorStudio.Services
                 }
 
                 file.Entries.Add(export);
-
-                // Build OCR fix pairs from original vs edited tokens
-                if (!string.IsNullOrWhiteSpace(d.EditedText) && !string.Equals(d.EditedText, d.Text, StringComparison.Ordinal))
-                {
-                    var origTokens = (d.Text ?? string.Empty).Split(new[] { ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-                    var editTokens = d.EditedText.Split(new[] { ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-                    var len = Math.Min(origTokens.Length, editTokens.Length);
-                    for (int i = 0; i < len; i++)
-                    {
-                        var o = origTokens[i].Trim();
-                        var e = editTokens[i].Trim();
-                        if (!string.Equals(o, e, StringComparison.Ordinal))
-                        {
-                            var key = TextNormalizer.Normalize(o);
-                            if (string.IsNullOrWhiteSpace(key)) continue;
-                            if (!fixPairs.ContainsKey(key))
-                            {
-                                fixPairs[key] = e; // store corrected token
-                            }
-                        }
-                    }
-                }
+                
+                // Note: OCR fixes are now auto-generated in real-time during Discovery grid editing
+                // No need to generate them at export time
             }
             var dialogueJson = JsonSerializer.Serialize(file, new JsonSerializerOptions { WriteIndented = true });
             await File.WriteAllTextAsync(Path.Combine(outputDir, "Catalog", "dialogue.json"), dialogueJson);
-
-            // Write OCR fixes (token-level)
-            if (fixPairs.Count > 0)
-            {
-                var fixes = new
-                {
-                    fixes = fixPairs.Select(kv => new { from = kv.Key, to = kv.Value }).ToArray()
-                };
-                var fixesJson = JsonSerializer.Serialize(fixes, new JsonSerializerOptions { WriteIndented = true });
-                await File.WriteAllTextAsync(Path.Combine(outputDir, "Configuration", "ocr_fixes.json"), fixesJson);
-            }
+            
+            // Note: OCR fixes are managed by OcrFixesStore and saved in real-time during Discovery
         }
     }
 }

@@ -1,0 +1,320 @@
+<Window x:Class="GameWatcher.AuthorStudio.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="http://schemas.modernwpf.com/2019"
+        xmlns:local="clr-namespace:GameWatcher.AuthorStudio.Converters"
+        Title="GameWatcher Author Studio" 
+        Height="800" 
+        Width="1280"
+        MinHeight="600"
+        MinWidth="1000"
+        WindowStartupLocation="CenterScreen"
+        ui:WindowHelper.UseModernWindowStyle="True">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+        <local:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header (matches Studio) -->
+        <Border Grid.Row="0" Background="{DynamicResource SystemControlBackgroundAccentBrush}" Padding="16,12">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <TextBlock Grid.Column="0" Text="GameWatcher Author Studio" FontSize="18" FontWeight="SemiBold" Foreground="White"/>
+                
+                <StackPanel Grid.Column="2" Orientation="Horizontal">
+                    <TextBlock Text="TTS:" FontWeight="SemiBold" Foreground="White" Margin="0,0,4,0"/>
+                    <TextBlock Text="{Binding TtsStatusText}" Foreground="White" FontWeight="Normal"/>
+                </StackPanel>
+            </Grid>
+        </Border>
+
+        <!-- Main Content -->
+        <TabControl Grid.Row="1" Style="{DynamicResource DefaultTabControlStyle}">
+            
+            <!-- Discovery Tab -->
+            <TabItem Header="Discovery">
+                <Grid Margin="16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <!-- Discovery Status Cards -->
+                    <Grid Grid.Row="0" Margin="0,0,0,16">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+
+                        <Border Grid.Column="0" Style="{StaticResource StatusCardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Session Status" Style="{StaticResource MetricLabelStyle}"/>
+                                <TextBlock Text="{Binding DiscoveryViewModel.SessionStatus}" Style="{StaticResource MetricValueStyle}"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Grid.Column="1" Style="{StaticResource StatusCardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="Unique Lines Found" Style="{StaticResource MetricLabelStyle}"/>
+                                <TextBlock Text="{Binding DiscoveryViewModel.UniqueLinesFound}" Style="{StaticResource MetricValueStyle}"/>
+                            </StackPanel>
+                        </Border>
+
+                        <Border Grid.Column="2" Style="{StaticResource StatusCardStyle}">
+                            <StackPanel>
+                                <TextBlock Text="TTS Status" Style="{StaticResource MetricLabelStyle}"/>
+                                <TextBlock Text="{Binding TtsStatusText}" Style="{StaticResource MetricValueStyle}"/>
+                            </StackPanel>
+                        </Border>
+                    </Grid>
+
+                    <!-- Discovery Controls -->
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,16">
+                        <Button Content="▶ Start Discovery" Padding="12,6" Margin="0,0,8,0" 
+                                Background="LimeGreen" Foreground="White"
+                                Command="{Binding DiscoveryViewModel.StartDiscoveryCommand}"/>
+                        <Button Content="⏸ Pause" Padding="12,6" Margin="0,0,8,0"
+                                Command="{Binding DiscoveryViewModel.PauseDiscoveryCommand}"/>
+                        <Button Content="⏹ Stop" Padding="12,6"
+                                Command="{Binding DiscoveryViewModel.StopDiscoveryCommand}"/>
+                    </StackPanel>
+
+                    <!-- Discovered Dialogue Grid -->
+                    <DataGrid Grid.Row="2" ItemsSource="{Binding DiscoveryViewModel.DiscoveredDialogue}" 
+                              AutoGenerateColumns="False" CanUserAddRows="False" HeadersVisibility="Column"
+                              CellEditEnding="DiscoveryGrid_CellEditEnding"
+                              Margin="0,0,0,16">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="Timestamp" Binding="{Binding Timestamp}" Width="160" IsReadOnly="True"/>
+                            <DataGridTextColumn Header="Dialogue Text" Binding="{Binding Text, Mode=TwoWay}" Width="*"/>
+                            <DataGridTextColumn Header="Speaker" Binding="{Binding SpeakerId}" Width="150"/>
+                            <DataGridTextColumn Header="Audio" Binding="{Binding AudioPath}" Width="180"/>
+                            <DataGridCheckBoxColumn Header="Approved" Binding="{Binding Approved}" Width="90"/>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <!-- Activity Log -->
+                    <Border Grid.Row="3" Background="{DynamicResource SystemControlBackgroundChromeMediumLowBrush}" 
+                            BorderBrush="{DynamicResource SystemControlBackgroundBaseLowBrush}" 
+                            BorderThickness="1" Padding="8" Height="120">
+                        <ScrollViewer VerticalScrollBarVisibility="Auto">
+                            <ItemsControl ItemsSource="{Binding DiscoveryViewModel.LogLines}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}" FontFamily="Consolas" FontSize="11" Foreground="LimeGreen"/>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </ScrollViewer>
+                    </Border>
+                </Grid>
+            </TabItem>
+
+            <!-- Speakers Tab -->
+            <TabItem Header="Speakers">
+                <Grid Margin="16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Text="Speaker Profiles" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,16"/>
+
+                    <!-- Speaker Controls -->
+                    <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="0,0,0,12">
+                        <Button Content="➕ Add Speaker" Padding="12,6" Margin="0,0,8,0"
+                                Command="{Binding SpeakersViewModel.AddSpeakerCommand}"/>
+                        <Button Content="📥 Import JSON" Padding="12,6" Margin="0,0,8,0"
+                                Click="ImportSpeakers_Click"/>
+                        <Button Content="📤 Export JSON" Padding="12,6"
+                                Click="ExportSpeakers_Click"/>
+                    </StackPanel>
+                    
+                    <DataGrid Grid.Row="2" ItemsSource="{Binding SpeakersViewModel.Speakers}" 
+                              AutoGenerateColumns="False" CanUserAddRows="False" CanUserDeleteRows="True"
+                              Margin="0,0,0,16">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="ID" Binding="{Binding Id}" Width="150"/>
+                            <DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="200"/>
+                            <DataGridTextColumn Header="Voice" Binding="{Binding Voice}" Width="120"/>
+                            <DataGridTextColumn Header="Speed" Binding="{Binding Speed, StringFormat=F2}" Width="80"/>
+                            <DataGridTextColumn Header="Effects" Binding="{Binding Effects}" Width="*"/>
+                            <DataGridTemplateColumn Header="Preview" Width="100">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Button Content="▶ Play" Padding="6,2" 
+                                                Command="{Binding DataContext.SpeakersViewModel.PreviewSpeakerCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}"/>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
+                        </DataGrid.Columns>
+                    </DataGrid>
+
+                    <TextBlock Grid.Row="3" Text="Tip: Import from an existing pack's speakers.json or use Add Speaker. Click Preview to hear the voice." 
+                               Foreground="Gray"/>
+                </Grid>
+            </TabItem>
+
+            <!-- Voice Lab Tab (V3+ Placeholder) -->
+            <TabItem Header="Voice Lab">
+                <Grid Margin="16">
+                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
+                        <TextBlock Text="🎛️ Voice Lab" FontSize="32" FontWeight="Light" HorizontalAlignment="Center" Margin="0,0,0,16"/>
+                        <TextBlock Text="Effect chain editing, auditioning, and presets" FontSize="16" HorizontalAlignment="Center" Margin="0,0,0,8"/>
+                        <TextBlock Text="Coming in V3+" FontSize="14" Foreground="Gray" HorizontalAlignment="Center" Margin="0,0,0,32"/>
+                        <TextBlock Text="Future features:" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                        <TextBlock Text="• Preset palette (Cave Echo, Throne Room, etc.)" Margin="0,0,0,4"/>
+                        <TextBlock Text="• Effect chain editor with drag-and-drop" Margin="0,0,0,4"/>
+                        <TextBlock Text="• Real-time auditioning with A/B compare" Margin="0,0,0,4"/>
+                        <TextBlock Text="• Per-effect randomness for variation" Margin="0,0,0,4"/>
+                        <TextBlock Text="• DSL export for advanced users" Margin="0,0,0,4"/>
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+
+            <!-- Pack Builder Tab -->
+            <TabItem Header="Pack Builder">
+                <Grid Margin="16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="Auto"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Text="Pack Builder" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,16"/>
+
+                    <StackPanel Grid.Row="1" MaxWidth="600" HorizontalAlignment="Left">
+                        <Grid Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Pack Name" VerticalAlignment="Center"/>
+                            <TextBox Grid.Column="1" Text="{Binding PackBuilderViewModel.PackName, UpdateSourceTrigger=PropertyChanged}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Display Name" VerticalAlignment="Center"/>
+                            <TextBox Grid.Column="1" Text="{Binding PackBuilderViewModel.DisplayName, UpdateSourceTrigger=PropertyChanged}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,12">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Version" VerticalAlignment="Center"/>
+                            <TextBox Grid.Column="1" Text="{Binding PackBuilderViewModel.Version, UpdateSourceTrigger=PropertyChanged}"/>
+                        </Grid>
+
+                        <Grid Margin="0,0,0,24">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="140"/>
+                                <ColumnDefinition Width="*"/>
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="Output Folder" VerticalAlignment="Center"/>
+                            <TextBox Grid.Column="1" Text="{Binding PackBuilderViewModel.OutputFolder, UpdateSourceTrigger=PropertyChanged}"/>
+                        </Grid>
+
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="📂 Open Pack..." Padding="12,6" Margin="0,0,8,0"
+                                    Click="OpenPack_Click"/>
+                            <Button Content="📦 Export Pack" Padding="12,6" Background="DodgerBlue" Foreground="White"
+                                    Command="{Binding PackBuilderViewModel.ExportPackCommand}"/>
+                        </StackPanel>
+                    </StackPanel>
+
+                    <TextBlock Grid.Row="2" Text="{Binding PackBuilderViewModel.StatusMessage}" 
+                               Foreground="Green" FontWeight="SemiBold"
+                               Visibility="{Binding PackBuilderViewModel.StatusMessage, Converter={StaticResource StringToVisibilityConverter}}"/>
+                </Grid>
+            </TabItem>
+
+            <!-- Settings Tab -->
+            <TabItem Header="Settings">
+                <Grid Margin="16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Text="Settings" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,16"/>
+
+                    <StackPanel Grid.Row="1" MaxWidth="600" HorizontalAlignment="Left">
+                        <GroupBox Header="Audio Settings" Margin="0,0,0,16">
+                            <StackPanel Margin="8">
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="140"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Audio Format" VerticalAlignment="Center"/>
+                                    <ComboBox Grid.Column="1" SelectedItem="{Binding SettingsViewModel.AudioFormat}">
+                                        <ComboBoxItem Content="mp3"/>
+                                        <ComboBoxItem Content="wav"/>
+                                    </ComboBox>
+                                </Grid>
+                                <TextBlock Text="This format applies to both speaker previews and generated dialogue lines." 
+                                           TextWrapping="Wrap" Foreground="Gray" FontSize="11"/>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <GroupBox Header="OpenAI TTS Configuration" Margin="0,0,0,16">
+                            <StackPanel Margin="8">
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="140"/>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                        <ColumnDefinition Width="Auto"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="API Key" VerticalAlignment="Center"/>
+                                    <PasswordBox Grid.Column="1" x:Name="ApiKeyBox" Margin="0,0,8,0"/>
+                                    <Button Grid.Column="2" Content="Save" Padding="12,6" Margin="0,0,8,0"/>
+                                    <Button Grid.Column="3" Content="Remove" Padding="12,6"/>
+                                </Grid>
+                                <TextBlock Text="Your API key is stored in your user environment as GWS_OPENAI_API_KEY." 
+                                           TextWrapping="Wrap" Foreground="Gray" FontSize="11"/>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <TextBlock Text="{Binding SettingsViewModel.StatusMessage}" 
+                                   Foreground="Green" FontWeight="SemiBold" Margin="0,8,0,0"
+                                   Visibility="{Binding SettingsViewModel.StatusMessage, Converter={StaticResource StringToVisibilityConverter}}"/>
+                    </StackPanel>
+                </Grid>
+            </TabItem>
+
+        </TabControl>
+
+        <!-- Status Bar -->
+        <Border Grid.Row="2" Background="{DynamicResource SystemControlBackgroundChromeMediumBrush}" Padding="16,12">
+            <TextBlock Text="{Binding StatusText}" 
+                       Foreground="{DynamicResource SystemControlForegroundBaseMediumBrush}"/>
+        </Border>
+
+    </Grid>
+</Window>

@@ -59,7 +59,7 @@ namespace GameWatcher.AuthorStudio.Services
                         entries.Add(new PendingDialogueEntry
                         {
                             Text = e.Text,
-                            EditedText = null,
+                            OriginalOcrText = e.Text, // Loaded text is already correct
                             SpeakerId = e.SpeakerId,
                             Approved = true,
                             Timestamp = DateTime.UtcNow
