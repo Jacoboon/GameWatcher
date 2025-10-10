@@ -385,10 +385,71 @@ public partial class AudioEffectViewModel : ObservableObject
     [ObservableProperty]
     private bool _isEnabled = true;
 
+    [ObservableProperty]
+    private bool _isExpanded = false;
+
+    public string ParametersText
+    {
+        get
+        {
+            if (Effect.Parameters == null || Effect.Parameters.Count == 0)
+                return "No parameters";
+
+            var lines = new List<string>();
+            foreach (var param in Effect.Parameters)
+            {
+                var formattedValue = FormatParameterValue(param.Key, param.Value);
+                var displayKey = FormatParameterName(param.Key);
+                lines.Add($"{displayKey}: {formattedValue}");
+            }
+            return string.Join("\n", lines);
+        }
+    }
+
     public AudioEffectViewModel(IAudioEffect effect, string displayName)
     {
         Effect = effect;
         _displayName = displayName;
+    }
+
+    [RelayCommand]
+    private void ToggleExpand()
+    {
+        IsExpanded = !IsExpanded;
+    }
+
+    private string FormatParameterName(string key)
+    {
+        return key switch
+        {
+            "gain_db" => "Gain",
+            "cutoff_frequency" => "Cutoff",
+            "resonance" => "Resonance",
+            "delay_ms" => "Delay",
+            "decay" => "Decay",
+            "wet_level" => "Wet Level",
+            "dry_level" => "Dry Level",
+            "room_size" => "Room Size",
+            "damping" => "Damping",
+            _ => key.Replace("_", " ")
+        };
+    }
+
+    private string FormatParameterValue(string key, object value)
+    {
+        if (value == null) return "null";
+
+        var doubleValue = Convert.ToDouble(value);
+
+        return key switch
+        {
+            "gain_db" => $"{doubleValue:F1} dB",
+            "cutoff_frequency" => $"{doubleValue:F0} Hz",
+            "delay_ms" => $"{doubleValue:F0} ms",
+            "resonance" or "decay" or "wet_level" or "dry_level" or "room_size" or "damping" 
+                => $"{doubleValue:P0}".Replace(" %", "%"),
+            _ => doubleValue.ToString("F2")
+        };
     }
 }
 

@@ -16,6 +16,7 @@
         <local:StringToVisibilityConverter x:Key="StringToVisibilityConverter"/>
         <local:CountToVisibilityConverter x:Key="CountToVisibilityConverter"/>
         <local:LogLineColorConverter x:Key="LogLineColorConverter"/>
+        <local:BoolToExpandIconConverter x:Key="BoolToExpandIconConverter"/>
         
         <!-- Global ComboBox style for dark theme -->
         <Style TargetType="ComboBox" x:Key="DarkComboBoxStyle">
@@ -411,24 +412,51 @@
                                 <ItemsControl ItemsSource="{Binding VoiceLabViewModel.Effects}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate>
-                                            <Border Background="#3E3E42" CornerRadius="4" Padding="8" Margin="0,0,0,8">
-                                                <Grid>
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="Auto"/>
-                                                        <ColumnDefinition Width="*"/>
-                                                        <ColumnDefinition Width="Auto"/>
-                                                    </Grid.ColumnDefinitions>
+                                            <Border Background="#3E3E42" CornerRadius="4" Padding="0" Margin="0,0,0,8">
+                                                <StackPanel>
+                                                    <!-- Effect Header -->
+                                                    <Grid Margin="8">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                            <ColumnDefinition Width="*"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                            <ColumnDefinition Width="Auto"/>
+                                                        </Grid.ColumnDefinitions>
+                                                        
+                                                        <CheckBox Grid.Column="0" IsChecked="{Binding IsEnabled}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                        <TextBlock Grid.Column="1" Text="{Binding DisplayName}" VerticalAlignment="Center"/>
+                                                        <Button Grid.Column="2" Content="{Binding IsExpanded, Converter={StaticResource BoolToExpandIconConverter}}" 
+                                                                Command="{Binding ToggleExpandCommand}"
+                                                                Width="24" Height="24"
+                                                                Background="Transparent"
+                                                                BorderThickness="0"
+                                                                Margin="0,0,4,0"
+                                                                ToolTip="Show/Hide Parameters"/>
+                                                        <Button Grid.Column="3" Content="✕" 
+                                                                Command="{Binding DataContext.VoiceLabViewModel.RemoveEffectCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                                CommandParameter="{Binding}"
+                                                                Width="24" Height="24"
+                                                                Background="#C42B1C"
+                                                                BorderThickness="0"
+                                                                FontWeight="Bold"
+                                                                ToolTip="Remove Effect"/>
+                                                    </Grid>
                                                     
-                                                    <CheckBox Grid.Column="0" IsChecked="{Binding IsEnabled}" VerticalAlignment="Center" Margin="0,0,8,0"/>
-                                                    <TextBlock Grid.Column="1" Text="{Binding DisplayName}" VerticalAlignment="Center"/>
-                                                    <Button Grid.Column="2" Content="✕" 
-                                                            Command="{Binding DataContext.VoiceLabViewModel.RemoveEffectCommand, RelativeSource={RelativeSource AncestorType=Window}}"
-                                                            CommandParameter="{Binding}"
-                                                            Width="24" Height="24"
-                                                            Background="#C42B1C"
-                                                            BorderThickness="0"
-                                                            FontWeight="Bold"/>
-                                                </Grid>
+                                                    <!-- Parameters Panel (Collapsible) -->
+                                                    <Border Background="#2D2D30" 
+                                                            BorderBrush="#007ACC" 
+                                                            BorderThickness="0,1,0,0"
+                                                            Padding="8"
+                                                            Visibility="{Binding IsExpanded, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                        <StackPanel>
+                                                            <TextBlock Text="Parameters:" FontSize="11" FontWeight="SemiBold" Foreground="Gray" Margin="0,0,0,4"/>
+                                                            <TextBlock Text="{Binding ParametersText}" 
+                                                                       FontSize="11" 
+                                                                       FontFamily="Consolas"
+                                                                       Foreground="LightGray"/>
+                                                        </StackPanel>
+                                                    </Border>
+                                                </StackPanel>
                                             </Border>
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
