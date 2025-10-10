@@ -76,6 +76,9 @@ public partial class VoiceLabViewModel : ObservableObject, IDisposable
             HasAudioFile = true;
             StatusText = $"Loaded: {SelectedAudioFileName}";
             
+            // Notify commands that depend on HasAudioFile
+            PlayOriginalCommand.NotifyCanExecuteChanged();
+            
             _ = LoadEffectsForCurrentFileAsync();
         }
     }
@@ -111,9 +114,7 @@ public partial class VoiceLabViewModel : ObservableObject, IDisposable
             _playbackCts?.Dispose();
             _playbackCts = null;
         }
-    }
-
-    [RelayCommand(CanExecute = nameof(CanPlayWithEffects))]
+    }    [RelayCommand(CanExecute = nameof(CanPlayWithEffects))]
     private async Task PlayWithEffectsAsync()
     {
         if (string.IsNullOrEmpty(SelectedAudioFile) || IsPlaying)
