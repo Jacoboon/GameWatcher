@@ -1,0 +1,33 @@
+{
+  "name": "Cave Echo",
+  "description": "Deep cave acoustics with massive reverb and long echo tail. Perfect for caverns, dungeons, and underground spaces.",
+  "category": "Environmental",
+  "effects": [
+    {
+      "type": "Reverb",
+      "enabled": true,
+      "parameters": {
+        "room_size": 0.9,
+        "damping": 0.3,
+        "wet_level": 0.5,
+        "dry_level": 0.5
+      }
+    },
+    {
+      "type": "Echo",
+      "enabled": true,
+      "parameters": {
+        "delay_ms": 400.0,
+        "decay": 0.6,
+        "wet_level": 0.4
+      }
+    },
+    {
+      "type": "Volume",
+      "enabled": true,
+      "parameters": {
+        "gain_db": -2.0
+      }
+    }
+  ]
+}

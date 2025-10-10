@@ -1,0 +1,33 @@
+{
+  "version": "1.0",
+  "audio_file": "king_001.mp3",
+  "preset_name": "Cathedral",
+  "effects": [
+    {
+      "type": "Reverb",
+      "enabled": true,
+      "parameters": {
+        "room_size": 0.95,
+        "damping": 0.5,
+        "wet_level": 0.7,
+        "dry_level": 0.4
+      }
+    },
+    {
+      "type": "Echo",
+      "enabled": true,
+      "parameters": {
+        "delay_ms": 500.0,
+        "decay": 0.7,
+        "wet_level": 0.3
+      }
+    },
+    {
+      "type": "Volume",
+      "enabled": true,
+      "parameters": {
+        "gain_db": -3.0
+      }
+    }
+  ]
+}
