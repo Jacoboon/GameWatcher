@@ -181,6 +181,33 @@ public class AudioEffectsEngine
             };
         }
 
+        public static EchoEffect CreateEcho(float delayMs, float decay, float wetLevel = 0.3f)
+        {
+            return new EchoEffect
+            {
+                Parameters = new Dictionary<string, object>
+                {
+                    ["delay_ms"] = delayMs,
+                    ["decay"] = decay,
+                    ["wet_level"] = wetLevel
+                }
+            };
+        }
+
+        public static ReverbEffect CreateReverb(float roomSize, float damping, float wetLevel, float dryLevel)
+        {
+            return new ReverbEffect
+            {
+                Parameters = new Dictionary<string, object>
+                {
+                    ["room_size"] = roomSize,
+                    ["damping"] = damping,
+                    ["wet_level"] = wetLevel,
+                    ["dry_level"] = dryLevel
+                }
+            };
+        }
+
         /// <summary>
         /// Create a "Telephone" preset effect chain.
         /// Band-limits audio to 300Hz - 3000Hz with slight volume reduction.
@@ -218,6 +245,48 @@ public class AudioEffectsEngine
             {
                 CreateHighPassFilter(200f, 0.2f),
                 CreateVolume(-8.0)
+            };
+        }
+
+        /// <summary>
+        /// Create a "Cave Echo" preset effect chain.
+        /// Large reverberant space with long echo tail.
+        /// Combines heavy reverb with prominent echo for immersive cave atmosphere.
+        /// </summary>
+        public static List<IAudioEffect> CreateCaveEchoPreset()
+        {
+            return new List<IAudioEffect>
+            {
+                CreateReverb(0.9f, 0.3f, 0.5f, 0.5f), // Large, bright room
+                CreateEcho(400f, 0.6f, 0.4f),         // Medium-long echo with decay
+                CreateVolume(-2.0)                     // Slight volume reduction
+            };
+        }
+
+        /// <summary>
+        /// Create a "Cathedral" preset effect chain.
+        /// Massive reverberant space with soft dampening.
+        /// </summary>
+        public static List<IAudioEffect> CreateCathedralPreset()
+        {
+            return new List<IAudioEffect>
+            {
+                CreateReverb(0.95f, 0.5f, 0.7f, 0.4f), // Huge room, medium damping, heavy wet
+                CreateEcho(500f, 0.7f, 0.3f),          // Long echo tail
+                CreateVolume(-3.0)                      // Distance effect
+            };
+        }
+
+        /// <summary>
+        /// Create a "Small Room" preset effect chain.
+        /// Intimate acoustic space with short reflections.
+        /// </summary>
+        public static List<IAudioEffect> CreateSmallRoomPreset()
+        {
+            return new List<IAudioEffect>
+            {
+                CreateReverb(0.3f, 0.6f, 0.2f, 0.8f), // Small room, absorptive, subtle
+                CreateEcho(80f, 0.2f, 0.15f)          // Quick slapback
             };
         }
     }

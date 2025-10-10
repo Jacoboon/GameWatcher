@@ -122,6 +122,68 @@ class Program
         };
         await engine.PlayWithEffects(testAudioPath, disabledTest);
 
+        // Test 8: Echo effect
+        Console.WriteLine("\n═══════════════════════════════════════");
+        Console.WriteLine("Test 8: Echo Effect");
+        Console.WriteLine("Delay: 400ms, Decay: 0.6, Wet: 0.4");
+        Console.WriteLine("═══════════════════════════════════════");
+        Console.WriteLine("Press Enter to play...");
+        Console.ReadLine();
+
+        var echoTest = new List<IAudioEffect>
+        {
+            AudioEffectsEngine.EffectFactory.CreateEcho(400f, 0.6f, 0.4f)
+        };
+        await engine.PlayWithEffects(testAudioPath, echoTest);
+
+        // Test 9: Reverb effect
+        Console.WriteLine("\n═══════════════════════════════════════");
+        Console.WriteLine("Test 9: Reverb Effect (Large Room)");
+        Console.WriteLine("Room: 0.8, Damping: 0.5, Wet: 0.5, Dry: 0.6");
+        Console.WriteLine("═══════════════════════════════════════");
+        Console.WriteLine("Press Enter to play...");
+        Console.ReadLine();
+
+        var reverbTest = new List<IAudioEffect>
+        {
+            AudioEffectsEngine.EffectFactory.CreateReverb(0.8f, 0.5f, 0.5f, 0.6f)
+        };
+        await engine.PlayWithEffects(testAudioPath, reverbTest);
+
+        // Test 10: Cave Echo preset (Reverb + Echo combined!)
+        Console.WriteLine("\n═══════════════════════════════════════");
+        Console.WriteLine("Test 10: 🏔️ CAVE ECHO PRESET 🏔️");
+        Console.WriteLine("Massive reverb + long echo tail");
+        Console.WriteLine("This is the full environmental effect!");
+        Console.WriteLine("═══════════════════════════════════════");
+        Console.WriteLine("Press Enter to play...");
+        Console.ReadLine();
+
+        var caveEchoPreset = AudioEffectsEngine.EffectFactory.CreateCaveEchoPreset();
+        await engine.PlayWithEffects(testAudioPath, caveEchoPreset);
+
+        // Test 11: Cathedral preset
+        Console.WriteLine("\n═══════════════════════════════════════");
+        Console.WriteLine("Test 11: ⛪ Cathedral Preset");
+        Console.WriteLine("Huge space with long reverb tail");
+        Console.WriteLine("═══════════════════════════════════════");
+        Console.WriteLine("Press Enter to play...");
+        Console.ReadLine();
+
+        var cathedralPreset = AudioEffectsEngine.EffectFactory.CreateCathedralPreset();
+        await engine.PlayWithEffects(testAudioPath, cathedralPreset);
+
+        // Test 12: Small Room preset
+        Console.WriteLine("\n═══════════════════════════════════════");
+        Console.WriteLine("Test 12: 🏠 Small Room Preset");
+        Console.WriteLine("Intimate space with quick reflections");
+        Console.WriteLine("═══════════════════════════════════════");
+        Console.WriteLine("Press Enter to play...");
+        Console.ReadLine();
+
+        var smallRoomPreset = AudioEffectsEngine.EffectFactory.CreateSmallRoomPreset();
+        await engine.PlayWithEffects(testAudioPath, smallRoomPreset);
+
         Console.WriteLine("\n✅ All tests complete!");
         Console.WriteLine("Press Enter to exit...");
         Console.ReadLine();
