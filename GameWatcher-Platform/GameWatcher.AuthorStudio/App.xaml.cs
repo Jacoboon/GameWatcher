@@ -130,6 +130,7 @@ public partial class App : Application
                 services.AddTransient<VoiceLabViewModel>();
                 services.AddTransient<PackBuilderViewModel>();
                 services.AddTransient<SettingsViewModel>();
+                services.AddTransient<OverridesViewModel>();
 
                 // Main Window
                 services.AddSingleton<Views.MainWindow>();

@@ -5,6 +5,8 @@ using System.ComponentModel;
 using System.IO;
 using System.Linq;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
 using System.Diagnostics;
 using GameWatcher.Studio.ViewModels;
 using GameWatcher.Runtime.Services.Capture;
@@ -190,6 +192,46 @@ public partial class MainWindow : Window
         {
             AddActivityLogEntry($"[ERROR] Failed to open logs folder: {ex.Message}");
             MessageBox.Show($"Failed to open logs folder: {ex.Message}", "Error", 
+                MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void BrowsePackDirectory_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            var dialog = new System.Windows.Forms.FolderBrowserDialog
+            {
+                Description = "Select a directory to search for game packs",
+                ShowNewFolderButton = true
+            };
+
+            if (dialog.ShowDialog() == System.Windows.Forms.DialogResult.OK)
+            {
+                // Get the setting item from the Tag
+                if (sender is FrameworkElement element && element.Tag is SettingItemViewModel setting)
+                {
+                    // Find the TextBox in the visual tree
+                    var parent = VisualTreeHelper.GetParent(element);
+                    while (parent != null && parent is not StackPanel)
+                    {
+                        parent = VisualTreeHelper.GetParent(parent);
+                    }
+                    
+                    if (parent is StackPanel stackPanel)
+                    {
+                        var textBox = stackPanel.Children.OfType<TextBox>().FirstOrDefault(tb => tb.Name == "NewPackDirectoryTextBox");
+                        if (textBox != null)
+                        {
+                            textBox.Text = dialog.SelectedPath;
+                        }
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Failed to browse for directory: {ex.Message}", "Error",
                 MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }

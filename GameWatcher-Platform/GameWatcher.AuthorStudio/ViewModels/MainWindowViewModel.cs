@@ -30,6 +30,9 @@ public partial class MainWindowViewModel : ObservableObject
     private SettingsViewModel _settingsViewModel;
 
     [ObservableProperty]
+    private OverridesViewModel _overridesViewModel;
+
+    [ObservableProperty]
     private string _statusText = "Ready";
 
     [ObservableProperty]
@@ -45,7 +48,8 @@ public partial class MainWindowViewModel : ObservableObject
         SpeakersViewModel speakersViewModel,
         VoiceLabViewModel voiceLabViewModel,
         PackBuilderViewModel packBuilderViewModel,
-        SettingsViewModel settingsViewModel)
+        SettingsViewModel settingsViewModel,
+        OverridesViewModel overridesViewModel)
     {
         _logger = logger;
         _userSettings = userSettings;
@@ -54,6 +58,20 @@ public partial class MainWindowViewModel : ObservableObject
         _voiceLabViewModel = voiceLabViewModel;
         _packBuilderViewModel = packBuilderViewModel;
         _settingsViewModel = settingsViewModel;
+        _overridesViewModel = overridesViewModel;
+
+        // Subscribe to pack changes to update overrides
+        _packBuilderViewModel.PropertyChanged += (s, e) =>
+        {
+            if (e.PropertyName == nameof(PackBuilderViewModel.OutputFolder))
+            {
+                var packPath = _packBuilderViewModel.OutputFolder;
+                if (!string.IsNullOrEmpty(packPath))
+                {
+                    _overridesViewModel.SetPackDirectory(packPath);
+                }
+            }
+        };
 
         Initialize();
     }

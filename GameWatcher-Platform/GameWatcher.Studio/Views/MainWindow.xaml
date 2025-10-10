@@ -175,6 +175,25 @@
                                                         VerticalAlignment="Center"/>
                                                 <TextBlock Text="{Binding Value, StringFormat=F2}" VerticalAlignment="Center" Margin="8,0,0,0" MinWidth="50"/>
                                             </StackPanel>
+                                            
+                                            <!-- String Setting -->
+                                            <TextBox Text="{Binding Value, Mode=TwoWay}" 
+                                                     Width="300" 
+                                                     HorizontalAlignment="Left"
+                                                     Visibility="{Binding IsStringType, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                            
+                                            <!-- StringList Setting (Read-Only Display) -->
+                                            <TextBox Text="{Binding Value, Mode=OneWay, Converter={StaticResource StringArrayToStringConverter}}" 
+                                                     Width="300" 
+                                                     MinHeight="60"
+                                                     MaxHeight="120"
+                                                     IsReadOnly="True"
+                                                     TextWrapping="Wrap"
+                                                     AcceptsReturn="True"
+                                                     VerticalScrollBarVisibility="Auto"
+                                                     HorizontalAlignment="Left"
+                                                     Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
+                                                     Visibility="{Binding IsStringListType, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                                         </StackPanel>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
@@ -204,6 +223,25 @@
                                                         VerticalAlignment="Center"/>
                                                 <TextBlock Text="{Binding Value, StringFormat=F2}" VerticalAlignment="Center" Margin="8,0,0,0" MinWidth="50"/>
                                             </StackPanel>
+                                            
+                                            <!-- String Setting -->
+                                            <TextBox Text="{Binding Value, Mode=TwoWay}" 
+                                                     Width="300" 
+                                                     HorizontalAlignment="Left"
+                                                     Visibility="{Binding IsStringType, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                            
+                                            <!-- StringList Setting (Read-Only Display) -->
+                                            <TextBox Text="{Binding Value, Mode=OneWay, Converter={StaticResource StringArrayToStringConverter}}" 
+                                                     Width="300" 
+                                                     MinHeight="60"
+                                                     MaxHeight="120"
+                                                     IsReadOnly="True"
+                                                     TextWrapping="Wrap"
+                                                     AcceptsReturn="True"
+                                                     VerticalScrollBarVisibility="Auto"
+                                                     HorizontalAlignment="Left"
+                                                     Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
+                                                     Visibility="{Binding IsStringListType, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                                         </StackPanel>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
@@ -245,6 +283,26 @@
                                                         VerticalAlignment="Center"/>
                                                 <TextBlock Text="{Binding Value, StringFormat=F1}" VerticalAlignment="Center" Margin="8,0,0,0" MinWidth="50"/>
                                             </StackPanel>
+                                            
+                                            <!-- String Setting - Audio Device (ComboBox) -->
+                                            <ComboBox ItemsSource="{Binding DataContext.SettingsViewModel.AvailableAudioDevices, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                      SelectedItem="{Binding Value, Mode=TwoWay}" 
+                                                      Width="300" 
+                                                      HorizontalAlignment="Left"
+                                                      Visibility="{Binding IsStringType, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                            
+                                            <!-- StringList Setting (Read-Only Display) -->
+                                            <TextBox Text="{Binding Value, Mode=OneWay, Converter={StaticResource StringArrayToStringConverter}}" 
+                                                     Width="300" 
+                                                     MinHeight="60"
+                                                     MaxHeight="120"
+                                                     IsReadOnly="True"
+                                                     TextWrapping="Wrap"
+                                                     AcceptsReturn="True"
+                                                     VerticalScrollBarVisibility="Auto"
+                                                     HorizontalAlignment="Left"
+                                                     Background="{DynamicResource SystemControlBackgroundAltHighBrush}"
+                                                     Visibility="{Binding IsStringListType, Converter={StaticResource BooleanToVisibilityConverter}}"/>
                                         </StackPanel>
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
@@ -285,6 +343,72 @@
                                                         IsSnapToTickEnabled="True"
                                                         VerticalAlignment="Center"/>
                                                 <TextBlock Text="{Binding Value, StringFormat=F1}" VerticalAlignment="Center" Margin="8,0,0,0" MinWidth="50"/>
+                                            </StackPanel>
+                                            
+                                            <!-- String Setting -->
+                                            <TextBox Text="{Binding Value, Mode=TwoWay}" 
+                                                     Width="300" 
+                                                     HorizontalAlignment="Left"
+                                                     Visibility="{Binding IsStringType, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                            
+                                            <!-- StringList Setting - Pack Directories with Chips -->
+                                            <StackPanel Visibility="{Binding IsPackDirectoriesSetting, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                <!-- Directory Chips -->
+                                                <ItemsControl ItemsSource="{Binding Value}" Margin="0,0,0,8">
+                                                    <ItemsControl.ItemsPanel>
+                                                        <ItemsPanelTemplate>
+                                                            <WrapPanel Orientation="Horizontal"/>
+                                                        </ItemsPanelTemplate>
+                                                    </ItemsControl.ItemsPanel>
+                                                    <ItemsControl.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Border Background="{DynamicResource SystemControlBackgroundAccentBrush}" 
+                                                                    CornerRadius="12" 
+                                                                    Padding="12,6" 
+                                                                    Margin="0,0,8,8">
+                                                                <StackPanel Orientation="Horizontal">
+                                                                    <TextBlock Text="{Binding}" 
+                                                                               Foreground="White" 
+                                                                               VerticalAlignment="Center"
+                                                                               MaxWidth="250"
+                                                                               TextTrimming="CharacterEllipsis"
+                                                                               ToolTip="{Binding}"/>
+                                                                    <Button Content="✕" 
+                                                                            Margin="8,0,0,0"
+                                                                            Padding="4,0"
+                                                                            FontSize="10"
+                                                                            Background="Transparent"
+                                                                            Foreground="White"
+                                                                            BorderThickness="0"
+                                                                            Command="{Binding DataContext.RemoveFromStringListCommand, RelativeSource={RelativeSource AncestorType=ItemsControl, AncestorLevel=2}}"
+                                                                            CommandParameter="{Binding}"
+                                                                            ToolTip="Remove this directory"
+                                                                            Cursor="Hand"/>
+                                                                </StackPanel>
+                                                            </Border>
+                                                        </DataTemplate>
+                                                    </ItemsControl.ItemTemplate>
+                                                </ItemsControl>
+                                                
+                                                <!-- Add Directory Section -->
+                                                <StackPanel Orientation="Horizontal">
+                                                    <TextBox x:Name="NewPackDirectoryTextBox" 
+                                                             Width="250" 
+                                                             ui:ControlHelper.PlaceholderText="Enter directory path..."
+                                                             VerticalAlignment="Center"/>
+                                                    <Button Content="📂 Browse..." 
+                                                            Margin="8,0,0,0"
+                                                            Padding="8,4"
+                                                            Click="BrowsePackDirectory_Click"
+                                                            Tag="{Binding}"
+                                                            ToolTip="Browse for a directory"/>
+                                                    <Button Content="➕ Add" 
+                                                            Margin="8,0,0,0"
+                                                            Padding="8,4"
+                                                            Command="{Binding AddToStringListCommand}"
+                                                            CommandParameter="{Binding ElementName=NewPackDirectoryTextBox, Path=Text}"
+                                                            ToolTip="Add this directory to the pack search paths"/>
+                                                </StackPanel>
                                             </StackPanel>
                                         </StackPanel>
                                     </DataTemplate>

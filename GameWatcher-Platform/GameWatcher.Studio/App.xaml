@@ -13,6 +13,7 @@
             <!-- Value Converters -->
             <converters:NumericToDoubleConverter x:Key="NumericToDoubleConverter"/>
             <converters:SafeBooleanConverter x:Key="SafeBooleanConverter"/>
+            <converters:StringArrayToStringConverter x:Key="StringArrayToStringConverter"/>
 
             <!-- Custom Styles -->
             <Style x:Key="StatusCardStyle" TargetType="Border">

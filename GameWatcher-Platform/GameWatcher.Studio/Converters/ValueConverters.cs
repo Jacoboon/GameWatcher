@@ -37,7 +37,7 @@ public class BooleanToLoadedConverter : IValueConverter
 
 /// <summary>
 /// Converts numeric values to Double for Slider bindings (Minimum, Maximum, Value)
-/// Returns 0.0 for non-numeric types (strings, nulls)
+/// Returns 0.0 for non-numeric types (strings, arrays, nulls)
 /// </summary>
 public class NumericToDoubleConverter : IValueConverter
 {
@@ -46,8 +46,8 @@ public class NumericToDoubleConverter : IValueConverter
         if (value == null)
             return 0.0;
 
-        // Don't try to convert strings or other non-numeric types
-        if (value is string || value is bool)
+        // Don't try to convert non-numeric types
+        if (value is string || value is bool || value is Array)
             return 0.0;
 
         try
@@ -101,5 +101,30 @@ public class SafeBooleanConverter : IValueConverter
             return boolValue;
         
         return false;
+    }
+}
+
+/// <summary>
+/// Converts string array to newline-separated string for display
+/// </summary>
+public class StringArrayToStringConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is string[] stringArray)
+            return string.Join(Environment.NewLine, stringArray);
+        
+        if (value is string stringValue)
+            return stringValue;
+        
+        return string.Empty;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is string stringValue)
+            return stringValue.Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries);
+        
+        return Array.Empty<string>();
     }
 }

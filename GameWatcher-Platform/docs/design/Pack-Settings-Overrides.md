@@ -1,8 +1,29 @@
 # Pack-Specific Player Settings Overrides
 
-**Status:** Design Proposal  
+**Status:** ✅ **IMPLEMENTED** (Phase 1 & 2 Complete - October 10, 2025)  
 **Created:** October 9, 2025  
 **Author:** AI Assistant (based on user request)
+
+## Implementation Status
+
+✅ **Phase 1 Complete** - Core Infrastructure
+- Model classes created (PackSettingsOverrides, CaptureOverrides, AudioOverrides, OcrOverrides)
+- JSON serialization with snake_case naming
+- Nullable types for selective overrides
+
+✅ **Phase 2 Complete** - AuthorStudio UI
+- New "Studio Settings Overrides" tab added
+- Three-section layout (Capture, Audio, OCR) with enable/disable checkboxes
+- Value sliders with min/max enforcement
+- Description TextBox for explaining overrides
+- Save/Preview/Clear commands functional
+- Auto-loads existing player-overrides.json when pack opened
+
+⏳ **Phase 3 Pending** - Studio (Player) Integration
+- Load overrides when pack loads
+- Show pack override notification in Settings tab
+- Visual indicators for overridden settings
+- User accept/reject controls
 
 ## Problem Statement
 
@@ -109,10 +130,6 @@ Allow pack authors to define **recommended overrides** for Player settings in th
               "minimum": 0,
               "maximum": 100,
               "description": "Master audio volume (0-100)"
-            },
-            "audio_device": {
-              "type": "string",
-              "description": "Audio output device name"
             },
             "enable_crossfade": {
               "type": "boolean",
@@ -269,7 +286,6 @@ Add a new dedicated tab for Player Settings Overrides (separating it from Author
    public class AudioOverrides
    {
        public int? MasterVolume { get; set; }
-       public string? AudioDevice { get; set; }
        public bool? EnableCrossfade { get; set; }
        public double? PlaybackSpeed { get; set; }
        public bool? EnableCaching { get; set; }
@@ -354,8 +370,6 @@ Based on user feedback, the following settings are eligible for pack-specific ov
 **Audio Settings:**
 - **Master Volume** - Audio volume (0-100)
   - Reason: Balance voiceover with game audio
-- **Audio Device** - Output device selection
-  - Reason: User might want voiceover on separate device (headphones vs speakers)
 - **Enable Crossfade** - Crossfading between clips
   - Reason: Some games need smooth transitions, others benefit from hard cuts
 - **Playback Speed** - Audio playback speed
@@ -369,6 +383,7 @@ Based on user feedback, the following settings are eligible for pack-specific ov
 - Auto Start Monitoring - User workflow preference
 - Game Detection Polling Rate - System-specific (not game-specific)
 - Pack Directories - File system configuration
+- Audio Device - Personal hardware preference (speakers vs headphones)
 - Theme/appearance - Personal choice
 - Hotkeys - Muscle memory
 - Diagnostics/logging - Developer settings
@@ -381,10 +396,11 @@ Based on user feedback, the following settings are eligible for pack-specific ov
 **Overridable Categories:**
 - ✅ All Capture settings (4 settings)
 - ✅ All OCR settings (4 settings)
-- ✅ All Audio settings (5 settings)
+- ✅ Audio settings (4 settings: volume, crossfade, speed, caching)
 - ❌ General settings (not game-specific)
+- ❌ Audio Device (personal hardware preference)
 
-**Total:** 13 overridable settings out of 16 total settings
+**Total:** 12 overridable settings out of 16 total settings
 
 ## Security & Validation
 
@@ -527,12 +543,68 @@ Allow overrides based on game state:
 ## Next Steps
 
 1. ✅ **Create this design document**
-2. **Get user feedback** on proposed UI and schema
-3. **Implement Phase 1** (models + pack loader)
-4. **Implement Phase 2** (Studio UI)
-5. **Implement Phase 3** (AuthorStudio editor)
-6. **Test with FF1 pack** as reference
+2. ✅ **Get user feedback** on proposed UI and schema
+3. ✅ **Implement Phase 1** (models + pack loader)
+4. ✅ **Implement Phase 2** (AuthorStudio UI)
+5. ⏳ **Implement Phase 3** (Studio Player integration)
+6. ⏳ **Test with FF1 pack** as reference
 
 ---
 
-**Status**: Awaiting user feedback before implementation
+## Implementation Notes (October 10, 2025)
+
+### Changes from Original Design
+
+**Audio Device Removed:**
+- Original design included `audio_device` as an overridable setting
+- **Decision**: Removed from implementation - this is a personal hardware preference (speakers vs headphones), not a pack-specific optimization
+- Updated eligible settings count: 12 overridable settings (was 13)
+
+**Tab Naming Clarified:**
+- Renamed "Settings" → "Author Studio Settings" for clarity
+- "Studio Settings Overrides" remains as designed
+- Clear distinction helps authors understand: 
+  - **Author Studio Settings** = How AuthorStudio itself behaves (audio format, TTS, OCR fixes)
+  - **Studio Settings Overrides** = Recommended player settings to ship with the pack
+
+### Files Created
+
+1. `GameWatcher.AuthorStudio/Models/PackSettingsOverrides.cs`
+   - PackSettingsOverrides, SettingsOverrides, CaptureOverrides, AudioOverrides, OcrOverrides
+   - JSON serialization with snake_case (`target_fps`, `enable_crossfade`, etc.)
+   - Nullable types for selective overrides
+
+2. `GameWatcher.AuthorStudio/ViewModels/OverridesViewModel.cs`
+   - Properties for all 12 overridable settings
+   - Commands: SaveOverrides, PreviewJson, ClearOverrides
+   - Auto-loads existing player-overrides.json on pack load
+   - Only saves enabled sections (null sections omitted from JSON)
+
+3. `GameWatcher.AuthorStudio/Views/MainWindow.xaml` (new tab)
+   - "Studio Settings Overrides" tab with three GroupBoxes
+   - Sliders with min/max enforcement matching schema
+   - Description TextBox with helpful placeholder
+   - Save/Preview/Clear buttons with emoji icons
+
+### Integration
+
+- Registered in DI container (`App.xaml.cs`)
+- Added to MainWindowViewModel constructor
+- PropertyChanged handler watches PackBuilderViewModel.OutputFolder
+- Automatically calls `OverridesViewModel.SetPackDirectory()` when pack loads
+
+### Validation
+
+All schema constraints enforced in UI:
+- Capture FPS: 1-60 (integer slider, tick=1)
+- Capture Confidence: 0.0-1.0 (double slider, tick=0.05)
+- Audio Volume: 0-100 (integer slider, tick=5)
+- Audio Speed: 0.5-2.0 (double slider, tick=0.1)
+- OCR Confidence: 0.0-1.0 (double slider, tick=0.05)
+- OCR Scale: 1.0-4.0 (double slider, tick=0.5)
+
+**Status**: ✅ AuthorStudio implementation complete and tested
+
+---
+
+**Status**: Phase 1 & 2 Complete - Awaiting Phase 3 (Studio Player integration)

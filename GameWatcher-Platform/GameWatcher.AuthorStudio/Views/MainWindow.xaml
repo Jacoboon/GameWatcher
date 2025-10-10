@@ -459,15 +459,187 @@
                 </Grid>
             </TabItem>
 
+            <!-- Studio Settings Overrides Tab -->
+            <TabItem Header="Studio Settings Overrides">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="16">
+                        <TextBlock Text="Studio Settings Overrides" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8"/>
+                        <TextBlock Text="Configure recommended player settings for this pack. These will be suggested to users when loading your pack in GameWatcher Studio (Player)." 
+                                   TextWrapping="Wrap" Margin="0,0,0,16" Foreground="Gray"/>
+
+                        <!-- Capture Settings Override -->
+                        <GroupBox Header="Capture Settings" Margin="0,0,0,16">
+                            <StackPanel Margin="8">
+                                <CheckBox Content="Override Capture Settings" IsChecked="{Binding OverridesViewModel.OverrideCapture, Mode=TwoWay}" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                                
+                                <StackPanel IsEnabled="{Binding OverridesViewModel.OverrideCapture}">
+                                    <!-- Target FPS -->
+                                    <Grid Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="200"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Target FPS:" VerticalAlignment="Center"/>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                            <Slider Value="{Binding OverridesViewModel.CaptureTargetFps, Mode=TwoWay}" 
+                                                    Minimum="1" Maximum="60" Width="200" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                                            <TextBlock Text="{Binding OverridesViewModel.CaptureTargetFps}" Margin="8,0,0,0" MinWidth="30" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <!-- Confidence Threshold -->
+                                    <Grid Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="200"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Confidence Threshold:" VerticalAlignment="Center"/>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                            <Slider Value="{Binding OverridesViewModel.CaptureConfidenceThreshold, Mode=TwoWay}" 
+                                                    Minimum="0.0" Maximum="1.0" Width="200" TickFrequency="0.05" IsSnapToTickEnabled="True"/>
+                                            <TextBlock Text="{Binding OverridesViewModel.CaptureConfidenceThreshold, StringFormat=F2}" Margin="8,0,0,0" MinWidth="40" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <!-- Enable Optimization -->
+                                    <CheckBox Content="Enable Optimization" IsChecked="{Binding OverridesViewModel.CaptureEnableOptimization, Mode=TwoWay}" Margin="0,0,0,8"/>
+
+                                    <!-- Enable Duplicate Detection -->
+                                    <CheckBox Content="Enable Duplicate Detection" IsChecked="{Binding OverridesViewModel.CaptureEnableDuplicateDetection, Mode=TwoWay}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <!-- Audio Settings Override -->
+                        <GroupBox Header="Audio Settings" Margin="0,0,0,16">
+                            <StackPanel Margin="8">
+                                <CheckBox Content="Override Audio Settings" IsChecked="{Binding OverridesViewModel.OverrideAudio, Mode=TwoWay}" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                                
+                                <StackPanel IsEnabled="{Binding OverridesViewModel.OverrideAudio}">
+                                    <!-- Master Volume -->
+                                    <Grid Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="200"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Master Volume:" VerticalAlignment="Center"/>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                            <Slider Value="{Binding OverridesViewModel.AudioMasterVolume, Mode=TwoWay}" 
+                                                    Minimum="0" Maximum="100" Width="200" TickFrequency="5" IsSnapToTickEnabled="True"/>
+                                            <TextBlock Text="{Binding OverridesViewModel.AudioMasterVolume}" Margin="8,0,0,0" MinWidth="30" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <!-- Playback Speed -->
+                                    <Grid Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="200"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Playback Speed:" VerticalAlignment="Center"/>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                            <Slider Value="{Binding OverridesViewModel.AudioPlaybackSpeed, Mode=TwoWay}" 
+                                                    Minimum="0.5" Maximum="2.0" Width="200" TickFrequency="0.1" IsSnapToTickEnabled="True"/>
+                                            <TextBlock Text="{Binding OverridesViewModel.AudioPlaybackSpeed, StringFormat=F1}" Margin="8,0,0,0" MinWidth="40" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <!-- Enable Crossfade -->
+                                    <CheckBox Content="Enable Crossfade" IsChecked="{Binding OverridesViewModel.AudioEnableCrossfade, Mode=TwoWay}" Margin="0,0,0,8"/>
+
+                                    <!-- Enable Caching -->
+                                    <CheckBox Content="Enable Caching" IsChecked="{Binding OverridesViewModel.AudioEnableCaching, Mode=TwoWay}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <!-- OCR Settings Override -->
+                        <GroupBox Header="OCR Settings" Margin="0,0,0,16">
+                            <StackPanel Margin="8">
+                                <CheckBox Content="Override OCR Settings" IsChecked="{Binding OverridesViewModel.OverrideOcr, Mode=TwoWay}" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                                
+                                <StackPanel IsEnabled="{Binding OverridesViewModel.OverrideOcr}">
+                                    <!-- Confidence Threshold -->
+                                    <Grid Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="200"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Confidence Threshold:" VerticalAlignment="Center"/>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                            <Slider Value="{Binding OverridesViewModel.OcrConfidenceThreshold, Mode=TwoWay}" 
+                                                    Minimum="0.0" Maximum="1.0" Width="200" TickFrequency="0.05" IsSnapToTickEnabled="True"/>
+                                            <TextBlock Text="{Binding OverridesViewModel.OcrConfidenceThreshold, StringFormat=F2}" Margin="8,0,0,0" MinWidth="40" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <!-- Scale Factor -->
+                                    <Grid Margin="0,0,0,12">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="200"/>
+                                            <ColumnDefinition Width="*"/>
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="Scale Factor:" VerticalAlignment="Center"/>
+                                        <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                            <Slider Value="{Binding OverridesViewModel.OcrScaleFactor, Mode=TwoWay}" 
+                                                    Minimum="1.0" Maximum="4.0" Width="200" TickFrequency="0.5" IsSnapToTickEnabled="True"/>
+                                            <TextBlock Text="{Binding OverridesViewModel.OcrScaleFactor, StringFormat=F1}" Margin="8,0,0,0" MinWidth="40" VerticalAlignment="Center"/>
+                                        </StackPanel>
+                                    </Grid>
+
+                                    <!-- Enable Preprocessing -->
+                                    <CheckBox Content="Enable Preprocessing" IsChecked="{Binding OverridesViewModel.OcrEnablePreprocessing, Mode=TwoWay}" Margin="0,0,0,8"/>
+
+                                    <!-- Convert to Grayscale -->
+                                    <CheckBox Content="Convert to Grayscale" IsChecked="{Binding OverridesViewModel.OcrConvertToGrayscale, Mode=TwoWay}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <!-- Description -->
+                        <GroupBox Header="Description" Margin="0,0,0,16">
+                            <StackPanel Margin="8">
+                                <TextBlock Text="Explain why these settings are recommended for this game:" 
+                                           Margin="0,0,0,8" Foreground="Gray" FontSize="11"/>
+                                <TextBox Text="{Binding OverridesViewModel.Description, Mode=TwoWay}" 
+                                         Height="100" 
+                                         TextWrapping="Wrap" 
+                                         AcceptsReturn="True"
+                                         VerticalScrollBarVisibility="Auto"
+                                         ui:ControlHelper.PlaceholderText="e.g., Optimized for FF1's slow dialogue pace and simple UI. Lower FPS reduces CPU usage while maintaining perfect detection of text changes."/>
+                            </StackPanel>
+                        </GroupBox>
+
+                        <!-- Action Buttons -->
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Left" Margin="0,0,0,16">
+                            <Button Content="💾 Save to player-overrides.json" 
+                                    Command="{Binding OverridesViewModel.SaveOverridesCommand}"
+                                    Padding="12,6" Margin="0,0,8,0"/>
+                            <Button Content="👁 Preview JSON" 
+                                    Command="{Binding OverridesViewModel.PreviewJsonCommand}"
+                                    Padding="12,6" Margin="0,0,8,0"/>
+                            <Button Content="🗑 Clear" 
+                                    Command="{Binding OverridesViewModel.ClearOverridesCommand}"
+                                    Padding="12,6"/>
+                        </StackPanel>
+
+                        <!-- Status Message -->
+                        <TextBlock Text="{Binding OverridesViewModel.StatusMessage}" 
+                                   Foreground="Green" FontWeight="SemiBold"
+                                   Visibility="{Binding OverridesViewModel.StatusMessage, Converter={StaticResource StringToVisibilityConverter}}"/>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
             <!-- Settings Tab -->
-            <TabItem Header="Settings">
+            <TabItem Header="Author Studio Settings">
                 <Grid Margin="16">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
 
-                    <TextBlock Grid.Row="0" Text="Settings" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,16"/>
+                    <TextBlock Grid.Row="0" Text="Author Studio Settings" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,16"/>
 
                     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                         <StackPanel MaxWidth="600" HorizontalAlignment="Left">

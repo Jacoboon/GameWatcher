@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Configuration;
 using System.Collections.ObjectModel;
+using NAudio.Wave;
 
 namespace GameWatcher.Studio.ViewModels;
 
@@ -24,6 +25,9 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
     private ObservableCollection<SettingItemViewModel> _audioSettings = new();
 
     [ObservableProperty]
+    private ObservableCollection<string> _availableAudioDevices = new();
+
+    [ObservableProperty]
     private bool _hasUnsavedChanges;
 
     [ObservableProperty]
@@ -40,19 +44,48 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
         try
         {
             _logger.LogInformation("Initializing Settings ViewModel");
+            LoadAvailableAudioDevices();
             await LoadSettingsAsync();
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to initialize Settings ViewModel");
+            System.Diagnostics.Debug.WriteLine($"[SettingsViewModel] Initialize Exception: {ex.GetType().Name}: {ex.Message}\n{ex.StackTrace}");
             StatusMessage = $"Failed to load settings: {ex.Message}";
+        }
+    }
+
+    private void LoadAvailableAudioDevices()
+    {
+        try
+        {
+            AvailableAudioDevices.Clear();
+            AvailableAudioDevices.Add("Default");
+            
+            for (int i = 0; i < WaveOut.DeviceCount; i++)
+            {
+                var capabilities = WaveOut.GetCapabilities(i);
+                AvailableAudioDevices.Add(capabilities.ProductName);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to enumerate audio devices");
+            // Ensure at least "Default" is available
+            if (AvailableAudioDevices.Count == 0)
+            {
+                AvailableAudioDevices.Add("Default");
+            }
         }
     }
 
     private async Task LoadSettingsAsync()
     {
+        System.Diagnostics.Debug.WriteLine("[LoadSettingsAsync] START");
+        
         // General Settings
         GeneralSettings.Clear();
+        System.Diagnostics.Debug.WriteLine("[LoadSettingsAsync] Cleared GeneralSettings");
         GeneralSettings.Add(new SettingItemViewModel
         {
             Name = "Auto Start Monitoring",
@@ -343,6 +376,35 @@ public partial class SettingItemViewModel : ObservableObject
     public bool IsDoubleType => Type == SettingType.Double;
     public bool IsStringType => Type == SettingType.String;
     public bool IsStringListType => Type == SettingType.StringList;
+    
+    // Special UI control identification
+    public bool IsAudioDeviceSetting => Name == "Audio Device" && Type == SettingType.String;
+    public bool IsPackDirectoriesSetting => Name == "Pack Directories" && Type == SettingType.StringList;
+    
+    // Commands for StringList management
+    [RelayCommand]
+    private void AddToStringList(string? newValue)
+    {
+        if (Type != SettingType.StringList || string.IsNullOrWhiteSpace(newValue)) return;
+        
+        var currentList = (Value as string[]) ?? Array.Empty<string>();
+        
+        // Don't add duplicates
+        if (currentList.Contains(newValue, StringComparer.OrdinalIgnoreCase)) return;
+        
+        var newList = currentList.Append(newValue).ToArray();
+        Value = newList;
+    }
+    
+    [RelayCommand]
+    private void RemoveFromStringList(string? itemToRemove)
+    {
+        if (Type != SettingType.StringList || string.IsNullOrWhiteSpace(itemToRemove)) return;
+        
+        var currentList = (Value as string[]) ?? Array.Empty<string>();
+        var newList = currentList.Where(x => x != itemToRemove).ToArray();
+        Value = newList;
+    }
 }
 
 public enum SettingType
