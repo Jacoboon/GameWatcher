@@ -10,6 +10,13 @@ class Program
     {
         Console.WriteLine("🎵 GameWatcher Audio Effects Test\n");
 
+        // Check if serialization test was requested
+        if (args.Length > 0 && args[0] == "--serialization")
+        {
+            SerializationTest.Run();
+            return;
+        }
+
         // Setup logging
         using var loggerFactory = LoggerFactory.Create(builder =>
         {
