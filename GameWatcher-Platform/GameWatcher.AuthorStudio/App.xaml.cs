@@ -122,6 +122,7 @@ public partial class App : Application
                 services.AddSingleton<OcrFixesStore>();
                 services.AddSingleton<UserSettingsStore>();
                 services.AddSingleton<AudioStore>();
+                services.AddSingleton<GameWatcher.Engine.Audio.AudioEffectsEngine>();
 
                 // ViewModels (to be created)
                 services.AddTransient<MainWindowViewModel>();

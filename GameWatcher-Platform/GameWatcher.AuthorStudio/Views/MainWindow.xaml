@@ -334,20 +334,200 @@
                 </Grid>
             </TabItem>
 
-            <!-- Voice Lab Tab (V3+ Placeholder) -->
+            <!-- Voice Lab Tab -->
             <TabItem Header="Voice Lab">
                 <Grid Margin="16">
-                    <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
-                        <TextBlock Text="🎛️ Voice Lab" FontSize="32" FontWeight="Light" HorizontalAlignment="Center" Margin="0,0,0,16"/>
-                        <TextBlock Text="Effect chain editing, auditioning, and presets" FontSize="16" HorizontalAlignment="Center" Margin="0,0,0,8"/>
-                        <TextBlock Text="Coming in V3+" FontSize="14" Foreground="Gray" HorizontalAlignment="Center" Margin="0,0,0,32"/>
-                        <TextBlock Text="Future features:" FontWeight="SemiBold" Margin="0,0,0,8"/>
-                        <TextBlock Text="• Preset palette (Cave Echo, Throne Room, etc.)" Margin="0,0,0,4"/>
-                        <TextBlock Text="• Effect chain editor with drag-and-drop" Margin="0,0,0,4"/>
-                        <TextBlock Text="• Real-time auditioning with A/B compare" Margin="0,0,0,4"/>
-                        <TextBlock Text="• Per-effect randomness for variation" Margin="0,0,0,4"/>
-                        <TextBlock Text="• DSL export for advanced users" Margin="0,0,0,4"/>
-                    </StackPanel>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="300"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="350"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Left Panel: Presets -->
+                    <Border Grid.Column="0" Background="#2D2D30" CornerRadius="4" Padding="12" Margin="0,0,8,0">
+                        <StackPanel>
+                            <TextBlock Text="🎨 Presets" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                            
+                            <ListBox ItemsSource="{Binding VoiceLabViewModel.Presets}"
+                                     Background="Transparent"
+                                     BorderThickness="0"
+                                     ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Command="{Binding DataContext.VoiceLabViewModel.ApplyPresetCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                CommandParameter="{Binding}"
+                                                HorizontalContentAlignment="Stretch"
+                                                Background="#3E3E42"
+                                                BorderThickness="0"
+                                                Padding="8"
+                                                Margin="0,0,0,4">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="Auto"/>
+                                                    <ColumnDefinition Width="*"/>
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0" Text="{Binding Icon}" FontSize="20" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                <StackPanel Grid.Column="1">
+                                                    <TextBlock Text="{Binding Name}" FontWeight="SemiBold"/>
+                                                    <TextBlock Text="{Binding Description}" FontSize="11" Foreground="Gray" TextWrapping="Wrap"/>
+                                                </StackPanel>
+                                            </Grid>
+                                        </Button>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Center Panel: Effects Chain -->
+                    <Border Grid.Column="1" Background="#252526" CornerRadius="4" Padding="12" Margin="0,0,8,0">
+                        <Grid>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="Auto"/>
+                                <RowDefinition Height="*"/>
+                                <RowDefinition Height="Auto"/>
+                            </Grid.RowDefinitions>
+
+                            <!-- Header -->
+                            <TextBlock Grid.Row="0" Text="🎛️ Effects Chain" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,12"/>
+
+                            <!-- Audio File Selection -->
+                            <Grid Grid.Row="1" Margin="0,0,0,12">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="*"/>
+                                    <ColumnDefinition Width="Auto"/>
+                                </Grid.ColumnDefinitions>
+                                <Border Grid.Column="0" Background="#3E3E42" CornerRadius="4" Padding="8">
+                                    <TextBlock Text="{Binding VoiceLabViewModel.SelectedAudioFileName}" VerticalAlignment="Center"/>
+                                </Border>
+                                <Button Grid.Column="1" Content="Select File" 
+                                        Command="{Binding VoiceLabViewModel.SelectAudioFileCommand}"
+                                        Margin="8,0,0,0"/>
+                            </Grid>
+
+                            <!-- Effects List -->
+                            <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto">
+                                <ItemsControl ItemsSource="{Binding VoiceLabViewModel.Effects}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate>
+                                            <Border Background="#3E3E42" CornerRadius="4" Padding="8" Margin="0,0,0,8">
+                                                <Grid>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                        <ColumnDefinition Width="*"/>
+                                                        <ColumnDefinition Width="Auto"/>
+                                                    </Grid.ColumnDefinitions>
+                                                    
+                                                    <CheckBox Grid.Column="0" IsChecked="{Binding IsEnabled}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                                                    <TextBlock Grid.Column="1" Text="{Binding DisplayName}" VerticalAlignment="Center"/>
+                                                    <Button Grid.Column="2" Content="✕" 
+                                                            Command="{Binding DataContext.VoiceLabViewModel.RemoveEffectCommand, RelativeSource={RelativeSource AncestorType=Window}}"
+                                                            CommandParameter="{Binding}"
+                                                            Width="24" Height="24"
+                                                            Background="#C42B1C"
+                                                            BorderThickness="0"
+                                                            FontWeight="Bold"/>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </ScrollViewer>
+
+                            <!-- Action Buttons -->
+                            <StackPanel Grid.Row="3" Margin="0,12,0,0">
+                                <Button Content="Clear All Effects" 
+                                        Command="{Binding VoiceLabViewModel.ClearAllEffectsCommand}"
+                                        Background="#3E3E42"
+                                        Margin="0,0,0,8"/>
+                                
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <Button Grid.Column="0" Content="▶ Play Original" 
+                                            Command="{Binding VoiceLabViewModel.PlayOriginalCommand}"
+                                            Background="#0E639C"
+                                            Margin="0,0,4,0"/>
+                                    <Button Grid.Column="1" Content="▶ Play with Effects" 
+                                            Command="{Binding VoiceLabViewModel.PlayWithEffectsCommand}"
+                                            Background="#107C10"
+                                            Margin="4,0,0,0"/>
+                                </Grid>
+                                
+                                <Button Content="⏹ Stop" 
+                                        Command="{Binding VoiceLabViewModel.StopPlaybackCommand}"
+                                        Background="#C42B1C"
+                                        Margin="0,8,0,0"/>
+
+                                <Button Content="💾 Save Effects" 
+                                        Command="{Binding VoiceLabViewModel.SaveEffectsCommand}"
+                                        Background="#0E639C"
+                                        Margin="0,8,0,0"/>
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+
+                    <!-- Right Panel: Add Effects -->
+                    <Border Grid.Column="2" Background="#2D2D30" CornerRadius="4" Padding="12">
+                        <StackPanel>
+                            <TextBlock Text="➕ Add Effects" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                            
+                            <Button Content="🔊 Volume" 
+                                    Command="{Binding VoiceLabViewModel.AddVolumeEffectCommand}"
+                                    HorizontalContentAlignment="Left"
+                                    Background="#3E3E42"
+                                    Margin="0,0,0,8"/>
+                            
+                            <Button Content="🔽 Low-Pass Filter" 
+                                    Command="{Binding VoiceLabViewModel.AddLowPassFilterEffectCommand}"
+                                    HorizontalContentAlignment="Left"
+                                    Background="#3E3E42"
+                                    Margin="0,0,0,8"/>
+                            
+                            <Button Content="🔼 High-Pass Filter" 
+                                    Command="{Binding VoiceLabViewModel.AddHighPassFilterEffectCommand}"
+                                    HorizontalContentAlignment="Left"
+                                    Background="#3E3E42"
+                                    Margin="0,0,0,8"/>
+                            
+                            <Button Content="🔁 Echo" 
+                                    Command="{Binding VoiceLabViewModel.AddEchoEffectCommand}"
+                                    HorizontalContentAlignment="Left"
+                                    Background="#3E3E42"
+                                    Margin="0,0,0,8"/>
+                            
+                            <Button Content="🌊 Reverb" 
+                                    Command="{Binding VoiceLabViewModel.AddReverbEffectCommand}"
+                                    HorizontalContentAlignment="Left"
+                                    Background="#3E3E42"
+                                    Margin="0,0,0,8"/>
+
+                            <!-- Status Section -->
+                            <Border Background="#1E1E1E" CornerRadius="4" Padding="8" Margin="0,16,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="ℹ️ Status" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <TextBlock Text="{Binding VoiceLabViewModel.StatusText}" 
+                                               TextWrapping="Wrap"
+                                               FontSize="11"
+                                               Foreground="LightGray"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Help Section -->
+                            <Border Background="#1E1E1E" CornerRadius="4" Padding="8" Margin="0,12,0,0">
+                                <StackPanel>
+                                    <TextBlock Text="💡 Quick Tips" FontWeight="SemiBold" Margin="0,0,0,4"/>
+                                    <TextBlock Text="• Select presets for instant effects" FontSize="11" Margin="0,2"/>
+                                    <TextBlock Text="• Chain effects for complex sounds" FontSize="11" Margin="0,2"/>
+                                    <TextBlock Text="• Toggle checkboxes to A/B compare" FontSize="11" Margin="0,2"/>
+                                    <TextBlock Text="• Effects save as .effects.json" FontSize="11" Margin="0,2"/>
+                                </StackPanel>
+                            </Border>
+                        </StackPanel>
+                    </Border>
                 </Grid>
             </TabItem>
 
