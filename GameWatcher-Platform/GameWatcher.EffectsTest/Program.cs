@@ -10,6 +10,13 @@ class Program
     {
         Console.WriteLine("🎵 GameWatcher Audio Effects Test\n");
 
+        // Check if TTS instructions test was requested
+        if (args.Length > 0 && args[0] == "--tts-instructions")
+        {
+            await TtsInstructionsTest.RunAsync();
+            return;
+        }
+
         // Check if serialization test was requested
         if (args.Length > 0 && args[0] == "--serialization")
         {

@@ -21,6 +21,9 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
     private string _audioFormat = "mp3";
 
     [ObservableProperty]
+    private double _defaultTtsSpeed = 1.0;
+
+    [ObservableProperty]
     private string _statusMessage = "";
 
     [ObservableProperty]
@@ -47,9 +50,18 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
         
         // Load current settings
         AudioFormat = _settingsService.Settings.AudioFormat ?? "mp3";
+        DefaultTtsSpeed = _settingsService.Settings.DefaultTtsSpeed;
         IsTtsConfigured = _ttsService.IsConfigured;
         
         await Task.CompletedTask;
+    }
+
+    partial void OnDefaultTtsSpeedChanged(double value)
+    {
+        // Save to settings when changed
+        _settingsService.Settings.DefaultTtsSpeed = value;
+        _settingsService.Save();
+        _logger.LogInformation("Default TTS speed updated to: {Speed:F2}x", value);
     }
 
     /// <summary>
@@ -213,7 +225,9 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
         try
         {
             var normalizedFormat = format?.ToLowerInvariant() ?? "mp3";
-            if (normalizedFormat != "mp3" && normalizedFormat != "wav")
+            
+            // Validate NAudio-compatible formats only (OpenAiTtsFormats.NAudioCompatible)
+            if (normalizedFormat != "mp3" && normalizedFormat != "wav" && normalizedFormat != "flac")
                 normalizedFormat = "mp3";
 
             AudioFormat = normalizedFormat;

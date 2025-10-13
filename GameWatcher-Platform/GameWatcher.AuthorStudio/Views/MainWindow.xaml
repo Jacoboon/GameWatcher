@@ -18,6 +18,22 @@
         <local:LogLineColorConverter x:Key="LogLineColorConverter"/>
         <local:BoolToExpandIconConverter x:Key="BoolToExpandIconConverter"/>
         
+        <!-- OpenAI TTS Voices (from Engine constants - OpenAiVoices.All) -->
+        <!-- All 11 official voices - supports 50+ languages via Whisper model -->
+        <x:Array x:Key="OpenAiVoices" Type="sys:String" xmlns:sys="clr-namespace:System;assembly=mscorlib">
+            <sys:String>alloy</sys:String>
+            <sys:String>ash</sys:String>
+            <sys:String>ballad</sys:String>
+            <sys:String>coral</sys:String>
+            <sys:String>echo</sys:String>
+            <sys:String>fable</sys:String>
+            <sys:String>nova</sys:String>
+            <sys:String>onyx</sys:String>
+            <sys:String>sage</sys:String>
+            <sys:String>shimmer</sys:String>
+            <sys:String>verse</sys:String>
+        </x:Array>
+        
         <!-- Global ComboBox style for dark theme -->
         <Style TargetType="ComboBox" x:Key="DarkComboBoxStyle">
             <Setter Property="ItemContainerStyle">
@@ -152,9 +168,9 @@
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <TextBlock VerticalAlignment="Center" FontSize="11" TextTrimming="CharacterEllipsis">
-                                            <Run Text="{Binding AudioSourceIcon}" FontSize="14"/>
+                                            <Run Text="{Binding AudioSourceIcon, Mode=OneWay}" FontSize="14"/>
                                             <Run Text=" "/>
-                                            <Run Text="{Binding AudioStatusText}"/>
+                                            <Run Text="{Binding AudioStatusText, Mode=OneWay}"/>
                                         </TextBlock>
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
@@ -221,13 +237,13 @@
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Dialogue Text" Binding="{Binding Text}" Width="*"/>
                             <DataGridTextColumn Header="Speaker" Binding="{Binding SpeakerId}" Width="150"/>
-                            <DataGridTemplateColumn Header="Audio" Width="120" IsReadOnly="False">
+                            <DataGridTemplateColumn Header="Audio" Width="120" IsReadOnly="True">
                                 <DataGridTemplateColumn.CellTemplate>
                                     <DataTemplate>
                                         <TextBlock>
-                                            <Run Text="{Binding AudioSourceIcon}"/>
+                                            <Run Text="{Binding AudioSourceIcon, Mode=OneWay}"/>
                                             <Run Text=" "/>
-                                            <Run Text="{Binding AudioStatusText}"/>
+                                            <Run Text="{Binding AudioStatusText, Mode=OneWay}"/>
                                         </TextBlock>
                                     </DataTemplate>
                                 </DataGridTemplateColumn.CellTemplate>
@@ -279,44 +295,33 @@
                                                     Width="120">
                                 <DataGridComboBoxColumn.ElementStyle>
                                     <Style TargetType="ComboBox">
-                                        <Setter Property="ItemsSource">
-                                            <Setter.Value>
-                                                <x:Array Type="sys:String" xmlns:sys="clr-namespace:System;assembly=mscorlib">
-                                                    <sys:String>alloy</sys:String>
-                                                    <sys:String>coral</sys:String>
-                                                    <sys:String>echo</sys:String>
-                                                    <sys:String>fable</sys:String>
-                                                    <sys:String>nova</sys:String>
-                                                    <sys:String>onyx</sys:String>
-                                                    <sys:String>sage</sys:String>
-                                                    <sys:String>shimmer</sys:String>
-                                                    <sys:String>verse</sys:String>
-                                                </x:Array>
-                                            </Setter.Value>
-                                        </Setter>
+                                        <Setter Property="ItemsSource" Value="{StaticResource OpenAiVoices}"/>
                                     </Style>
                                 </DataGridComboBoxColumn.ElementStyle>
                                 <DataGridComboBoxColumn.EditingElementStyle>
                                     <Style TargetType="ComboBox" BasedOn="{StaticResource DarkComboBoxStyle}">
-                                        <Setter Property="ItemsSource">
-                                            <Setter.Value>
-                                                <x:Array Type="sys:String" xmlns:sys="clr-namespace:System;assembly=mscorlib">
-                                                    <sys:String>alloy</sys:String>
-                                                    <sys:String>coral</sys:String>
-                                                    <sys:String>echo</sys:String>
-                                                    <sys:String>fable</sys:String>
-                                                    <sys:String>nova</sys:String>
-                                                    <sys:String>onyx</sys:String>
-                                                    <sys:String>sage</sys:String>
-                                                    <sys:String>shimmer</sys:String>
-                                                    <sys:String>verse</sys:String>
-                                                </x:Array>
-                                            </Setter.Value>
-                                        </Setter>
+                                        <Setter Property="ItemsSource" Value="{StaticResource OpenAiVoices}"/>
                                     </Style>
                                 </DataGridComboBoxColumn.EditingElementStyle>
                             </DataGridComboBoxColumn>
-                            <DataGridTextColumn Header="Speed" Binding="{Binding Speed, StringFormat=F2}" Width="80"/>
+                            <DataGridTemplateColumn Header="Speed" Width="120">
+                                <DataGridTemplateColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <StackPanel Orientation="Horizontal">
+                                            <Slider Minimum="0.25" Maximum="4.0" 
+                                                    Value="{Binding Speed, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                                                    TickFrequency="0.25" 
+                                                    IsSnapToTickEnabled="True"
+                                                    Width="70" 
+                                                    VerticalAlignment="Center"
+                                                    Margin="0,0,4,0"/>
+                                            <TextBlock Text="{Binding Speed, StringFormat='{}{0:F2}x'}" 
+                                                       VerticalAlignment="Center" 
+                                                       MinWidth="40"/>
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </DataGridTemplateColumn.CellTemplate>
+                            </DataGridTemplateColumn>
                             <DataGridTextColumn Header="Effects" Binding="{Binding Effects}" Width="*"/>
                             <DataGridTemplateColumn Header="Preview" Width="100">
                                 <DataGridTemplateColumn.CellTemplate>
@@ -718,49 +723,6 @@
                             </StackPanel>
                         </GroupBox>
 
-                        <!-- Audio Settings Override -->
-                        <GroupBox Header="Audio Settings" Margin="0,0,0,16">
-                            <StackPanel Margin="8">
-                                <CheckBox Content="Override Audio Settings" IsChecked="{Binding OverridesViewModel.OverrideAudio, Mode=TwoWay}" FontWeight="SemiBold" Margin="0,0,0,12"/>
-                                
-                                <StackPanel IsEnabled="{Binding OverridesViewModel.OverrideAudio}">
-                                    <!-- Master Volume -->
-                                    <Grid Margin="0,0,0,12">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="200"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="Master Volume:" VerticalAlignment="Center"/>
-                                        <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                            <Slider Value="{Binding OverridesViewModel.AudioMasterVolume, Mode=TwoWay}" 
-                                                    Minimum="0" Maximum="100" Width="200" TickFrequency="5" IsSnapToTickEnabled="True"/>
-                                            <TextBlock Text="{Binding OverridesViewModel.AudioMasterVolume}" Margin="8,0,0,0" MinWidth="30" VerticalAlignment="Center"/>
-                                        </StackPanel>
-                                    </Grid>
-
-                                    <!-- Playback Speed -->
-                                    <Grid Margin="0,0,0,12">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="200"/>
-                                            <ColumnDefinition Width="*"/>
-                                        </Grid.ColumnDefinitions>
-                                        <TextBlock Text="Playback Speed:" VerticalAlignment="Center"/>
-                                        <StackPanel Grid.Column="1" Orientation="Horizontal">
-                                            <Slider Value="{Binding OverridesViewModel.AudioPlaybackSpeed, Mode=TwoWay}" 
-                                                    Minimum="0.5" Maximum="2.0" Width="200" TickFrequency="0.1" IsSnapToTickEnabled="True"/>
-                                            <TextBlock Text="{Binding OverridesViewModel.AudioPlaybackSpeed, StringFormat=F1}" Margin="8,0,0,0" MinWidth="40" VerticalAlignment="Center"/>
-                                        </StackPanel>
-                                    </Grid>
-
-                                    <!-- Enable Crossfade -->
-                                    <CheckBox Content="Enable Crossfade" IsChecked="{Binding OverridesViewModel.AudioEnableCrossfade, Mode=TwoWay}" Margin="0,0,0,8"/>
-
-                                    <!-- Enable Caching -->
-                                    <CheckBox Content="Enable Caching" IsChecked="{Binding OverridesViewModel.AudioEnableCaching, Mode=TwoWay}"/>
-                                </StackPanel>
-                            </StackPanel>
-                        </GroupBox>
-
                         <!-- OCR Settings Override -->
                         <GroupBox Header="OCR Settings" Margin="0,0,0,16">
                             <StackPanel Margin="8">
@@ -864,10 +826,30 @@
                                               SelectedValuePath="Tag"
                                               SelectionChanged="AudioFormat_SelectionChanged">
                                         <ComboBoxItem Content="MP3 (smaller file size)" Tag="mp3"/>
-                                        <ComboBoxItem Content="WAV (higher quality)" Tag="wav"/>
+                                        <ComboBoxItem Content="WAV (uncompressed, best for effects)" Tag="wav"/>
+                                        <ComboBoxItem Content="FLAC (lossless compression)" Tag="flac"/>
                                     </ComboBox>
                                 </Grid>
-                                <TextBlock Text="This format applies to both speaker previews and generated dialogue lines." 
+                                <Grid Margin="0,0,0,8">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="140"/>
+                                        <ColumnDefinition Width="*"/>
+                                    </Grid.ColumnDefinitions>
+                                    <TextBlock Text="Default TTS Speed" VerticalAlignment="Center"/>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                        <Slider Minimum="0.25" Maximum="4.0" 
+                                                Value="{Binding SettingsViewModel.DefaultTtsSpeed, Mode=TwoWay}"
+                                                TickFrequency="0.25" 
+                                                IsSnapToTickEnabled="True"
+                                                Width="200" 
+                                                VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding SettingsViewModel.DefaultTtsSpeed, StringFormat='{}{0:F2}x'}" 
+                                                   Margin="8,0,0,0" 
+                                                   MinWidth="50" 
+                                                   VerticalAlignment="Center"/>
+                                    </StackPanel>
+                                </Grid>
+                                <TextBlock Text="Audio format and speed apply to speaker previews and generated dialogue. Formats are NAudio-compatible. Speed: 0.25-4.0x per OpenAI API spec." 
                                            TextWrapping="Wrap" Foreground="Gray" FontSize="11"/>
                             </StackPanel>
                         </GroupBox>

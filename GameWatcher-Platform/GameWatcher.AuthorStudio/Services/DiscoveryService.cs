@@ -33,6 +33,7 @@ namespace GameWatcher.AuthorStudio.Services
         private Bitmap? _lastFrame = null;
         private string _lastTextboxHash = string.Empty;
         private readonly object _lockObject = new();
+        private int _processedFrames = 0;
 
         public ObservableCollection<PendingDialogueEntry> Discovered { get; } = new();
         public ObservableCollection<string> LogLines { get; } = new();
@@ -112,6 +113,13 @@ namespace GameWatcher.AuthorStudio.Services
             {
                 // Step 1: Capture game window
                 var currentFrame = ScreenCapture.CaptureGameWindow();
+                
+                // Debug: Log frame info periodically
+                if (_processedFrames % 100 == 0) // Every 100 frames (~7 seconds at 15 FPS)
+                {
+                    Log($"📊 Frame {_processedFrames}: {currentFrame.Width}x{currentFrame.Height}");
+                    _logger.LogDebug("[Activity] Frame {Frame}: {Width}x{Height}", _processedFrames, currentFrame.Width, currentFrame.Height);
+                }
 
                 // Step 2: Smart frame processing with dynamic fuzzy matching (V1 optimization)
                 lock (_lockObject)
@@ -162,6 +170,8 @@ namespace GameWatcher.AuthorStudio.Services
                         return;
                     }
                 }
+
+                _processedFrames++;
 
                 // Step 3: Check stable frame for textbox
                 var textboxRect = _detector.DetectTextbox(currentFrame);

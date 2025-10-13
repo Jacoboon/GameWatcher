@@ -221,16 +221,6 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
 
         AudioSettings.Add(new SettingItemViewModel
         {
-            Name = "Default Audio Speed",
-            Description = "Default playback speed for TTS audio (0.5-2.0x)",
-            Type = SettingType.Double,
-            Value = _configuration.GetValue<double>("Audio:DefaultSpeed", 1.0),
-            MinValue = 0.5,
-            MaxValue = 2.0
-        });
-
-        AudioSettings.Add(new SettingItemViewModel
-        {
             Name = "Enable Audio Caching",
             Description = "Cache generated TTS audio for faster playback",
             Type = SettingType.Boolean,

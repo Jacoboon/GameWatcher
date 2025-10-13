@@ -1,13 +1,65 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-namespace GameWatcher.AuthorStudio.Services
+namespace GameWatcher.Engine.Voices
 {
+    /// <summary>
+    /// Official OpenAI voice names for gpt-4o-mini-tts model.
+    /// Per API spec: https://platform.openai.com/docs/guides/text-to-speech
+    /// 
+    /// Language Support:
+    /// Voices are optimized for English but support 50+ languages including:
+    /// Afrikaans, Arabic, Chinese, French, German, Hindi, Italian, Japanese, Korean, 
+    /// Portuguese, Russian, Spanish, and many more. Future voice packs can be localized
+    /// to these languages by providing input text in the target language.
+    /// See: https://platform.openai.com/docs/guides/text-to-speech#supported-languages
+    /// </summary>
+    public static class OpenAiVoices
+    {
+        public const string Alloy = "alloy";       // Neutral
+        public const string Ash = "ash";           // Clear, expressive
+        public const string Ballad = "ballad";     // Smooth, storytelling
+        public const string Coral = "coral";       // Warm, upbeat
+        public const string Echo = "echo";         // Masculine
+        public const string Fable = "fable";       // British accent
+        public const string Nova = "nova";         // Young, energetic
+        public const string Onyx = "onyx";         // Deep, authoritative
+        public const string Sage = "sage";         // Wise, calm
+        public const string Shimmer = "shimmer";   // Soft, feminine
+        public const string Verse = "verse";       // Neutral, measured
+
+        public static readonly string[] All = { Alloy, Ash, Ballad, Coral, Echo, Fable, Nova, Onyx, Sage, Shimmer, Verse };
+
+        public static bool IsValid(string voice) => All.Contains(voice, StringComparer.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// OpenAI TTS format options, filtered for NAudio compatibility.
+    /// </summary>
+    public static class OpenAiTtsFormats
+    {
+        // Supported by both OpenAI and NAudio
+        public const string Wav = "wav";           // Uncompressed PCM - best for effects processing
+        public const string Mp3 = "mp3";           // Lossy compression - smaller files
+        public const string Flac = "flac";         // Lossless compression (requires NAudio.Flac)
+
+        // NOT included (NAudio compatibility issues):
+        // - "opus" (NAudio doesn't support)
+        // - "aac" (requires Media Foundation, Windows only)
+        // - "pcm" (raw PCM without header, requires custom reader)
+
+        public static readonly string[] NAudioCompatible = { Wav, Mp3, Flac };
+
+        public static bool IsNAudioCompatible(string format) 
+            => NAudioCompatible.Contains(format, StringComparer.OrdinalIgnoreCase);
+    }
+
     public class OpenAiTtsService
     {
         private readonly HttpClient _http = new();
@@ -26,14 +78,26 @@ namespace GameWatcher.AuthorStudio.Services
         public bool IsConfigured => !string.IsNullOrWhiteSpace(_apiKey);
 
         public Task<bool> GenerateWavAsync(string text, string voice, string outputPath)
-            => GenerateAsync(text, voice, 1.0, "wav", outputPath);
+            => GenerateAsync(text, voice, 1.0, OpenAiTtsFormats.Wav, outputPath);
 
         public Task<bool> GenerateWavAsync(string text, string voice, string instructions, string outputPath)
-            => GenerateAsync(text, voice, 1.0, "wav", outputPath, instructions);
+            => GenerateAsync(text, voice, 1.0, OpenAiTtsFormats.Wav, outputPath, instructions);
 
         public async Task<bool> GenerateAsync(string text, string voice, double speed, string format, string outputPath, string? instructions = null)
         {
             if (!IsConfigured) return false;
+
+            // Validate speed range per OpenAI API spec (0.25 to 4.0)
+            if (speed < 0.25 || speed > 4.0)
+                throw new ArgumentOutOfRangeException(nameof(speed), speed, 
+                    "Speed must be between 0.25 and 4.0 per OpenAI TTS API specification.");
+
+            // Validate format is NAudio-compatible
+            if (!OpenAiTtsFormats.IsNAudioCompatible(format))
+                throw new ArgumentException(
+                    $"Format '{format}' is not compatible with NAudio. Use: {string.Join(", ", OpenAiTtsFormats.NAudioCompatible)}", 
+                    nameof(format));
+
             Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
 
             // Basic API call to OpenAI TTS (model name adaptable)
@@ -41,7 +105,8 @@ namespace GameWatcher.AuthorStudio.Services
 
             async Task<bool> CallAsync(bool includeSpeed)
             {
-                var fmt = string.Equals(format, "mp3", StringComparison.OrdinalIgnoreCase) ? "mp3" : "wav";
+                // Normalize format to lowercase for API (wav, mp3, flac)
+                var fmt = format.ToLowerInvariant();
                 
                 // Build payload with optional instructions parameter
                 object payload;

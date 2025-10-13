@@ -6,7 +6,8 @@ namespace GameWatcher.AuthorStudio.Services
 {
     public class AuthorSettings
     {
-        public string AudioFormat { get; set; } = "mp3"; // wav|mp3 (default mp3 for size)
+        public string AudioFormat { get; set; } = "mp3"; // wav|mp3|flac (default mp3 for size)
+        public double DefaultTtsSpeed { get; set; } = 1.0; // 0.25-4.0 per OpenAI API spec
     }
 
     public class AuthorSettingsService

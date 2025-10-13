@@ -1,0 +1,18 @@
+{
+  "version": "1.0",
+  "description": "Optimized for FF1\u0027s slow dialgue pace and simple UI. Lower FPS reduces CPU usage while maintaining perfect detection of text changes.",
+  "overrides": {
+    "capture": {
+      "target_fps": 15,
+      "confidence_threshold": 0.85,
+      "enable_optimization": true,
+      "enable_duplicate_detection": true
+    },
+    "ocr": {
+      "confidence_threshold": 0.8,
+      "enable_preprocessing": true,
+      "scale_factor": 2,
+      "convert_to_grayscale": true
+    }
+  }
+}
