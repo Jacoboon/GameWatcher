@@ -1,0 +1,60 @@
+{
+  "fixes": [
+    {
+      "from": "ijhen",
+      "to": "When"
+    },
+    {
+      "from": "ljhen",
+      "to": "When"
+    },
+    {
+      "from": "vvhen",
+      "to": "When"
+    },
+    {
+      "from": "theri",
+      "to": "then"
+    },
+    {
+      "from": "thern",
+      "to": "then"
+    },
+    {
+      "from": "clur",
+      "to": "Our"
+    },
+    {
+      "from": "princ:e",
+      "to": "prince"
+    },
+    {
+      "from": "bec:ame",
+      "to": "became"
+    },
+    {
+      "from": "naw",
+      "to": "now"
+    },
+    {
+      "from": "ta",
+      "to": "to"
+    },
+    {
+      "from": "cin",
+      "to": "On"
+    },
+    {
+      "from": "tor-ik",
+      "to": "took"
+    },
+    {
+      "from": "cast",
+      "to": "castle"
+    },
+    {
+      "from": "nat",
+      "to": "Not"
+    }
+  ]
+}

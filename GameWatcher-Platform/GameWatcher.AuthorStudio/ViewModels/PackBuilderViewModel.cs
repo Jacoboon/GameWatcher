@@ -21,6 +21,7 @@ public partial class PackBuilderViewModel : ObservableObject, IDisposable
     private readonly UserSettingsStore _userSettings;
     private readonly DiscoveryViewModel _discoveryViewModel;
     private readonly SettingsViewModel _settingsViewModel;
+    private readonly OcrFixesStore _ocrFixesStore;
 
     [ObservableProperty]
     private string _packName = "";
@@ -51,7 +52,8 @@ public partial class PackBuilderViewModel : ObservableObject, IDisposable
         SpeakerStore speakerStore,
         UserSettingsStore userSettings,
         DiscoveryViewModel discoveryViewModel,
-        SettingsViewModel settingsViewModel)
+        SettingsViewModel settingsViewModel,
+        OcrFixesStore ocrFixesStore)
     {
         _logger = logger;
         _packExporter = packExporter;
@@ -61,6 +63,7 @@ public partial class PackBuilderViewModel : ObservableObject, IDisposable
         _userSettings = userSettings;
         _discoveryViewModel = discoveryViewModel;
         _settingsViewModel = settingsViewModel;
+        _ocrFixesStore = ocrFixesStore;
     }
 
     public async Task InitializeAsync()
@@ -175,6 +178,9 @@ public partial class PackBuilderViewModel : ObservableObject, IDisposable
             _logger.LogInformation("Pack loaded successfully: {AddedCount} entries from pack, {SessionCount} preserved from session", 
                 addedCount, sessionCount);
 
+            // Load OCR fixes from the pack folder
+            await _ocrFixesStore.LoadFromFolderAsync(folderPath);
+            
             // Load OCR fixes into Settings view
             _settingsViewModel.LoadOcrFixes();
 

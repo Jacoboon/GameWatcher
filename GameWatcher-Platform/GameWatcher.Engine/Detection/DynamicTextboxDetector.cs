@@ -103,28 +103,37 @@ public class DynamicTextboxDetector : ITextboxDetector
     
     private Rectangle? FindDialogueBoxInTargetedArea(Bitmap screenshot)
     {
-        // RESTORED V1 HARDCODED COORDINATES THAT ACTUALLY WORKED
-        // V1's proven targeted search coordinates (79.3% reduction)
-        // Based on FF1 analysis: X=0.196875, Y=0.050926, Width=0.604688, Height=0.282407
-        var targetX = (int)(screenshot.Width * 0.196875) - 25;
-        var targetY = (int)(screenshot.Height * 0.050926) - 25;
-        var targetWidth = (int)(screenshot.Width * 0.604688) + 50;
-        var targetHeight = (int)(screenshot.Height * 0.282407) + 50;
+        Rectangle searchArea;
+        
+        if (_config.TargetSearchArea.HasValue)
+        {
+            // Use configured search area (normalized coordinates)
+            var normalized = _config.TargetSearchArea.Value;
+            var targetX = (int)(screenshot.Width * normalized.X) - 25;
+            var targetY = (int)(screenshot.Height * normalized.Y) - 25;
+            var targetWidth = (int)(screenshot.Width * normalized.Width) + 50;
+            var targetHeight = (int)(screenshot.Height * normalized.Height) + 50;
 
-        // Ensure bounds stay within screen
-        targetX = Math.Max(0, targetX);
-        targetY = Math.Max(0, targetY);
-        targetWidth = Math.Min(targetWidth, screenshot.Width - targetX);
-        targetHeight = Math.Min(targetHeight, screenshot.Height - targetY);
+            // Ensure bounds stay within screen
+            targetX = Math.Max(0, targetX);
+            targetY = Math.Max(0, targetY);
+            targetWidth = Math.Min(targetWidth, screenshot.Width - targetX);
+            targetHeight = Math.Min(targetHeight, screenshot.Height - targetY);
 
-        var searchArea = new Rectangle(targetX, targetY, targetWidth, targetHeight);
+            searchArea = new Rectangle(targetX, targetY, targetWidth, targetHeight);
+        }
+        else
+        {
+            // Full screen search (no optimization)
+            searchArea = new Rectangle(0, 0, screenshot.Width, screenshot.Height);
+        }
 
         // Calculate performance improvement
         var searchAreaPixels = searchArea.Width * searchArea.Height;
         var fullScreenPixels = screenshot.Width * screenshot.Height;
         var reductionPercent = (1.0 - (double)searchAreaPixels / fullScreenPixels) * 100;
 
-        _logger?.LogDebug("🎯 V1 HARDCODED search: {Width}x{Height} ({Reduction:F1}% reduction)", 
+        _logger?.LogDebug("🎯 Targeted search: {Width}x{Height} ({Reduction:F1}% reduction)", 
             searchArea.Width, searchArea.Height, reductionPercent);
         
         // Search within targeted area

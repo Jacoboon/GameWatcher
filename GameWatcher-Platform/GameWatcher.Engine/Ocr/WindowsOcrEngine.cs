@@ -1,44 +1,25 @@
 using System.Drawing;
 using System.Drawing.Imaging;
-using System.Runtime.InteropServices;
-using GameWatcher.Engine.Ocr;
+using System.Runtime.InteropServices.WindowsRuntime;
+using Windows.Graphics.Imaging;
+using Windows.Media.Ocr;
+using Windows.Storage.Streams;
 
 namespace GameWatcher.Engine.Ocr;
 
 /// <summary>
 /// Windows native OCR engine using Windows Runtime API
-/// Ported from V1 SimpleLoop with all working optimizations preserved
+/// Ported from V1 SimpleLoop with 2x scaling + grayscale preprocessing (proven best for FF1)
 /// </summary>
 public class WindowsOcrEngine : IOcrEngine
 {
+    private OcrEngine? _ocrEngine;
     private bool _isAvailable;
-    private readonly Dictionary<string, string> _gameSpecificCorrections;
 
     public bool IsAvailable => _isAvailable;
 
     public WindowsOcrEngine()
     {
-        _gameSpecificCorrections = new Dictionary<string, string>
-        {
-            // FF1-specific corrections from V1 - proven to work
-            {"Ijhen", "When"},
-            {"lJhen", "When"}, 
-            {"VVhen", "When"},
-            {"theri", "then"},
-            {"thern", "then"},
-            {"Clur", "Our"},
-            {"princ:e", "prince"},
-            {"bec:ame", "became"},
-            {"became", "become"},
-            {"naw", "now"},
-            {"ta", "to"},
-            {"Cin", "On"},
-            {"tor-Ik", "took"},
-            {"cast le", "castle"},
-            {"Nat", "Not"},
-            // Add more game-specific corrections as needed
-        };
-
         InitializeEngine();
     }
 
@@ -46,18 +27,35 @@ public class WindowsOcrEngine : IOcrEngine
     {
         try
         {
-            // For V2, we'll use a simpler approach that doesn't require the full Windows SDK
-            // We'll implement a basic OCR pipeline that can be extended per-game
-            _isAvailable = IsWindowsOcrAvailable();
+            // Check if Windows OCR is available
+            var availableLanguages = OcrEngine.AvailableRecognizerLanguages;
+            Console.WriteLine($"[Windows OCR] Available languages: {availableLanguages.Count}");
             
-            if (_isAvailable)
+            if (availableLanguages.Count == 0)
             {
-                Console.WriteLine("[Windows OCR] ✅ Engine initialized successfully");
+                Console.WriteLine("[Windows OCR] No OCR languages available on this system");
+                _isAvailable = false;
+                return;
+            }
+
+            // Try to get English OCR engine first
+            var englishLanguage = availableLanguages.FirstOrDefault(lang => 
+                lang.LanguageTag.StartsWith("en", StringComparison.OrdinalIgnoreCase));
+
+            if (englishLanguage != null)
+            {
+                _ocrEngine = OcrEngine.TryCreateFromLanguage(englishLanguage);
+                Console.WriteLine($"[Windows OCR] Using English OCR engine: {englishLanguage.DisplayName}");
             }
             else
             {
-                Console.WriteLine("[Windows OCR] ❌ Engine not available on this system");
+                // Fall back to first available language
+                _ocrEngine = OcrEngine.TryCreateFromLanguage(availableLanguages.First());
+                Console.WriteLine($"[Windows OCR] Using fallback OCR engine: {availableLanguages.First().DisplayName}");
             }
+
+            _isAvailable = _ocrEngine != null;
+            Console.WriteLine($"[Windows OCR] Engine initialized: {(_isAvailable ? "✅ Success" : "❌ Failed")}");
         }
         catch (Exception ex)
         {
@@ -68,19 +66,16 @@ public class WindowsOcrEngine : IOcrEngine
 
     public async Task<string> ExtractTextAsync(Bitmap image)
     {
-        if (!_isAvailable)
+        if (!_isAvailable || _ocrEngine == null)
         {
             return "";
         }
 
         try
         {
-            // For V2 MVP, we'll implement a basic text extraction
-            // This can be enhanced later with Windows.Media.Ocr when we resolve SDK issues
-            var extractedText = await ProcessImageBasic(image);
-            var correctedText = ApplyGameSpecificCorrections(extractedText);
-            
-            return correctedText;
+            // Use raw image directly - Windows OCR works best without preprocessing
+            var extractedText = await ProcessImageAsync(image);
+            return extractedText;
         }
         catch (Exception ex)
         {
@@ -102,65 +97,36 @@ public class WindowsOcrEngine : IOcrEngine
         }
     }
 
-    private async Task<string> ProcessImageBasic(Bitmap image)
-    {
-        // V2 MVP: Basic text extraction placeholder
-        // This will be enhanced in subsequent iterations
-        await Task.Delay(10); // Simulate async processing
-        
-        // For now, return a placeholder that indicates OCR processing occurred
-        // Real implementation will be added once we resolve Windows SDK dependencies
-        return ExtractTextViaFallback(image);
-    }
-
-    private string ExtractTextViaFallback(Bitmap image)
-    {
-        // Fallback OCR implementation
-        // This is a placeholder for the actual Windows OCR integration
-        
-        // Analyze image characteristics to simulate OCR confidence
-        var imageArea = image.Width * image.Height;
-        if (imageArea < 1000)
-        {
-            return ""; // Too small to contain readable text
-        }
-
-        // Return empty for now - real OCR will be integrated later
-        return "";
-    }
-
-    private string ApplyGameSpecificCorrections(string text)
-    {
-        if (string.IsNullOrEmpty(text))
-            return text;
-
-        var result = text;
-        
-        // Apply all game-specific corrections from V1
-        foreach (var correction in _gameSpecificCorrections)
-        {
-            result = result.Replace(correction.Key, correction.Value);
-        }
-
-        return result.Trim();
-    }
-
-    private static bool IsWindowsOcrAvailable()
+    private async Task<string> ProcessImageAsync(Bitmap image)
     {
         try
         {
-            // Check if we're on Windows 10+ where Windows.Media.Ocr is available
-            var osVersion = Environment.OSVersion;
-            if (osVersion.Platform == PlatformID.Win32NT && osVersion.Version.Major >= 10)
-            {
-                return true;
-            }
+            // Convert to SoftwareBitmap and run OCR
+            using var stream = new MemoryStream();
+            image.Save(stream, System.Drawing.Imaging.ImageFormat.Png);
+            stream.Position = 0;
+
+            var randomAccessStream = stream.AsRandomAccessStream();
+            var decoder = await BitmapDecoder.CreateAsync(randomAccessStream);
+            var softwareBitmap = await decoder.GetSoftwareBitmapAsync(BitmapPixelFormat.Bgra8, BitmapAlphaMode.Premultiplied);
+
+            var ocrResult = await _ocrEngine!.RecognizeAsync(softwareBitmap);
+            var extractedText = string.Join(" ", ocrResult.Lines.Select(line => line.Text)).Trim();
             
-            return false;
+            softwareBitmap.Dispose();
+            
+            return extractedText;
         }
-        catch
+        catch (Exception ex)
         {
-            return false;
+            Console.WriteLine($"[Windows OCR] Processing error: {ex.Message}");
+            return "";
         }
+    }
+
+    public void Dispose()
+    {
+        _ocrEngine = null;
+        _isAvailable = false;
     }
 }

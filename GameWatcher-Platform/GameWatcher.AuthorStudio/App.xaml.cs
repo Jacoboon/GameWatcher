@@ -110,6 +110,38 @@ public partial class App : Application
                 // Core services
                 services.AddLogging();
 
+                // Optimal Detection Loop (NEW)
+                services.AddSingleton<GameWatcher.Engine.Detection.IDetectionLoop>(sp =>
+                {
+                    var logger = sp.GetRequiredService<ILogger<GameWatcher.Engine.Detection.DetectionLoop>>();
+                    var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
+                    
+                    // Get FF1 configuration
+                    var config = FF1.PixelRemaster.Detection.FF1DetectionLoop.GetConfig();
+                    
+                    // Create textbox detector
+                    var detectorLogger = loggerFactory.CreateLogger<GameWatcher.Engine.Detection.DynamicTextboxDetector>();
+                    var detector = new GameWatcher.Engine.Detection.DynamicTextboxDetector(config.TextboxConfig, detectorLogger);
+                    
+                    // Create OCR engine (Windows OCR - proven to work better than Tesseract)
+                    var ocr = new GameWatcher.Engine.Ocr.WindowsOcrEngine();
+                    
+                    // Get OCR fixes store
+                    var ocrFixes = sp.GetRequiredService<OcrFixesStore>();
+                    
+                    // Create the detection loop with delegates
+                    return new GameWatcher.Engine.Detection.DetectionLoop(
+                        config,
+                        detector,
+                        ocr,
+                        text => ocrFixes.Apply(text),
+                        () => GameWatcher.Runtime.Services.Capture.ScreenCapture.CaptureGameWindow(),
+                        (img1, img2, sampleRate) => GameWatcher.Runtime.Services.Capture.ScreenCapture.AreImagesSimilar(img1, img2, sampleRate),
+                        text => TextNormalizer.Normalize(text),
+                        logger
+                    );
+                });
+
                 // Author Studio Services (existing, now via DI)
                 services.AddSingleton<DiscoveryService>();
                 services.AddSingleton<SpeakerStore>();
