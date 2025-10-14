@@ -50,13 +50,24 @@ namespace GameWatcher.AuthorStudio.Services
         }
 
         /// <summary>
-        /// Removes a specific OCR fix by its "from" key.
+        /// Removes a specific OCR fix by its "from" key (case-insensitive).
         /// </summary>
         public bool RemoveFix(string from)
         {
             if (string.IsNullOrWhiteSpace(from)) return false;
-            var key = from.Trim().ToLowerInvariant();
-            return _fixes.Remove(key);
+            
+            var key = from.Trim();
+            
+            // Find matching key (case-insensitive)
+            var matchingKey = _fixes.Keys.FirstOrDefault(k => 
+                string.Equals(k, key, StringComparison.OrdinalIgnoreCase));
+            
+            if (matchingKey != null)
+            {
+                return _fixes.Remove(matchingKey);
+            }
+            
+            return false;
         }
 
         public async Task LoadFromFolderAsync(string packFolder)
@@ -72,7 +83,7 @@ namespace GameWatcher.AuthorStudio.Services
                 if (file == null) return;
                 foreach (var f in file.Fixes)
                 {
-                    var from = (f.From ?? "").Trim().ToLowerInvariant();
+                    var from = (f.From ?? "").Trim();  // Preserve original case
                     if (from.Length == 0) continue;
                     _fixes[from] = (f.To ?? "").Trim();
                 }
@@ -87,15 +98,23 @@ namespace GameWatcher.AuthorStudio.Services
         public string Apply(string input)
         {
             if (string.IsNullOrWhiteSpace(input)) return string.Empty;
+            
             var tokens = input.Split(new[] { ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            
             for (int i = 0; i < tokens.Length; i++)
             {
-                var key = tokens[i].Trim().ToLowerInvariant();
-                if (_fixes.TryGetValue(key, out var to))
+                var token = tokens[i].Trim();
+                
+                // Try case-insensitive lookup
+                var matchingKey = _fixes.Keys.FirstOrDefault(k => 
+                    string.Equals(k, token, StringComparison.OrdinalIgnoreCase));
+                
+                if (matchingKey != null)
                 {
-                    tokens[i] = to;
+                    tokens[i] = _fixes[matchingKey];
                 }
             }
+            
             return string.Join(" ", tokens);
         }
 
@@ -110,13 +129,20 @@ namespace GameWatcher.AuthorStudio.Services
                 return;
             }
 
-            var key = from.Trim().ToLowerInvariant();
+            var key = from.Trim();  // Preserve original case
             var value = to.Trim();
 
-            // Don't add if it's already correct or a duplicate
-            if (_fixes.TryGetValue(key, out var existing) && existing == value)
+            // Check if it's already correct or a duplicate (case-insensitive check)
+            var existingKey = _fixes.Keys.FirstOrDefault(k => string.Equals(k, key, StringComparison.OrdinalIgnoreCase));
+            if (existingKey != null && _fixes[existingKey] == value)
             {
                 return;
+            }
+
+            // Remove old key if case changed, add new key
+            if (existingKey != null && existingKey != key)
+            {
+                _fixes.Remove(existingKey);
             }
 
             _fixes[key] = value;

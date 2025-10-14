@@ -1,6 +1,10 @@
 {
   "fixes": [
     {
+      "from": "ijeapons",
+      "to": "Weapons"
+    },
+    {
       "from": "ijhen",
       "to": "When"
     },
@@ -9,7 +13,7 @@
       "to": "When"
     },
     {
-      "from": "p l ease",
+      "from": "p i ease",
       "to": "please"
     },
     {
