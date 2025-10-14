@@ -80,6 +80,13 @@ namespace GameWatcher.AuthorStudio.Services
             {
                 App.Current?.Dispatcher.Invoke(() =>
                 {
+                    // Check for duplicates - don't add if same text already exists
+                    if (Discovered.Any(entry => string.Equals(entry.Text, e.Text, StringComparison.Ordinal)))
+                    {
+                        _logger.LogDebug("Skipping duplicate dialogue: {Text}", Truncate(e.Text, 50));
+                        return;
+                    }
+                    
                     var entry = new PendingDialogueEntry
                     {
                         Text = e.Text,

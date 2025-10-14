@@ -18,7 +18,6 @@ public partial class DiscoveryV2ViewModel : ObservableObject, IDisposable
     private readonly SpeakerStore _speakerStore;
     private readonly SessionStore _sessionStore;
     private readonly OcrFixesStore _ocrFixesStore;
-    private readonly PackBuilderViewModel _packBuilder;
 
     [ObservableProperty]
     private ObservableCollection<PendingDialogueEntry> _discoveredDialogue;
@@ -72,15 +71,13 @@ public partial class DiscoveryV2ViewModel : ObservableObject, IDisposable
         DiscoveryService discoveryService,
         SpeakerStore speakerStore,
         SessionStore sessionStore,
-        OcrFixesStore ocrFixesStore,
-        PackBuilderViewModel packBuilder)
+        OcrFixesStore ocrFixesStore)
     {
         _logger = logger;
         _discoveryService = discoveryService;
         _speakerStore = speakerStore;
         _sessionStore = sessionStore;
         _ocrFixesStore = ocrFixesStore;
-        _packBuilder = packBuilder;
 
         // Wire up service collections to ViewModels
         _discoveredDialogue = _discoveryService.Discovered;
