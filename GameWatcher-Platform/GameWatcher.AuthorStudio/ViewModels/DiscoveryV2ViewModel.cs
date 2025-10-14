@@ -184,6 +184,48 @@ public partial class DiscoveryV2ViewModel : ObservableObject, IDisposable
         }
     }
 
+    /// <summary>
+    /// Loads a previous session for the given pack path.
+    /// Called by PackBuilderViewModel when opening a pack.
+    /// </summary>
+    public async Task LoadPackSessionAsync(string packPath)
+    {
+        _sessionStore.SetCurrentPack(packPath);
+        
+        var entries = await _sessionStore.LoadSessionAsync();
+        
+        // Clear current lists
+        DiscoveredDialogue.Clear();
+        AcceptedDialogue.Clear();
+        
+        // Split entries by Approved flag
+        var discovered = entries.Where(e => !e.Approved).ToList();
+        var accepted = entries.Where(e => e.Approved).ToList();
+        
+        // Load discovered entries (re-apply OCR fixes for consistency)
+        foreach (var entry in discovered)
+        {
+            if (!string.IsNullOrWhiteSpace(entry.OriginalOcrText))
+            {
+                entry.Text = _ocrFixesStore.Apply(entry.OriginalOcrText);
+            }
+            DiscoveredDialogue.Add(entry);
+        }
+        
+        // Load accepted entries (re-apply OCR fixes too)
+        foreach (var entry in accepted)
+        {
+            if (!string.IsNullOrWhiteSpace(entry.OriginalOcrText))
+            {
+                entry.Text = _ocrFixesStore.Apply(entry.OriginalOcrText);
+            }
+            AcceptedDialogue.Add(entry);
+        }
+        
+        _logger.LogInformation("Loaded pack session: {DiscoveredCount} discovered, {AcceptedCount} accepted",
+            discovered.Count, accepted.Count);
+    }
+
     [RelayCommand]
     private async Task SaveOcrFixAsync()
     {

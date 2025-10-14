@@ -20,6 +20,7 @@ public partial class PackBuilderViewModel : ObservableObject, IDisposable
     private readonly SpeakerStore _speakerStore;
     private readonly UserSettingsStore _userSettings;
     private readonly DiscoveryViewModel _discoveryViewModel;
+    private readonly DiscoveryV2ViewModel _discoveryV2ViewModel;
     private readonly SettingsViewModel _settingsViewModel;
     private readonly OcrFixesStore _ocrFixesStore;
 
@@ -52,6 +53,7 @@ public partial class PackBuilderViewModel : ObservableObject, IDisposable
         SpeakerStore speakerStore,
         UserSettingsStore userSettings,
         DiscoveryViewModel discoveryViewModel,
+        DiscoveryV2ViewModel discoveryV2ViewModel,
         SettingsViewModel settingsViewModel,
         OcrFixesStore ocrFixesStore)
     {
@@ -62,6 +64,7 @@ public partial class PackBuilderViewModel : ObservableObject, IDisposable
         _speakerStore = speakerStore;
         _userSettings = userSettings;
         _discoveryViewModel = discoveryViewModel;
+        _discoveryV2ViewModel = discoveryV2ViewModel;
         _settingsViewModel = settingsViewModel;
         _ocrFixesStore = ocrFixesStore;
     }
@@ -142,8 +145,9 @@ public partial class PackBuilderViewModel : ObservableObject, IDisposable
         {
             _logger.LogInformation("Opening pack from: {FolderPath}", folderPath);
             
-            // Load the pack's session data first (Discovered and Accepted lists)
+            // Load the pack's session data for BOTH Discovery tabs (old and V2)
             await _discoveryViewModel.LoadPackSessionAsync(folderPath);
+            await _discoveryV2ViewModel.LoadPackSessionAsync(folderPath);
             
             var (name, display, version, entries) = await _packLoader.LoadAsync(folderPath);
             
