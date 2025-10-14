@@ -80,4 +80,29 @@ namespace GameWatcher.AuthorStudio.Converters
             return false;
         }
     }
+
+    /// <summary>
+    /// Converts boolean to Visibility (inverted). True = Collapsed, False = Visible.
+    /// Used to show/hide UI elements based on boolean properties (opposite of BoolToVisibilityConverter).
+    /// </summary>
+    public class InverseBoolToVisibilityConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is bool boolValue)
+            {
+                return boolValue ? Visibility.Collapsed : Visibility.Visible;
+            }
+            return Visibility.Visible;
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is Visibility visibility)
+            {
+                return visibility == Visibility.Collapsed;
+            }
+            return false;
+        }
+    }
 }

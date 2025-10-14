@@ -62,6 +62,11 @@ public partial class DiscoveryV2ViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private int _uniqueLinesFound;
 
+    /// <summary>
+    /// Returns true if the selected dialogue is in the Accepted list
+    /// </summary>
+    public bool IsSelectedDialogueAccepted => SelectedDialogue != null && AcceptedDialogue.Contains(SelectedDialogue);
+
     public DiscoveryV2ViewModel(
         ILogger<DiscoveryV2ViewModel> logger,
         DiscoveryService discoveryService,
@@ -91,11 +96,13 @@ public partial class DiscoveryV2ViewModel : ObservableObject, IDisposable
         if (value == null)
         {
             ClearOcrFix();
+            OnPropertyChanged(nameof(IsSelectedDialogueAccepted));
             return;
         }
 
         // Check if there's an existing OCR fix for this dialogue
         CheckForExistingOcrFix();
+        OnPropertyChanged(nameof(IsSelectedDialogueAccepted));
     }
 
     /// <summary>
@@ -427,6 +434,14 @@ public partial class DiscoveryV2ViewModel : ObservableObject, IDisposable
         if (SelectedDialogue == null) return;
 
         AcceptEntry(SelectedDialogue);
+    }
+
+    [RelayCommand]
+    private void UnacceptDialogue()
+    {
+        if (SelectedDialogue == null) return;
+
+        DemoteEntry(SelectedDialogue);
     }
 
     [RelayCommand]
