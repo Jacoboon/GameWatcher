@@ -79,8 +79,10 @@
 ---
 
 ### 2B. Discovery Tab UI Overhaul
-**Status**: ❌ Design needed  
+**Status**: 🔄 In Progress - Creating new "Discovery V2" tab  
 **Description**: Current DataGrid is functional but limited. Replace with List + Details pane for richer information display.
+
+**Implementation Strategy**: Create new "Discovery V2" tab alongside existing Discovery tab. Once V2 is working and tested, remove old tab. This ensures safe migration without breaking existing functionality.
 
 **Proposed Design**:
 ```
@@ -90,11 +92,21 @@
 ├─────────────────────────────────────────────────┤
 │ Discovered Dialogue (List)    │ Details Pane    │
 │ ───────────────────────────── │ ──────────────  │
-│ ✓ When the time is right...   │ 📝 Raw Text:    │
-│   No one knows where Rstos...  │ [edit field]    │
-│   Weapons and armor made...    │                 │
-│ ✓ I shall wait patiently...   │ 🖼 OCR Debug:   │
-│   I just don't know what...    │ [image viewer]  │
+│ ✓ When the time is right...   │ 📝 Corrected:   │
+│ ⚠ No one knows where Rstos... │ [edit field]    │
+│ ⚠ Weapons and armor made Clf  │ When the time...│
+│ ✓ I shall wait patiently...   │                 │
+│   I just don't know what...    │ 🖼 OCR Debug:   │
+│                                │ [image viewer]  │
+│ (⚠ = needs review/OCR fix)    │ Shows what OCR  │
+│                                │ actually saw    │
+│                                │                 │
+│                                │ 🔧 OCR Fix:     │
+│                                │ ┌─────────────┐ │
+│                                │ │ From: Rstos │ │
+│                                │ │ To: Astos   │ │
+│                                │ │ [Create]    │ │
+│                                │ └─────────────┘ │
 │                                │                 │
 │                                │ ⏰ Timestamp:   │
 │                                │ 23:21:30        │
@@ -111,21 +123,180 @@
 - [ ] Add Details pane with:
   - [ ] Editable text field (fix OCR errors before accepting)
   - [ ] OCR debug image viewer
+  - [ ] **OCR Fix Creator** (see 2D below)
   - [ ] Timestamp display
   - [ ] Speaker assignment dropdown
   - [ ] Accept/Reject buttons
 - [ ] Wire up selection changed event
 - [ ] Test layout responsiveness
+- [ ] Visual indicators for lines needing review (⚠ icon)
 
 **Benefits**:
 - Edit text before accepting (fix OCR errors inline)
 - See OCR debug image to understand what was captured
+- Create OCR fixes with confirmation (not auto-generated)
 - Assign speakers during discovery (not just after)
 - Better visual hierarchy
 
 **Files**:
 - `GameWatcher.AuthorStudio/Views/DiscoveryView.xaml` (major redesign)
 - `GameWatcher.AuthorStudio/ViewModels/DiscoveryViewModel.cs` (add SelectedDialogue property)
+
+---
+
+### 2D. Smart OCR Fix Creation
+**Status**: ❌ Not implemented  
+**Description**: When user edits text to fix OCR errors, provide intelligent workflow to create reusable OCR fix rules with confirmation.
+
+**Related**: Log when OCR fixes are applied (see 2E below)
+
+**Current Problem**:
+- No easy way to create OCR fixes from discovered errors
+- Users have to manually edit `ocr_fixes.json` outside the app
+- Can't see what mistakes OCR is making in real-time
+- Auto-creating rules blindly could lead to false positives
+
+**Proposed Smart Flow**:
+
+**Option A: Inline in Details Pane** (Integrated with 2B redesign)
+```
+Details Pane:
+┌──────────────────────────────────────┐
+│ 📝 OCR Result:                       │
+│ ┌──────────────────────────────────┐ │
+│ │ No one knows where Rstos, king   │ │
+│ │ of the dark has gone.            │ │
+│ └──────────────────────────────────┘ │
+│                                      │
+│ ✏️ Corrected Text:                   │
+│ ┌──────────────────────────────────┐ │
+│ │ No one knows where Astos, king   │ │ ← User edits here
+│ │ of the dark has gone.            │ │
+│ └──────────────────────────────────┘ │
+│                                      │
+│ 🔍 Detected Difference:              │
+│ "Rstos" → "Astos"                    │
+│ [💾 Create OCR Fix Rule]             │ ← Button appears when text differs
+└──────────────────────────────────────┘
+```
+
+When user clicks "Create OCR Fix Rule":
+```
+┌─────────────────────────────────────────┐
+│ Create OCR Fix Rule                     │
+├─────────────────────────────────────────┤
+│ OCR consistently misread this as:       │
+│ ┌─────────────┐                         │
+│ │ Rstos       │ (From - what OCR saw)   │
+│ └─────────────┘                         │
+│                                         │
+│ Correct it to:                          │
+│ ┌─────────────┐                         │
+│ │ Astos       │ (To - correct text)     │
+│ └─────────────┘                         │
+│                                         │
+│ ⚙️ Options:                             │
+│ ☑ Case insensitive                     │
+│ ☐ Whole word only                      │
+│ ☐ Apply to all similar (Rstos's, etc)  │
+│                                         │
+│ 📋 Existing Rules (2):                  │
+│ • ijhen → When                          │
+│ • ljhen → When                          │
+│                                         │
+│ ⚠️ This will add to:                    │
+│ Configuration/ocr_fixes.json            │
+│                                         │
+│ [Cancel] [Create & Apply]               │
+└─────────────────────────────────────────┘
+```
+
+**Option B: Context Menu** (Simpler, less integrated)
+- User edits text in details pane
+- Right-click corrected word → "Create OCR Fix for 'Rstos'"
+- Shows similar dialog to confirm
+
+**Smart Features**:
+1. **Difference Detection**: Automatically detect what changed between OCR and corrected text
+2. **Word Isolation**: Identify specific misread words vs full-text replacement
+3. **Duplicate Prevention**: Check if rule already exists before offering to create
+4. **Preview Impact**: Show how many other discovered lines would be affected
+5. **Batch Suggestions**: "OCR also misread 'ijhen' in 3 other lines - create fix?"
+6. **Rule Review**: Show existing rules in the dialog for context
+
+**Workflow**:
+1. User discovers dialogue: "No one knows where Rstos..."
+2. Sees OCR debug image, realizes "Rstos" should be "Astos"
+3. Edits text in corrected field: "...where Astos..."
+4. System detects difference: `Rstos` → `Astos`
+5. "Create OCR Fix" button appears (or auto-prompt)
+6. Dialog shows proposed rule with options
+7. User confirms, rule added to `ocr_fixes.json`
+8. Rule immediately applied to all discovered lines
+9. Visual feedback: "✓ OCR fix created - 0 other lines updated"
+
+**Advanced Features** (Phase 2):
+- [ ] Auto-suggest fixes based on common OCR patterns (l→I, 0→O, rn→m)
+- [ ] Show confidence score from Windows OCR
+- [ ] Bulk fix review: Show all potential fixes at once
+- [ ] Export/import OCR fixes for sharing between users
+- [ ] Statistics: Most common OCR errors for this game
+
+**Tasks**:
+- [ ] Add text comparison logic to detect differences
+- [ ] Build OCR fix creation dialog
+- [ ] Wire dialog to OcrFixesStore service
+- [ ] Implement real-time rule application (re-process discovered lines)
+- [ ] Add duplicate rule detection
+- [ ] Show visual feedback when rule is created
+- [ ] Test with various OCR error patterns
+
+**Files**:
+- `GameWatcher.AuthorStudio/Views/DiscoveryView.xaml` (details pane + dialog)
+- `GameWatcher.AuthorStudio/ViewModels/DiscoveryViewModel.cs` (comparison logic)
+- `GameWatcher.Engine/Ocr/OcrFixesStore.cs` (add rule at runtime)
+- `GameWatcher.AuthorStudio/Models/PendingDialogueEntry.cs` (track original vs corrected)
+
+**Priority**: HIGH - This is a core authoring workflow feature
+
+---
+
+### 2E. Log OCR Fix Applications
+**Status**: ❌ Not implemented  
+**Description**: Add logging when OCR fixes are applied so users can see the corrections happening in real-time.
+
+**Current Behavior**: OCR fixes silently applied, no visibility into what's being corrected
+
+**Desired Behavior**:
+```
+[INF] OCR detected: "I am a sage. Ijhen the time is right..."
+[INF] 🔧 Applied OCR fix: "ijhen" → "When"
+[INF] Corrected text: "I am a sage. When the time is right..."
+```
+
+**Benefits**:
+- User sees fixes working in real-time
+- Debugging OCR fix rules
+- Confidence that rules are being applied
+- Shows which rules are most frequently used
+- Can identify if wrong rules are being applied
+
+**Implementation Details**:
+- Log at Info level (visible but not spammy)
+- Include: original text snippet, fix applied (from → to), corrected result
+- Consider: Count how many times each rule is used (statistics)
+- UI: Show in Activity Log when 2A is implemented
+
+**Tasks**:
+- [ ] Add logging to `OcrFixesStore.Apply()` method
+- [ ] Log each fix application with before/after
+- [ ] Consider adding usage statistics counter
+- [ ] Test that logs appear in Activity Log (once 2A done)
+
+**Files**:
+- `GameWatcher.Engine/Ocr/OcrFixesStore.cs` (add logging)
+
+**Priority**: MEDIUM - Nice debugging/visibility feature
 
 ---
 
@@ -331,15 +502,17 @@
 ## Priority Ranking
 
 ### High Priority (Core Functionality)
-1. **Settings Persistence (1A)** - Settings should save
-2. **Voice Preview Cache Fix (3C)** - Wasting API calls
-3. **Speed Slider Fix (3B)** - Quick UX fix
+1. **Smart OCR Fix Creation (2D)** - Core authoring workflow, prevents manual JSON editing
+2. **Settings Persistence (1A)** - Settings should save
+3. **Voice Preview Cache Fix (3C)** - Wasting API calls
+4. **Speed Slider Fix (3B)** - Quick UX fix
 
 ### Medium Priority (Major Features)
-4. **TTS Instructions (3D)** - Unique feature, good value
-5. **Settings → Engine Integration (1B)** - Need to verify it works
-6. **Discovery UI Redesign (2B)** - Better workflow
-7. **Activity Log Mirror (2A)** - Real-time feedback
+5. **Discovery UI Redesign (2B)** - Better workflow (enables 2D)
+6. **TTS Instructions (3D)** - Unique feature, good value
+7. **OCR Fix Logging (2E)** - Debugging and visibility
+8. **Settings → Engine Integration (1B)** - Need to verify it works
+9. **Activity Log Mirror (2A)** - Real-time feedback
 
 ### Lower Priority (Nice to Have)
 8. **Live Metrics (2C)** - Useful but not critical

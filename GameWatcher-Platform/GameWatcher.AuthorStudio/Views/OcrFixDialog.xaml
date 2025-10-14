@@ -1,0 +1,187 @@
+<Window x:Class="GameWatcher.AuthorStudio.Views.OcrFixDialog"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:ui="http://schemas.modernwpf.com/2019"
+        Title="Create OCR Fix Rule" 
+        Height="550" 
+        Width="600"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="NoResize"
+        ui:WindowHelper.UseModernWindowStyle="True"
+        Background="{DynamicResource SystemControlPageBackgroundChromeLowBrush}">
+
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+    </Window.Resources>
+
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,20">
+            <TextBlock Text="🔧 Create OCR Fix Rule" FontSize="18" FontWeight="SemiBold" Margin="0,0,0,8"/>
+            <TextBlock Text="OCR consistently misread text. Create a reusable correction rule?" 
+                       FontSize="13" 
+                       Foreground="Gray"
+                       TextWrapping="Wrap"/>
+        </StackPanel>
+
+        <!-- From/To Fields -->
+        <Grid Grid.Row="1" Margin="0,0,0,20">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Text="OCR originally read as:" FontSize="12" Foreground="Gray" Margin="0,0,0,4"/>
+            <Border Grid.Row="1" Background="#1E1E1E" BorderBrush="Red" BorderThickness="2" CornerRadius="4" Padding="10" Margin="0,0,0,12">
+                <TextBox x:Name="FromTextBox"
+                         Text="{Binding FromText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         FontFamily="Consolas"
+                         FontSize="14"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         TextWrapping="Wrap"/>
+            </Border>
+
+            <TextBlock Grid.Row="2" Text="Should be corrected to:" FontSize="12" Foreground="Gray" Margin="0,0,0,4"/>
+            <Border Grid.Row="3" Background="#1E1E1E" BorderBrush="LimeGreen" BorderThickness="2" CornerRadius="4" Padding="10">
+                <TextBox x:Name="ToTextBox"
+                         Text="{Binding ToText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         FontFamily="Consolas"
+                         FontSize="14"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         TextWrapping="Wrap"/>
+            </Border>
+        </Grid>
+
+        <!-- Options -->
+        <GroupBox Grid.Row="2" Header="Options" Padding="12" Margin="0,0,0,16">
+            <StackPanel>
+                <CheckBox Content="Case insensitive (recommended)" 
+                          IsChecked="{Binding CaseInsensitive, Mode=TwoWay}"
+                          Margin="0,0,0,8"
+                          ToolTip="Match regardless of capitalization (e.g., 'ijhen' and 'Ijhen')"/>
+                <CheckBox Content="Whole word only" 
+                          IsChecked="{Binding WholeWordOnly, Mode=TwoWay}"
+                          ToolTip="Only match complete words, not partial matches"/>
+            </StackPanel>
+        </GroupBox>
+
+        <!-- Existing Rules & Impact -->
+        <TabControl Grid.Row="3" Margin="0,0,0,16">
+            <TabItem Header="Existing Rules">
+                <Border Background="#1E1E1E" Padding="8">
+                    <ScrollViewer VerticalScrollBarVisibility="Auto">
+                        <ItemsControl ItemsSource="{Binding ExistingFixes}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Background="#2D2D30" 
+                                            BorderBrush="#3E3E42" 
+                                            BorderThickness="1" 
+                                            CornerRadius="4" 
+                                            Padding="8" 
+                                            Margin="0,0,0,4">
+                                        <TextBlock FontFamily="Consolas" FontSize="11">
+                                            <Run Text="{Binding From, Mode=OneWay}" Foreground="Orange"/>
+                                            <Run Text=" → " Foreground="Gray"/>
+                                            <Run Text="{Binding To, Mode=OneWay}" Foreground="LimeGreen"/>
+                                        </TextBlock>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
+                    </ScrollViewer>
+                </Border>
+            </TabItem>
+            
+            <TabItem Header="Impact Preview">
+                <Border Background="#1E1E1E" Padding="12">
+                    <StackPanel>
+                        <TextBlock FontSize="13" Margin="0,0,0,8">
+                            <Run Text="This rule will be saved to:"/>
+                        </TextBlock>
+                        <TextBlock Text="{Binding TargetFilePath}" 
+                                   FontFamily="Consolas" 
+                                   FontSize="11" 
+                                   Foreground="Gray"
+                                   TextWrapping="Wrap"
+                                   Margin="0,0,0,16"/>
+                        
+                        <TextBlock FontSize="13" Margin="0,0,0,8">
+                            <Run Text="Impact:"/>
+                        </TextBlock>
+                        <TextBlock FontSize="12" Foreground="DodgerBlue">
+                            <Run Text="✓ Will apply to all future dialogue"/>
+                            <LineBreak/>
+                            <Run Text="✓ Will re-process existing discovered lines"/>
+                            <LineBreak/>
+                            <Run Text="{Binding ImpactSummary, Mode=OneWay}"/>
+                        </TextBlock>
+                    </StackPanel>
+                </Border>
+            </TabItem>
+        </TabControl>
+
+        <!-- Warning for Duplicates -->
+        <Border Grid.Row="4" 
+                Background="#2D2D30" 
+                BorderBrush="Orange" 
+                BorderThickness="2" 
+                CornerRadius="4" 
+                Padding="12" 
+                Margin="0,0,0,16"
+                Visibility="{Binding HasDuplicate, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <StackPanel>
+                <TextBlock Text="⚠️ Duplicate Rule Detected" FontWeight="SemiBold" Foreground="Orange" Margin="0,0,0,4"/>
+                <TextBlock Text="A similar rule already exists. Creating this may cause conflicts." 
+                           FontSize="11" 
+                           Foreground="Gray"
+                           TextWrapping="Wrap"/>
+            </StackPanel>
+        </Border>
+
+        <!-- Action Buttons -->
+        <Grid Grid.Row="5">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Grid.Column="0" 
+                       Text="{Binding ValidationMessage}" 
+                       Foreground="Red" 
+                       VerticalAlignment="Center"
+                       TextWrapping="Wrap"
+                       Visibility="{Binding HasValidationError, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+
+            <Button Grid.Column="1" 
+                    Content="Cancel" 
+                    Click="Cancel_Click"
+                    Padding="20,8" 
+                    Margin="0,0,8,0"
+                    MinWidth="100"/>
+
+            <Button Grid.Column="2" 
+                    Content="Create &amp; Apply" 
+                    Click="CreateAndApply_Click"
+                    IsEnabled="{Binding IsValid}"
+                    Background="#107C10"
+                    Foreground="White"
+                    Padding="20,8"
+                    MinWidth="120"
+                    FontWeight="SemiBold"/>
+        </Grid>
+    </Grid>
+</Window>

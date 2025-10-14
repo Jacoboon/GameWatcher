@@ -3,6 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ui="http://schemas.modernwpf.com/2019"
         xmlns:local="clr-namespace:GameWatcher.AuthorStudio.Converters"
+        xmlns:views="clr-namespace:GameWatcher.AuthorStudio.Views"
         Title="GameWatcher Author Studio" 
         Height="800" 
         Width="1280"
@@ -260,6 +261,17 @@
                         </DataGrid.Columns>
                     </DataGrid>
                 </Grid>
+            </TabItem>
+
+            <!-- Discovery V2 Tab (NEW) -->
+            <TabItem Header="Discovery V2 🆕">
+                <ContentControl Content="{Binding DiscoveryV2ViewModel}">
+                    <ContentControl.ContentTemplate>
+                        <DataTemplate>
+                            <views:DiscoveryV2View DataContext="{Binding}"/>
+                        </DataTemplate>
+                    </ContentControl.ContentTemplate>
+                </ContentControl>
             </TabItem>
 
             <!-- Speakers Tab -->

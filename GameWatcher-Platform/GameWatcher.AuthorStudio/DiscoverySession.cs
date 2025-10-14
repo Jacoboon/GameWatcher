@@ -23,6 +23,30 @@ namespace GameWatcher.AuthorStudio
         /// </summary>
         public string OriginalOcrText { get; set; } = string.Empty;
         
+        /// <summary>
+        /// Corrected text after user edits or OCR fixes applied. Used for comparison to create new rules.
+        /// </summary>
+        public string CorrectedText
+        {
+            get => Text;
+            set => Text = value;
+        }
+        
+        /// <summary>
+        /// Path to the OCR debug image showing what the OCR engine saw.
+        /// Helps users understand why errors occurred and create accurate fix rules.
+        /// </summary>
+        public string? OcrDebugImagePath { get; set; }
+        
+        /// <summary>
+        /// Whether this entry has OCR errors (detected by comparing OriginalOcrText vs CorrectedText).
+        /// Used to visually flag entries that need review.
+        /// </summary>
+        public bool HasOcrErrors => 
+            !string.IsNullOrWhiteSpace(OriginalOcrText) && 
+            !string.IsNullOrWhiteSpace(Text) && 
+            !string.Equals(OriginalOcrText, Text, StringComparison.Ordinal);
+        
         public string? SpeakerId { get; set; }
         public DateTime Timestamp { get; set; } = DateTime.UtcNow;
         public byte[]? ScreenshotPng { get; set; }

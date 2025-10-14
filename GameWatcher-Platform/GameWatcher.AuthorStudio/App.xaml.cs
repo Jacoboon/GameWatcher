@@ -159,6 +159,7 @@ public partial class App : Application
                 // ViewModels (to be created)
                 services.AddTransient<MainWindowViewModel>();
                 services.AddTransient<DiscoveryViewModel>();
+                services.AddTransient<DiscoveryV2ViewModel>();
                 services.AddTransient<SpeakersViewModel>();
                 services.AddTransient<VoiceLabViewModel>();
                 services.AddTransient<PackBuilderViewModel>();

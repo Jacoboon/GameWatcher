@@ -18,6 +18,9 @@ public partial class MainWindowViewModel : ObservableObject
     private DiscoveryViewModel _discoveryViewModel;
 
     [ObservableProperty]
+    private DiscoveryV2ViewModel _discoveryV2ViewModel;
+
+    [ObservableProperty]
     private SpeakersViewModel _speakersViewModel;
 
     [ObservableProperty]
@@ -45,6 +48,7 @@ public partial class MainWindowViewModel : ObservableObject
         ILogger<MainWindowViewModel> logger,
         UserSettingsStore userSettings,
         DiscoveryViewModel discoveryViewModel,
+        DiscoveryV2ViewModel discoveryV2ViewModel,
         SpeakersViewModel speakersViewModel,
         VoiceLabViewModel voiceLabViewModel,
         PackBuilderViewModel packBuilderViewModel,
@@ -54,6 +58,7 @@ public partial class MainWindowViewModel : ObservableObject
         _logger = logger;
         _userSettings = userSettings;
         _discoveryViewModel = discoveryViewModel;
+        _discoveryV2ViewModel = discoveryV2ViewModel;
         _speakersViewModel = speakersViewModel;
         _voiceLabViewModel = voiceLabViewModel;
         _packBuilderViewModel = packBuilderViewModel;
