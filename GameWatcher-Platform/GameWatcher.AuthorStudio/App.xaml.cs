@@ -159,7 +159,7 @@ public partial class App : Application
                 // ViewModels (to be created)
                 services.AddTransient<MainWindowViewModel>();
                 services.AddTransient<DiscoveryViewModel>();
-                services.AddTransient<DiscoveryV2ViewModel>();
+                services.AddSingleton<DiscoveryV2ViewModel>();  // Singleton to preserve state across references
                 services.AddTransient<SpeakersViewModel>();
                 services.AddTransient<VoiceLabViewModel>();
                 services.AddTransient<PackBuilderViewModel>();
