@@ -44,7 +44,7 @@ namespace GameWatcher.AuthorStudio.Services
             {
                 if (!string.IsNullOrWhiteSpace(fix.Key) && !string.IsNullOrWhiteSpace(fix.Value))
                 {
-                    _fixes[fix.Key.Trim().ToLowerInvariant()] = fix.Value.Trim();
+                    _fixes[fix.Key] = fix.Value.Trim();
                 }
             }
         }
@@ -102,15 +102,32 @@ namespace GameWatcher.AuthorStudio.Services
         {
             if (string.IsNullOrWhiteSpace(input)) return string.Empty;
             
-            var tokens = input.Split(new[] { ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            var result = input;
+            
+            // First pass: Apply multi-word fixes (fixes containing spaces)
+            // These must be done as direct string replacements
+            foreach (var fix in _fixes.Where(f => f.Key.Contains(' ')))
+            {
+                // Case-insensitive replacement
+                var index = result.IndexOf(fix.Key, StringComparison.OrdinalIgnoreCase);
+                while (index >= 0)
+                {
+                    result = result.Remove(index, fix.Key.Length).Insert(index, fix.Value);
+                    index = result.IndexOf(fix.Key, index + fix.Value.Length, StringComparison.OrdinalIgnoreCase);
+                }
+            }
+            
+            // Second pass: Apply single-word fixes (token-based)
+            var tokens = result.Split(new[] { ' ', '\t', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
             
             for (int i = 0; i < tokens.Length; i++)
             {
                 var token = tokens[i].Trim();
                 
-                // Try case-insensitive lookup
-                var matchingKey = _fixes.Keys.FirstOrDefault(k => 
-                    string.Equals(k, token, StringComparison.OrdinalIgnoreCase));
+                // Only check single-word fixes (no spaces in the key)
+                var matchingKey = _fixes.Keys
+                    .Where(k => !k.Contains(' '))
+                    .FirstOrDefault(k => string.Equals(k, token, StringComparison.OrdinalIgnoreCase));
                 
                 if (matchingKey != null)
                 {

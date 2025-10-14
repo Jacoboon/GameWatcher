@@ -347,6 +347,17 @@ public partial class DiscoveryV2ViewModel : ObservableObject, IDisposable
         
         // First check if ANY words in the original text have existing OCR fixes
         var appliedFixes = new List<(string from, string to)>();
+        
+        // Check for multi-word patterns FIRST (patterns containing spaces)
+        foreach (var fix in allFixes.Where(f => f.Key.Contains(' ')))
+        {
+            if (original.Contains(fix.Key, StringComparison.OrdinalIgnoreCase))
+            {
+                appliedFixes.Add((fix.Key, fix.Value));
+            }
+        }
+        
+        // Then check for single-word patterns
         var originalWords = original.Split(new[] { ' ', '\t', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
         
         foreach (var word in originalWords)
@@ -354,9 +365,11 @@ public partial class DiscoveryV2ViewModel : ObservableObject, IDisposable
             var cleanWord = new string(word.Where(char.IsLetterOrDigit).ToArray());
             if (string.IsNullOrWhiteSpace(cleanWord)) continue;
             
-            // Check case-insensitive match
-            var matchingFix = allFixes.FirstOrDefault(kvp => 
-                string.Equals(kvp.Key, cleanWord, StringComparison.OrdinalIgnoreCase));
+            // Check case-insensitive match (skip multi-word patterns, already checked)
+            var matchingFix = allFixes
+                .Where(f => !f.Key.Contains(' '))
+                .FirstOrDefault(kvp => 
+                    string.Equals(kvp.Key, cleanWord, StringComparison.OrdinalIgnoreCase));
             
             if (!string.IsNullOrEmpty(matchingFix.Key))
             {
@@ -541,30 +554,71 @@ public partial class DiscoveryV2ViewModel : ObservableObject, IDisposable
     }
 
     /// <summary>
-    /// Detects word-level differences between original and corrected text.
+    /// Detects differences between original and corrected text.
+    /// Uses a simple approach: find contiguous sequences of words that differ.
     /// Returns list of (from, to) tuples for potential OCR fix rules.
     /// </summary>
     private List<(string from, string to)> DetectWordDifferences(string original, string corrected)
     {
         var differences = new List<(string, string)>();
 
-        // Simple word-by-word comparison
+        // Split into words
         var originalWords = original.Split(new[] { ' ', '\t', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
         var correctedWords = corrected.Split(new[] { ' ', '\t', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
 
-        // Find mismatched words at same positions
-        var minLength = Math.Min(originalWords.Length, correctedWords.Length);
-        for (int i = 0; i < minLength; i++)
+        int i = 0, j = 0;
+        while (i < originalWords.Length && j < correctedWords.Length)
         {
-            if (!string.Equals(originalWords[i], correctedWords[i], StringComparison.Ordinal))
+            if (string.Equals(originalWords[i], correctedWords[j], StringComparison.Ordinal))
             {
-                // Strip punctuation for comparison
-                var origClean = new string(originalWords[i].Where(char.IsLetterOrDigit).ToArray());
-                var corrClean = new string(correctedWords[i].Where(char.IsLetterOrDigit).ToArray());
-
-                if (!string.IsNullOrEmpty(origClean) && !string.IsNullOrEmpty(corrClean))
+                // Words match, move forward
+                i++;
+                j++;
+            }
+            else
+            {
+                // Found a difference - collect consecutive mismatched words
+                var origSequence = new List<string>();
+                var corrSequence = new List<string>();
+                
+                int startI = i, startJ = j;
+                
+                // Scan ahead to find where they sync up again
+                while (i < originalWords.Length || j < correctedWords.Length)
                 {
-                    differences.Add((origClean, corrClean));
+                    bool foundSync = false;
+                    
+                    // Try to find a matching word ahead
+                    for (int lookAhead = 1; lookAhead <= Math.Min(5, Math.Max(originalWords.Length - i, correctedWords.Length - j)); lookAhead++)
+                    {
+                        if (i + lookAhead < originalWords.Length && j + lookAhead < correctedWords.Length &&
+                            string.Equals(originalWords[i + lookAhead], correctedWords[j + lookAhead], StringComparison.Ordinal))
+                        {
+                            // Found sync point
+                            for (int k = 0; k < lookAhead; k++)
+                            {
+                                if (i < originalWords.Length) origSequence.Add(originalWords[i++]);
+                                if (j < correctedWords.Length) corrSequence.Add(correctedWords[j++]);
+                            }
+                            foundSync = true;
+                            break;
+                        }
+                    }
+                    
+                    if (foundSync) break;
+                    
+                    // No sync found nearby, just take one word from each
+                    if (i < originalWords.Length) origSequence.Add(originalWords[i++]);
+                    if (j < correctedWords.Length) corrSequence.Add(correctedWords[j++]);
+                    
+                    if (i >= originalWords.Length && j >= correctedWords.Length) break;
+                }
+                
+                if (origSequence.Count > 0 && corrSequence.Count > 0)
+                {
+                    var fromText = string.Join(" ", origSequence);
+                    var toText = string.Join(" ", corrSequence);
+                    differences.Add((fromText, toText));
                 }
             }
         }

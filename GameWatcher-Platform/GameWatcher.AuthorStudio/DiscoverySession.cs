@@ -1,5 +1,6 @@
 using System;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Threading.Tasks;
 
 namespace GameWatcher.AuthorStudio
@@ -11,9 +12,17 @@ namespace GameWatcher.AuthorStudio
         Assisted
     }
 
-    public class PendingDialogueEntry
+    public class PendingDialogueEntry : INotifyPropertyChanged
     {
         private string? _userEditedText;
+        private string _text = string.Empty;
+        
+        public event PropertyChangedEventHandler? PropertyChanged;
+        
+        protected void OnPropertyChanged(string propertyName)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+        }
         
         /// <summary>
         /// The original OCR text before any fixes or edits. Never changes after capture.
@@ -26,7 +35,17 @@ namespace GameWatcher.AuthorStudio
         public string? UserEditedText
         {
             get => _userEditedText;
-            set => _userEditedText = value;
+            set
+            {
+                if (_userEditedText != value)
+                {
+                    _userEditedText = value;
+                    OnPropertyChanged(nameof(UserEditedText));
+                    OnPropertyChanged(nameof(Text));
+                    OnPropertyChanged(nameof(CorrectedText));
+                    OnPropertyChanged(nameof(HasOcrErrors));
+                }
+            }
         }
         
         /// <summary>
@@ -38,16 +57,21 @@ namespace GameWatcher.AuthorStudio
             get => UserEditedText ?? _text;
             set
             {
-                _text = value;
-                // If user changes it from the UI, mark as user-edited
-                if (!string.IsNullOrWhiteSpace(OriginalOcrText) && 
-                    !string.Equals(value, OriginalOcrText, StringComparison.Ordinal))
+                if (_text != value)
                 {
-                    UserEditedText = value;
+                    _text = value;
+                    // If user changes it from the UI, mark as user-edited
+                    if (!string.IsNullOrWhiteSpace(OriginalOcrText) && 
+                        !string.Equals(value, OriginalOcrText, StringComparison.Ordinal))
+                    {
+                        UserEditedText = value;
+                    }
+                    OnPropertyChanged(nameof(Text));
+                    OnPropertyChanged(nameof(CorrectedText));
+                    OnPropertyChanged(nameof(HasOcrErrors));
                 }
             }
         }
-        private string _text = string.Empty;
         
         /// <summary>
         /// Corrected text after user edits or OCR fixes applied. Used for comparison to create new rules.

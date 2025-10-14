@@ -167,25 +167,31 @@
 ---
 
 ### 2D. Smart OCR Fix Creation
-**Status**: ✅ COMPLETED (2025-10-13) - Implemented in Discovery V2!  
-**Description**: ~~When user edits text to fix OCR errors, provide intelligent workflow to create reusable OCR fix rules with confirmation.~~ **Working!**
+**Status**: ✅ COMPLETED (2025-10-14) - Fully implemented in Discovery V2!  
+**Description**: ~~When user edits text to fix OCR errors, provide intelligent workflow to create reusable OCR fix rules with confirmation.~~ **Completed and optimized!**
 
-**What Was Implemented** (Option A - Inline in Details Pane):
+**What Was Implemented**:
 - ✅ Auto-detects differences between Original OCR and Current text
 - ✅ Populates From/To fields automatically as user types
 - ✅ **Two detection modes**:
   - Case 1: User makes edits → detects new potential fixes
   - Case 2: OCR fixes already applied → shows which rules were used
 - ✅ Always-visible OCR Fix section (not hidden)
-- ✅ Case-insensitive matching (`ijhen` matches `Ijhen`)
-- ✅ **Multiple fixes per line** with Previous/Next navigation
-- ✅ Save button creates new rule → saves to `ocr_fixes.json`
+- ✅ Case-insensitive matching with case-preserved output
+- ✅ **Multi-word pattern support** (e.g., "cast le" → "castle")
+- ✅ **Multiple fixes per line** with Previous/Next navigation (◀ ▶)
+- ✅ Save button creates new rule → saves to engine-level `ocr_fixes.json`
 - ✅ Remove button deletes existing rule
 - ✅ **Instant feedback** via TextChanged event (no waiting)
-- ✅ **Original vs Corrected comparison view** (readonly reference)
+- ✅ **Original vs Corrected comparison view** (readonly reference, color-coded red/green)
 - ✅ Rules persist and re-apply on session reload
+- ✅ **Engine-level storage** (`%AppData%/GameWatcher/AuthorStudio/ocr_fixes.json`)
+- ✅ **Two-pass application** (multi-word patterns first, then single-word tokens)
+- ✅ **Visual indicators**: 🔧 wrench icon for OCR-corrected lines
+- ✅ **INotifyPropertyChanged** implementation for real-time UI updates
+- ✅ **Multi-word detection in existing fixes** (shows all applied rules with pagination)
 
-**Still TODO** (Advanced Features from original spec):
+**Still TODO** (Advanced Features - Future):
 - [ ] Duplicate prevention check before creating rule
 - [ ] Preview impact: "This would affect X other lines"
 - [ ] Batch suggestions: "Also fix 'ijhen' in 3 other lines?"
@@ -197,8 +203,10 @@
 - [ ] Statistics on most common errors
 
 **Files Modified**:
-- `GameWatcher.AuthorStudio/Views/DiscoveryV2View.xaml` - Complete UI
-- `GameWatcher.AuthorStudio/ViewModels/DiscoveryV2ViewModel.cs` - Smart detection logic
+- `GameWatcher.AuthorStudio/Views/DiscoveryV2View.xaml` - Complete UI with pagination
+- `GameWatcher.AuthorStudio/ViewModels/DiscoveryV2ViewModel.cs` - Multi-word detection logic
+- `GameWatcher.AuthorStudio/DiscoverySession.cs` - INotifyPropertyChanged implementation
+- `GameWatcher.AuthorStudio/Services/OcrFixesStore.cs` - Two-pass Apply() method
 - `GameWatcher.AuthorStudio/Converters/NullConverters.cs` - Added BoolToVisibilityConverter
 
 **Current Problem**:
@@ -313,22 +321,23 @@ When user clicks "Create OCR Fix Rule":
 ---
 
 ### 2E. Log OCR Fix Applications
-**Status**: ❌ Not implemented  
+**Status**: ❌ Not implemented (Moved to active TODO list)  
 **Description**: Add logging when OCR fixes are applied so users can see the corrections happening in real-time.
 
-**Current Behavior**: OCR fixes silently applied, no visibility into what's being corrected
+**Current Behavior**: OCR fixes silently applied, no visibility into what's being corrected (but visual indicators work - 🔧 wrench icon shows corrected lines)
 
 **Desired Behavior**:
 ```
 [INF] OCR detected: "I am a sage. Ijhen the time is right..."
-[INF] 🔧 Applied OCR fix: "ijhen" → "When"
+[INF] 🔧 Applied OCR fix: "Ijhen" → "When"
+[INF] 🔧 Applied OCR fix: "cast le" → "castle"
 [INF] Corrected text: "I am a sage. When the time is right..."
 ```
 
 **Benefits**:
-- User sees fixes working in real-time
+- User sees fixes working in real-time in Activity Log
 - Debugging OCR fix rules
-- Confidence that rules are being applied
+- Confidence that rules are being applied correctly
 - Shows which rules are most frequently used
 - Can identify if wrong rules are being applied
 
@@ -336,16 +345,17 @@ When user clicks "Create OCR Fix Rule":
 - Log at Info level (visible but not spammy)
 - Include: original text snippet, fix applied (from → to), corrected result
 - Consider: Count how many times each rule is used (statistics)
-- UI: Show in Activity Log when 2A is implemented
+- UI: Show in Activity Log (feed to DiscoveryService.LogLines)
 
 **Tasks**:
 - [ ] Add logging to `OcrFixesStore.Apply()` method
 - [ ] Log each fix application with before/after
 - [ ] Consider adding usage statistics counter
-- [ ] Test that logs appear in Activity Log (once 2A done)
+- [ ] Wire logs to Activity Log ObservableCollection
 
 **Files**:
-- `GameWatcher.Engine/Ocr/OcrFixesStore.cs` (add logging)
+- `GameWatcher.AuthorStudio/Services/OcrFixesStore.cs` (add logging in Apply method)
+- `GameWatcher.AuthorStudio/Services/DiscoveryService.cs` (receive logs)
 
 **Priority**: MEDIUM - Nice debugging/visibility feature
 
@@ -597,9 +607,14 @@ When user clicks "Create OCR Fix Rule":
 
 ## Priority Ranking
 
-### ✅ Recently Completed (2025-10-13)
+### ✅ Recently Completed (2025-10-14)
 1. **Discovery UI Redesign (2B)** - ✅ Discovery V2 working!
-2. **Smart OCR Fix Creation (2D)** - ✅ Inline workflow complete!
+2. **Smart OCR Fix Creation (2D)** - ✅ Complete with multi-word support, pagination, visual indicators!
+3. **Engine-Level OCR Fixes** - ✅ Refactored to %AppData% storage, applies to all packs globally
+4. **Multi-Word Pattern Support** - ✅ Two-pass Apply() handles "cast le" → "castle" patterns
+5. **Real-Time UI Updates** - ✅ INotifyPropertyChanged implementation for live comparison boxes
+6. **Visual Indicators** - ✅ 🔧 wrench icon shows OCR-corrected lines in both lists
+7. **Case-Insensitive Matching** - ✅ Preserved case in keys, case-insensitive lookups
 
 ### 🔥 High Priority (Blocking User)
 1. **Accepted Dialogue Tab (2F)** - User can't see accepted lines

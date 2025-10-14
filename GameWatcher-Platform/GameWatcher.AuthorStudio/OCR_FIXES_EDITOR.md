@@ -81,29 +81,31 @@ If you manually edit `ocr_fixes.json`:
 
 ## File Format
 
-**Location:** `{PackFolder}/Configuration/ocr_fixes.json`
+**Location:** `%AppData%/GameWatcher/AuthorStudio/ocr_fixes.json` (Engine-level, applies to all packs)
 
 ```json
 {
   "fixes": [
     {
-      "from": "0rbs",
-      "to": "ORBS"
+      "from": "cast le",
+      "to": "castle"
     },
     {
-      "from": "cornella",
-      "to": "Corneria"
+      "from": "Cin",
+      "to": "On"
     },
     {
-      "from": "vvelcome",
-      "to": "Welcome"
+      "from": "Ijhen",
+      "to": "When"
     }
   ]
 }
 ```
 
 **Notes:**
-- `from` keys are stored **lowercase** internally for case-insensitive matching
+- `from` keys are **case-sensitive** and preserved exactly as entered
+- Matching is **case-insensitive** (e.g., "cin", "Cin", "CIN" all match "Cin" rule)
+- Rules support **multi-word patterns** (e.g., "cast le" → "castle")
 - Rules are **alphabetically sorted** when saved
 - Empty rules (blank From or To) are automatically removed on save
 
@@ -111,17 +113,28 @@ If you manually edit `ocr_fixes.json`:
 
 ### Auto-Generation (Discovery Tab)
 
-When you edit dialogue text:
-1. System compares original OCR vs your edit
-2. If word count matches, generates 1-to-1 mappings
-3. Adds rules to `ocr_fixes.json`
-4. Activity Log shows: `✓ Learned 2 OCR corrections: 'VVelcome' → 'Welcome', '0RBS' → 'ORBS'`
+When you edit dialogue text in Discovery V2:
+1. System compares original OCR vs your corrected text
+2. Detects word-level and multi-word differences
+3. Shows detected fixes with pagination if multiple (e.g., "📋 3 potential fixes detected (showing 1 of 3)")
+4. Click "💾 Save OCR Fix" to save the currently displayed fix
+5. Navigate between detected fixes using ◀ Previous / Next ▶ buttons
+6. Activity Log shows: `✓ Added OCR fix: 'cast le' → 'castle'`
 
-### Auto-Loading (Pack Open)
+### Auto-Application (During Capture)
 
-When you open a pack:
-1. `OcrFixesStore.LoadFromFolderAsync()` loads `ocr_fixes.json`
-2. `SettingsViewModel.LoadOcrFixes()` populates the grid
+When new dialogue is captured:
+1. `OcrFixesStore.Apply()` runs two-pass correction:
+   - **First pass:** Multi-word pattern replacements (e.g., "cast le" → "castle")
+   - **Second pass:** Single-word token replacements (e.g., "Cin" → "On")
+2. Corrected text shows in Discovery lists with 🔧 wrench icon
+3. Original OCR text preserved for comparison and learning new rules
+
+### Auto-Loading (Startup)
+
+When Author Studio starts:
+1. `OcrFixesStore` loads from `%AppData%/GameWatcher/AuthorStudio/ocr_fixes.json`
+2. Rules apply globally to all packs
 3. Status message: `✓ Loaded N OCR fixes`
 
 ### Auto-Saving (Edit Actions)
@@ -229,13 +242,19 @@ public bool RemoveFix(string from)
 
 1. **Use Specific Rules:** Target specific OCR errors, not generic words
 2. **Test Corrections:** Verify rules work by running discovery after saving
-3. **Case Sensitivity:** "from" is case-insensitive, "to" preserves case
-4. **Word-Level Only:** Rules apply to individual words, not phrases
-5. **Regular Backups:** Rules are in `ocr_fixes.json` - version control recommended
+3. **Case Sensitivity:** Matching is case-insensitive, but "to" value preserves case for output
+4. **Multi-Word Support:** Use multi-word patterns for spaced errors (e.g., "cast le" → "castle")
+5. **Regular Backups:** Rules are in AppData - consider exporting periodically
 
 ### 💡 Common Patterns
 
+**Multi-Word OCR Errors:**
+- `cast le` → `castle`
+- `m ore` → `more`
+- `t he` → `the`
+
 **Number/Letter Confusion:**
+- `Cin` → `On`
 - `0` → `O`
 - `1` → `I` or `l`
 - `5` → `S`
@@ -246,9 +265,9 @@ public bool RemoveFix(string from)
 - `cl` → `d`
 
 **Fantasy Names:**
+- `Ijhen` → `When`
 - `Cornella` → `Corneria`
 - `Elfheirn` → `Elfheim`
-- `Pravoka` → `Provoka`
 
 ### 💡 Troubleshooting
 
@@ -272,8 +291,15 @@ public bool RemoveFix(string from)
 - Bulk import from CSV
 - Rule testing tool
 
+### Recently Implemented ✅
+- ✅ Multi-word pattern support (e.g., "cast le" → "castle")
+- ✅ Engine-level storage (applies to all packs globally)
+- ✅ Case-insensitive matching with case-preserved output
+- ✅ Multi-fix detection and pagination in Discovery V2
+- ✅ Visual indicators (🔧 wrench icon) for OCR-corrected lines
+- ✅ Two-pass application (multi-word first, then single-word)
+
 ### Not Implemented
-- Phrase-level corrections (multi-word)
 - Context-aware rules
 - Character-level substitution patterns
-- Rule prioritization/ordering
+- Rule prioritization/ordering (currently alphabetical)
