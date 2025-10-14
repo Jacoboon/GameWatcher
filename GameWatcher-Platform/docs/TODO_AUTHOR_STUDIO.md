@@ -79,10 +79,32 @@
 ---
 
 ### 2B. Discovery Tab UI Overhaul
-**Status**: 🔄 In Progress - Creating new "Discovery V2" tab  
-**Description**: Current DataGrid is functional but limited. Replace with List + Details pane for richer information display.
+**Status**: ✅ COMPLETED (2025-10-13)  
+**Description**: ~~Current DataGrid is functional but limited. Replace with List + Details pane for richer information display.~~ **Implemented as Discovery V2 tab!**
 
-**Implementation Strategy**: Create new "Discovery V2" tab alongside existing Discovery tab. Once V2 is working and tested, remove old tab. This ensures safe migration without breaking existing functionality.
+**Implementation Strategy**: ✅ Created new "Discovery V2" tab alongside existing Discovery tab. Working and tested - ready to remove old tab once confidence is high.
+
+**What Was Implemented**:
+- ✅ List + Details pane design
+- ✅ ListView replaces DataGrid
+- ✅ Details pane with:
+  - ✅ Editable text field (fix OCR errors inline) - **with instant feedback**
+  - ✅ OCR debug image viewer placeholder
+  - ✅ **Smart OCR Fix Creator** (inline, auto-detects differences, Save/Remove buttons)
+  - ✅ Timestamp display
+  - ✅ Speaker assignment dropdown
+  - ✅ Accept/Delete buttons
+- ✅ Selection changed event working
+- ✅ Visual indicators for lines needing review (⚠ icon)
+- ✅ **Original vs Current text comparison** (readonly, color-coded)
+- ✅ **Multiple OCR fixes per line** with Previous/Next navigation
+- ✅ **Instant OCR fix detection** as user types
+- ✅ **Case-insensitive OCR fix matching**
+- ✅ **Re-apply OCR fixes on session load** (fixes "limbo state")
+
+**Known Issues**:
+- Accepted list not visible yet (exists in memory, needs UI tab)
+- OCR debug image path not yet populated by detection loop
 
 **Proposed Design**:
 ```
@@ -145,10 +167,39 @@
 ---
 
 ### 2D. Smart OCR Fix Creation
-**Status**: ❌ Not implemented  
-**Description**: When user edits text to fix OCR errors, provide intelligent workflow to create reusable OCR fix rules with confirmation.
+**Status**: ✅ COMPLETED (2025-10-13) - Implemented in Discovery V2!  
+**Description**: ~~When user edits text to fix OCR errors, provide intelligent workflow to create reusable OCR fix rules with confirmation.~~ **Working!**
 
-**Related**: Log when OCR fixes are applied (see 2E below)
+**What Was Implemented** (Option A - Inline in Details Pane):
+- ✅ Auto-detects differences between Original OCR and Current text
+- ✅ Populates From/To fields automatically as user types
+- ✅ **Two detection modes**:
+  - Case 1: User makes edits → detects new potential fixes
+  - Case 2: OCR fixes already applied → shows which rules were used
+- ✅ Always-visible OCR Fix section (not hidden)
+- ✅ Case-insensitive matching (`ijhen` matches `Ijhen`)
+- ✅ **Multiple fixes per line** with Previous/Next navigation
+- ✅ Save button creates new rule → saves to `ocr_fixes.json`
+- ✅ Remove button deletes existing rule
+- ✅ **Instant feedback** via TextChanged event (no waiting)
+- ✅ **Original vs Corrected comparison view** (readonly reference)
+- ✅ Rules persist and re-apply on session reload
+
+**Still TODO** (Advanced Features from original spec):
+- [ ] Duplicate prevention check before creating rule
+- [ ] Preview impact: "This would affect X other lines"
+- [ ] Batch suggestions: "Also fix 'ijhen' in 3 other lines?"
+- [ ] Show existing rules in creation dialog
+- [ ] Auto-suggest fixes based on common OCR patterns
+- [ ] Confidence score display from Windows OCR
+- [ ] Bulk fix review mode
+- [ ] Export/import OCR fixes
+- [ ] Statistics on most common errors
+
+**Files Modified**:
+- `GameWatcher.AuthorStudio/Views/DiscoveryV2View.xaml` - Complete UI
+- `GameWatcher.AuthorStudio/ViewModels/DiscoveryV2ViewModel.cs` - Smart detection logic
+- `GameWatcher.AuthorStudio/Converters/NullConverters.cs` - Added BoolToVisibilityConverter
 
 **Current Problem**:
 - No easy way to create OCR fixes from discovered errors
@@ -327,6 +378,51 @@ When user clicks "Create OCR Fix Rule":
 
 ---
 
+### 2F. Accepted Dialogue Tab
+**Status**: ❌ Not implemented - **USER BLOCKED** (2025-10-13)  
+**Description**: When user clicks "Accept" in Discovery V2, line moves to `AcceptedDialogue` collection but there's no UI to view it.
+
+**Current Behavior**:
+- Accept button works, line disappears from Discovered list
+- Line saved to `session.json` in `accepted` array
+- No way to see/edit accepted lines in UI
+
+**Desired Behavior**:
+- Add "Accepted" tab in DiscoveryV2View
+- Show AcceptedDialogue collection in ListView
+- Allow editing speaker, text, instructions
+- Allow un-accepting (move back to Discovered)
+- Show metadata: timestamp, speaker, audio status
+
+**Proposed UI** (new tab in Discovery V2):
+```
+[Discovered (3)] [Accepted (5)] ← Tabs
+┌─────────────────────────────────────────────────┐
+│ Accepted Dialogue List     │ Details Pane       │
+│ ─────────────────────────  │ ──────────────     │
+│ ✓ When the time is right.. │ Same details as    │
+│ ✓ I shall wait patiently.. │ Discovered tab but │
+│ ✓ Weapons and armor made.. │ with "Unaccept"    │
+│                            │ button instead     │
+└────────────────────────────────────────────────┘
+```
+
+**Tasks**:
+- [ ] Add TabControl to DiscoveryV2View.xaml
+- [ ] Create Discovered tab with current content
+- [ ] Create Accepted tab with AcceptedDialogue ListView
+- [ ] Share same Details pane for both tabs
+- [ ] Add "Unaccept" button for accepted lines
+- [ ] Test tab switching and selection
+
+**Files**:
+- `GameWatcher.AuthorStudio/Views/DiscoveryV2View.xaml` - Add TabControl
+- `GameWatcher.AuthorStudio/ViewModels/DiscoveryV2ViewModel.cs` - Add UnacceptCommand
+
+**Priority**: HIGH - User is blocked from seeing accepted lines
+
+---
+
 ## 3. Speakers Tab Overhaul
 
 ### 3A. Replace DataGrid with List + Details Pane
@@ -501,23 +597,28 @@ When user clicks "Create OCR Fix Rule":
 
 ## Priority Ranking
 
+### ✅ Recently Completed (2025-10-13)
+1. **Discovery UI Redesign (2B)** - ✅ Discovery V2 working!
+2. **Smart OCR Fix Creation (2D)** - ✅ Inline workflow complete!
+
+### 🔥 High Priority (Blocking User)
+1. **Accepted Dialogue Tab (2F)** - User can't see accepted lines
+2. **OCR Fix Logging (2E)** - Need visibility into what's being corrected
+
 ### High Priority (Core Functionality)
-1. **Smart OCR Fix Creation (2D)** - Core authoring workflow, prevents manual JSON editing
-2. **Settings Persistence (1A)** - Settings should save
-3. **Voice Preview Cache Fix (3C)** - Wasting API calls
-4. **Speed Slider Fix (3B)** - Quick UX fix
+3. **Settings Persistence (1A)** - Settings should save
+4. **Voice Preview Cache Fix (3C)** - Wasting API calls
+5. **Speed Slider Fix (3B)** - Quick UX fix
 
 ### Medium Priority (Major Features)
-5. **Discovery UI Redesign (2B)** - Better workflow (enables 2D)
 6. **TTS Instructions (3D)** - Unique feature, good value
-7. **OCR Fix Logging (2E)** - Debugging and visibility
-8. **Settings → Engine Integration (1B)** - Need to verify it works
-9. **Activity Log Mirror (2A)** - Real-time feedback
+7. **Settings → Engine Integration (1B)** - Need to verify it works
+8. **Activity Log Mirror (2A)** - Real-time feedback
 
 ### Lower Priority (Nice to Have)
-8. **Live Metrics (2C)** - Useful but not critical
-9. **Speakers UI Redesign (3A)** - Similar to Discovery redesign
-10. **Voice Lab Completion (4A)** - Advanced feature
+9. **Live Metrics (2C)** - Useful but not critical
+10. **Speakers UI Redesign (3A)** - Similar to Discovery redesign
+11. **Voice Lab Completion (4A)** - Advanced feature
 
 ---
 

@@ -6,6 +6,7 @@
     
     <UserControl.Resources>
         <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter"/>
+        <local:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
         <local:NullToVisibilityConverter x:Key="NullToVisibilityConverter"/>
         <local:NotNullToVisibilityConverter x:Key="NotNullToVisibilityConverter"/>
         <local:NullToBooleanConverter x:Key="NullToBooleanConverter"/>
@@ -179,7 +180,8 @@
                                      FontSize="13"
                                      Padding="8"
                                      Margin="0,0,0,16"
-                                     Background="#1E1E1E"/>
+                                     Background="#1E1E1E"
+                                     TextChanged="DialogueText_Changed"/>
 
                             <!-- OCR Debug Image -->
                             <TextBlock Text="🖼️ OCR Debug Image" FontSize="12" FontWeight="SemiBold" Foreground="Gray" Margin="0,0,0,4"/>
@@ -198,7 +200,7 @@
                                                VerticalAlignment="Center"
                                                Visibility="{Binding SelectedDialogue.OcrDebugImagePath, Converter={StaticResource NullToVisibilityConverter}}"/>
                                     
-                                    <Image Source="{Binding SelectedDialogue.OcrDebugImagePath}" 
+                                    <Image Source="{Binding SelectedDialogue.OcrDebugImagePath, TargetNullValue={x:Null}}" 
                                            Stretch="Uniform"
                                            Visibility="{Binding SelectedDialogue.OcrDebugImagePath, Converter={StaticResource NotNullToVisibilityConverter}}"/>
                                 </Grid>
@@ -213,6 +215,40 @@
                                     Margin="0,0,0,16">
                                 <StackPanel>
                                     <TextBlock Text="🔧 OCR Fix Rule" FontSize="13" FontWeight="SemiBold" Margin="0,0,0,12"/>
+                                    
+                                    <!-- OCR Comparison (readonly, for reference) -->
+                                    <Border Background="#1E1E1E" 
+                                            BorderBrush="#3F3F46"
+                                            BorderThickness="1"
+                                            Padding="8"
+                                            CornerRadius="3"
+                                            Margin="0,0,0,12"
+                                            Visibility="{Binding SelectedDialogue.HasOcrErrors, Converter={StaticResource BoolToVisibilityConverter}}">
+                                        <Grid>
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto"/>
+                                                <RowDefinition Height="Auto"/>
+                                            </Grid.RowDefinitions>
+                                            
+                                            <StackPanel Grid.Row="0" Margin="0,0,0,8">
+                                                <TextBlock Text="Original OCR Output:" FontSize="10" Foreground="Gray" Margin="0,0,0,2"/>
+                                                <TextBlock Text="{Binding SelectedDialogue.OriginalOcrText}" 
+                                                           FontFamily="Consolas"
+                                                           FontSize="11"
+                                                           Foreground="#F48771"
+                                                           TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                            
+                                            <StackPanel Grid.Row="1">
+                                                <TextBlock Text="Current Text:" FontSize="10" Foreground="Gray" Margin="0,0,0,2"/>
+                                                <TextBlock Text="{Binding SelectedDialogue.CorrectedText}" 
+                                                           FontFamily="Consolas"
+                                                           FontSize="11"
+                                                           Foreground="#73C991"
+                                                           TextWrapping="Wrap"/>
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
                                     
                                     <!-- Multiple fixes indicator -->
                                     <Border Background="#3E3E42" 

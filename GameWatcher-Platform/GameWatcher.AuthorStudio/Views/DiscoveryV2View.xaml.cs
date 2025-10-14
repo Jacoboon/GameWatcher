@@ -1,4 +1,5 @@
 using System.Windows.Controls;
+using GameWatcher.AuthorStudio.ViewModels;
 
 namespace GameWatcher.AuthorStudio.Views
 {
@@ -10,6 +11,15 @@ namespace GameWatcher.AuthorStudio.Views
         public DiscoveryV2View()
         {
             InitializeComponent();
+        }
+
+        private void DialogueText_Changed(object sender, TextChangedEventArgs e)
+        {
+            // Notify ViewModel that text changed so it can re-check for OCR fixes
+            if (DataContext is DiscoveryV2ViewModel viewModel)
+            {
+                viewModel.OnDialogueTextChanged();
+            }
         }
     }
 }

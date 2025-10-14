@@ -98,6 +98,17 @@ public partial class DiscoveryV2ViewModel : ObservableObject, IDisposable
         CheckForExistingOcrFix();
     }
 
+    /// <summary>
+    /// Called when the user edits dialogue text. Re-checks for OCR fixes.
+    /// </summary>
+    public void OnDialogueTextChanged()
+    {
+        if (SelectedDialogue != null)
+        {
+            CheckForExistingOcrFix();
+        }
+    }
+
     partial void OnOcrFixFromChanged(string value)
     {
         UpdateOcrFixStatus();
@@ -279,6 +290,7 @@ public partial class DiscoveryV2ViewModel : ObservableObject, IDisposable
         var original = SelectedDialogue.OriginalOcrText ?? string.Empty;
         var corrected = SelectedDialogue.CorrectedText ?? string.Empty;
 
+        // Case 1: User edited the text, detect new potential fixes
         if (!string.IsNullOrWhiteSpace(original) && !string.IsNullOrWhiteSpace(corrected) && 
             !string.Equals(original, corrected, StringComparison.Ordinal))
         {
@@ -315,6 +327,61 @@ public partial class DiscoveryV2ViewModel : ObservableObject, IDisposable
                 {
                     OcrFixStatusMessage = "💡 Detected potential OCR fix - click Save to apply";
                 }
+            }
+        }
+        // Case 2: Check if the current text used an existing OCR fix (original matches a rule)
+        else if (!string.IsNullOrWhiteSpace(original))
+        {
+            var allFixes = _ocrFixesStore.GetAll();
+            var appliedFixes = new List<(string from, string to)>();
+            
+            // Check if any words in the original text match existing fix rules
+            var originalWords = original.Split(new[] { ' ', '\t', '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
+            foreach (var word in originalWords)
+            {
+                var cleanWord = new string(word.Where(char.IsLetterOrDigit).ToArray());
+                
+                // Check exact match first
+                if (allFixes.ContainsKey(cleanWord))
+                {
+                    appliedFixes.Add((cleanWord, allFixes[cleanWord]));
+                }
+                // Also check case-insensitive match
+                else
+                {
+                    var matchingFix = allFixes.FirstOrDefault(kvp => 
+                        string.Equals(kvp.Key, cleanWord, StringComparison.OrdinalIgnoreCase));
+                    if (!string.IsNullOrEmpty(matchingFix.Key))
+                    {
+                        appliedFixes.Add((matchingFix.Key, matchingFix.Value));
+                    }
+                }
+            }
+            
+            if (appliedFixes.Count > 0)
+            {
+                DetectedOcrFixes = appliedFixes;
+                CurrentFixIndex = 0;
+                
+                var (from, to) = appliedFixes[0];
+                OcrFixFrom = from;
+                OcrFixTo = to;
+                IsExistingOcrFix = true;
+                
+                if (appliedFixes.Count > 1)
+                {
+                    MultipleFixesMessage = $"📋 {appliedFixes.Count} existing fixes applied (showing 1 of {appliedFixes.Count})";
+                }
+                else
+                {
+                    MultipleFixesMessage = null;
+                }
+                
+                OcrFixStatusMessage = "✅ This OCR fix was already applied to this line";
+            }
+            else
+            {
+                ClearOcrFix();
             }
         }
         else

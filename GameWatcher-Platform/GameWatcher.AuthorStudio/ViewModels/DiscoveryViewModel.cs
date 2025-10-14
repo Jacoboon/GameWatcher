@@ -16,6 +16,7 @@ public partial class DiscoveryViewModel : ObservableObject, IDisposable
     private readonly DiscoveryService _discoveryService;
     private readonly SpeakerStore _speakerStore;
     private readonly SessionStore _sessionStore;
+    private readonly OcrFixesStore _ocrFixesStore;
 
     [ObservableProperty]
     private ObservableCollection<PendingDialogueEntry> _discoveredDialogue;
@@ -39,12 +40,14 @@ public partial class DiscoveryViewModel : ObservableObject, IDisposable
         ILogger<DiscoveryViewModel> logger,
         DiscoveryService discoveryService,
         SpeakerStore speakerStore,
-        SessionStore sessionStore)
+        SessionStore sessionStore,
+        OcrFixesStore ocrFixesStore)
     {
         _logger = logger;
         _discoveryService = discoveryService;
         _speakerStore = speakerStore;
         _sessionStore = sessionStore;
+        _ocrFixesStore = ocrFixesStore;
 
         // Wire up service collections to ViewModels
         _discoveredDialogue = _discoveryService.Discovered;
@@ -80,14 +83,24 @@ public partial class DiscoveryViewModel : ObservableObject, IDisposable
         DiscoveredDialogue.Clear();
         AcceptedDialogue.Clear();
         
-        // Load saved entries
+        // Load saved entries and re-apply OCR fixes
         foreach (var entry in discovered)
         {
+            // Re-apply OCR fixes to ensure consistency
+            if (!string.IsNullOrWhiteSpace(entry.OriginalOcrText))
+            {
+                entry.Text = _ocrFixesStore.Apply(entry.OriginalOcrText);
+            }
             DiscoveredDialogue.Add(entry);
         }
         
         foreach (var entry in accepted)
         {
+            // Re-apply OCR fixes to accepted entries too
+            if (!string.IsNullOrWhiteSpace(entry.OriginalOcrText))
+            {
+                entry.Text = _ocrFixesStore.Apply(entry.OriginalOcrText);
+            }
             AcceptedDialogue.Add(entry);
         }
         
