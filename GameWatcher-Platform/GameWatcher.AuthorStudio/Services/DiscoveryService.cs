@@ -27,6 +27,11 @@ namespace GameWatcher.AuthorStudio.Services
 
         public ObservableCollection<PendingDialogueEntry> Discovered { get; } = new();
         public ObservableCollection<string> LogLines { get; } = new();
+        
+        /// <summary>
+        /// Callback to check if dialogue already exists in Accepted list (set by DiscoveryV2ViewModel)
+        /// </summary>
+        public Func<string, bool>? IsAlreadyAccepted { get; set; }
 
         public DiscoveryService(
             IDetectionLoop detectionLoop,
@@ -80,10 +85,17 @@ namespace GameWatcher.AuthorStudio.Services
             {
                 App.Current?.Dispatcher.Invoke(() =>
                 {
-                    // Check for duplicates - don't add if same text already exists
-                    if (Discovered.Any(entry => string.Equals(entry.Text, e.Text, StringComparison.Ordinal)))
+                    // Check for duplicates - don't add if same OriginalOcrText already exists in either list
+                    if (Discovered.Any(entry => string.Equals(entry.OriginalOcrText, e.OriginalOcrText, StringComparison.Ordinal)))
                     {
-                        _logger.LogDebug("Skipping duplicate dialogue: {Text}", Truncate(e.Text, 50));
+                        _logger.LogDebug("Skipping duplicate dialogue (in Discovered): {Text}", Truncate(e.Text, 50));
+                        return;
+                    }
+                    
+                    // Also check Accepted list via callback
+                    if (IsAlreadyAccepted?.Invoke(e.OriginalOcrText) == true)
+                    {
+                        _logger.LogDebug("Skipping duplicate dialogue (already accepted): {Text}", Truncate(e.Text, 50));
                         return;
                     }
                     

@@ -140,7 +140,7 @@
                                                    Foreground="Orange"
                                                    Margin="0,0,8,0"
                                                    VerticalAlignment="Top"
-                                                   Visibility="{Binding HasOcrErrors, Converter={StaticResource BooleanToVisibilityConverter}}"/>
+                                                   Visibility="{Binding HasOcrErrors, Converter={StaticResource BoolToVisibilityConverter}}"/>
 
                                         <StackPanel Grid.Column="1">
                                             <TextBlock Text="{Binding Text}" 
@@ -196,6 +196,7 @@
                                     <Grid>
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="Auto"/>
+                                            <ColumnDefinition Width="Auto"/>
                                             <ColumnDefinition Width="*"/>
                                         </Grid.ColumnDefinitions>
 
@@ -207,7 +208,16 @@
                                                    Margin="0,0,8,0"
                                                    VerticalAlignment="Top"/>
 
-                                        <StackPanel Grid.Column="1">
+                                        <!-- Warning icon if has OCR errors/fixes -->
+                                        <TextBlock Grid.Column="1" 
+                                                   Text="🔧" 
+                                                   FontSize="14" 
+                                                   Foreground="CornflowerBlue"
+                                                   Margin="0,0,8,0"
+                                                   VerticalAlignment="Top"
+                                                   Visibility="{Binding HasOcrErrors, Converter={StaticResource BoolToVisibilityConverter}}"/>
+
+                                        <StackPanel Grid.Column="2">
                                             <TextBlock Text="{Binding Text}" 
                                                        TextWrapping="Wrap" 
                                                        FontSize="13"

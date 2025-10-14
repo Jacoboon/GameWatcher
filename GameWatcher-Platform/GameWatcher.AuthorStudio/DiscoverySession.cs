@@ -13,15 +13,41 @@ namespace GameWatcher.AuthorStudio
 
     public class PendingDialogueEntry
     {
-        /// <summary>
-        /// The current dialogue text. Initially populated from OCR, user can edit inline.
-        /// </summary>
-        public string Text { get; set; } = string.Empty;
+        private string? _userEditedText;
         
         /// <summary>
-        /// The original OCR text before any user edits. Used to detect corrections for auto-fix generation.
+        /// The original OCR text before any fixes or edits. Never changes after capture.
         /// </summary>
         public string OriginalOcrText { get; set; } = string.Empty;
+        
+        /// <summary>
+        /// User's manually edited text. If set, this takes precedence over auto-fixed text.
+        /// </summary>
+        public string? UserEditedText
+        {
+            get => _userEditedText;
+            set => _userEditedText = value;
+        }
+        
+        /// <summary>
+        /// The current dialogue text to display and edit.
+        /// Returns UserEditedText if set, otherwise falls back to stored Text.
+        /// </summary>
+        public string Text
+        {
+            get => UserEditedText ?? _text;
+            set
+            {
+                _text = value;
+                // If user changes it from the UI, mark as user-edited
+                if (!string.IsNullOrWhiteSpace(OriginalOcrText) && 
+                    !string.Equals(value, OriginalOcrText, StringComparison.Ordinal))
+                {
+                    UserEditedText = value;
+                }
+            }
+        }
+        private string _text = string.Empty;
         
         /// <summary>
         /// Corrected text after user edits or OCR fixes applied. Used for comparison to create new rules.

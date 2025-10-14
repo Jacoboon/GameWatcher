@@ -1,24 +1,16 @@
 {
   "fixes": [
     {
-      "from": "ijeapons",
-      "to": "Weapons"
+      "from": "cast le",
+      "to": "castle"
     },
     {
-      "from": "ijhen",
+      "from": "Cin",
+      "to": "On"
+    },
+    {
+      "from": "Ijhen",
       "to": "When"
-    },
-    {
-      "from": "ljhen",
-      "to": "When"
-    },
-    {
-      "from": "p i ease",
-      "to": "please"
-    },
-    {
-      "from": "rstos",
-      "to": "Astos"
     }
   ]
 }

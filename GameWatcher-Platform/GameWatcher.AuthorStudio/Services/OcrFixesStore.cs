@@ -78,15 +78,18 @@ namespace GameWatcher.AuthorStudio.Services
             {
                 var path = Path.Combine(packFolder, "Configuration", "ocr_fixes.json");
                 if (!File.Exists(path)) return;
+                
                 var json = await File.ReadAllTextAsync(path);
                 var file = JsonSerializer.Deserialize<FixFile>(json);
                 if (file == null) return;
+                
                 foreach (var f in file.Fixes)
                 {
                     var from = (f.From ?? "").Trim();  // Preserve original case
                     if (from.Length == 0) continue;
                     _fixes[from] = (f.To ?? "").Trim();
                 }
+                
                 _logger.LogInformation("Loaded {Count} OCR fixes from {Path}", _fixes.Count, path);
             }
             catch (Exception ex)
@@ -132,19 +135,15 @@ namespace GameWatcher.AuthorStudio.Services
             var key = from.Trim();  // Preserve original case
             var value = to.Trim();
 
-            // Check if it's already correct or a duplicate (case-insensitive check)
+            // Check if exact duplicate already exists (case-insensitive check)
             var existingKey = _fixes.Keys.FirstOrDefault(k => string.Equals(k, key, StringComparison.OrdinalIgnoreCase));
             if (existingKey != null && _fixes[existingKey] == value)
             {
+                // Exact duplicate - no need to save again
                 return;
             }
 
-            // Remove old key if case changed, add new key
-            if (existingKey != null && existingKey != key)
-            {
-                _fixes.Remove(existingKey);
-            }
-
+            // Just add/update the rule - let the author manage conflicts
             _fixes[key] = value;
             _logger.LogInformation("Added OCR fix: '{From}' -> '{To}'", from, to);
 
