@@ -495,7 +495,9 @@ public partial class DiscoveryV2ViewModel : ObservableObject, IDisposable
     {
         try
         {
-            await _sessionStore.SaveSessionAsync(DiscoveredDialogue.ToList(), AcceptedDialogue.ToList());
+            // Combine both lists into single collection for persistence
+            var allEntries = DiscoveredDialogue.Concat(AcceptedDialogue).ToList();
+            await _sessionStore.SaveSessionAsync(allEntries);
         }
         catch (Exception ex)
         {

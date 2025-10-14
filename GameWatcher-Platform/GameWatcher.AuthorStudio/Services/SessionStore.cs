@@ -25,8 +25,11 @@ namespace GameWatcher.AuthorStudio.Services
             [JsonPropertyName("lastSaved")] public DateTime LastSaved { get; set; }
             [JsonPropertyName("game")] public string? Game { get; set; }
             [JsonPropertyName("notes")] public string? Notes { get; set; }
-            [JsonPropertyName("discovered")] public List<PendingDialogueEntry> Discovered { get; set; } = new();
-            [JsonPropertyName("accepted")] public List<PendingDialogueEntry> Accepted { get; set; } = new();
+            [JsonPropertyName("entries")] public List<PendingDialogueEntry> Entries { get; set; } = new();
+            
+            // Legacy properties for backward compatibility (load only)
+            [JsonPropertyName("discovered")] public List<PendingDialogueEntry>? Discovered { get; set; }
+            [JsonPropertyName("accepted")] public List<PendingDialogueEntry>? Accepted { get; set; }
         }
 
         public SessionStore(ILogger<SessionStore> logger)
@@ -66,21 +69,22 @@ namespace GameWatcher.AuthorStudio.Services
         }
 
         /// <summary>
-        /// Loads the session data for the current pack (Discovered and Accepted lists).
-        /// Returns empty lists if no session exists or if no pack is set.
+        /// Loads the session data for the current pack (single list with Approved flag).
+        /// Returns empty list if no session exists or if no pack is set.
+        /// Supports legacy format (discovered/accepted arrays) and migrates automatically.
         /// </summary>
-        public async Task<(List<PendingDialogueEntry> discovered, List<PendingDialogueEntry> accepted)> LoadSessionAsync()
+        public async Task<List<PendingDialogueEntry>> LoadSessionAsync()
         {
             if (string.IsNullOrEmpty(_currentSessionFile))
             {
                 _logger.LogWarning("Cannot load session: no pack is set");
-                return (new List<PendingDialogueEntry>(), new List<PendingDialogueEntry>());
+                return new List<PendingDialogueEntry>();
             }
 
             if (!File.Exists(_currentSessionFile))
             {
                 _logger.LogInformation("No existing session file found at {Path}", _currentSessionFile);
-                return (new List<PendingDialogueEntry>(), new List<PendingDialogueEntry>());
+                return new List<PendingDialogueEntry>();
             }
 
             try
@@ -90,28 +94,51 @@ namespace GameWatcher.AuthorStudio.Services
                 {
                     PropertyNameCaseInsensitive = true
                 });
+
+                var entries = new List<PendingDialogueEntry>();
                 
-                var discovered = model?.Discovered ?? new List<PendingDialogueEntry>();
-                var accepted = model?.Accepted ?? new List<PendingDialogueEntry>();
+                // New format: single entries array
+                if (model?.Entries != null && model.Entries.Count > 0)
+                {
+                    entries = model.Entries;
+                    _logger.LogInformation("Loaded session (new format): {Count} entries", entries.Count);
+                }
+                // Legacy format: migrate from discovered/accepted arrays
+                else if (model?.Discovered != null || model?.Accepted != null)
+                {
+                    var discovered = model.Discovered ?? new List<PendingDialogueEntry>();
+                    var accepted = model.Accepted ?? new List<PendingDialogueEntry>();
+                    
+                    // Ensure Approved flag is set correctly
+                    foreach (var entry in discovered)
+                        entry.Approved = false;
+                    
+                    foreach (var entry in accepted)
+                        entry.Approved = true;
+                    
+                    entries.AddRange(discovered);
+                    entries.AddRange(accepted);
+                    
+                    _logger.LogInformation("Loaded session (legacy format, migrated): {DiscoveredCount} discovered, {AcceptedCount} accepted", 
+                        discovered.Count, accepted.Count);
+                    
+                    // Auto-save in new format
+                    await SaveSessionAsync(entries);
+                }
                 
-                _logger.LogInformation("Loaded session: {DiscoveredCount} discovered, {AcceptedCount} accepted", 
-                    discovered.Count, accepted.Count);
-                
-                return (discovered, accepted);
+                return entries;
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "Failed to load session from {Path}", _currentSessionFile);
-                return (new List<PendingDialogueEntry>(), new List<PendingDialogueEntry>());
+                return new List<PendingDialogueEntry>();
             }
         }
 
         /// <summary>
-        /// Saves the current session data (Discovered and Accepted lists).
+        /// Saves the current session data (single list with Approved flag).
         /// </summary>
-        public async Task SaveSessionAsync(
-            IEnumerable<PendingDialogueEntry> discovered, 
-            IEnumerable<PendingDialogueEntry> accepted)
+        public async Task SaveSessionAsync(IEnumerable<PendingDialogueEntry> entries)
         {
             if (string.IsNullOrEmpty(_currentSessionFile))
             {
@@ -121,12 +148,15 @@ namespace GameWatcher.AuthorStudio.Services
 
             try
             {
+                var entriesList = entries.ToList();
+                var discoveredCount = entriesList.Count(e => !e.Approved);
+                var acceptedCount = entriesList.Count(e => e.Approved);
+                
                 var model = new SessionModel
                 {
                     PackPath = _currentPackPath,
                     LastSaved = DateTime.UtcNow,
-                    Discovered = new List<PendingDialogueEntry>(discovered),
-                    Accepted = new List<PendingDialogueEntry>(accepted)
+                    Entries = entriesList
                 };
 
                 var json = JsonSerializer.Serialize(model, new JsonSerializerOptions
@@ -137,8 +167,8 @@ namespace GameWatcher.AuthorStudio.Services
 
                 await File.WriteAllTextAsync(_currentSessionFile, json);
                 
-                _logger.LogInformation("Saved session: {DiscoveredCount} discovered, {AcceptedCount} accepted to {Path}", 
-                    model.Discovered.Count, model.Accepted.Count, _currentSessionFile);
+                _logger.LogInformation("Saved session: {DiscoveredCount} discovered, {AcceptedCount} accepted ({TotalCount} total) to {Path}", 
+                    discoveredCount, acceptedCount, entriesList.Count, _currentSessionFile);
             }
             catch (Exception ex)
             {

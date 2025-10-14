@@ -77,11 +77,15 @@ public partial class DiscoveryViewModel : ObservableObject, IDisposable
     {
         _sessionStore.SetCurrentPack(packPath);
         
-        var (discovered, accepted) = await _sessionStore.LoadSessionAsync();
+        var entries = await _sessionStore.LoadSessionAsync();
         
         // Clear current lists
         DiscoveredDialogue.Clear();
         AcceptedDialogue.Clear();
+        
+        // Split entries by Approved flag
+        var discovered = entries.Where(e => !e.Approved).ToList();
+        var accepted = entries.Where(e => e.Approved).ToList();
         
         // Load saved entries and re-apply OCR fixes
         foreach (var entry in discovered)
@@ -141,7 +145,9 @@ public partial class DiscoveryViewModel : ObservableObject, IDisposable
     {
         try
         {
-            await _sessionStore.SaveSessionAsync(DiscoveredDialogue, AcceptedDialogue);
+            // Combine both lists for persistence
+            var allEntries = DiscoveredDialogue.Concat(AcceptedDialogue).ToList();
+            await _sessionStore.SaveSessionAsync(allEntries);
         }
         catch (Exception ex)
         {
