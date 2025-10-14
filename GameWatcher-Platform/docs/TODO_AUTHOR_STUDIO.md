@@ -180,12 +180,12 @@
 - ✅ Case-insensitive matching with case-preserved output
 - ✅ **Multi-word pattern support** (e.g., "cast le" → "castle")
 - ✅ **Multiple fixes per line** with Previous/Next navigation (◀ ▶)
-- ✅ Save button creates new rule → saves to engine-level `ocr_fixes.json`
+- ✅ Save button creates new rule → saves to pack's `Configuration/ocr_fixes.json`
 - ✅ Remove button deletes existing rule
 - ✅ **Instant feedback** via TextChanged event (no waiting)
 - ✅ **Original vs Corrected comparison view** (readonly reference, color-coded red/green)
 - ✅ Rules persist and re-apply on session reload
-- ✅ **Engine-level storage** (`%AppData%/GameWatcher/AuthorStudio/ocr_fixes.json`)
+- ✅ **Pack-specific storage** with engine-level correction logic
 - ✅ **Two-pass application** (multi-word patterns first, then single-word tokens)
 - ✅ **Visual indicators**: 🔧 wrench icon for OCR-corrected lines
 - ✅ **INotifyPropertyChanged** implementation for real-time UI updates
@@ -610,11 +610,12 @@ When user clicks "Create OCR Fix Rule":
 ### ✅ Recently Completed (2025-10-14)
 1. **Discovery UI Redesign (2B)** - ✅ Discovery V2 working!
 2. **Smart OCR Fix Creation (2D)** - ✅ Complete with multi-word support, pagination, visual indicators!
-3. **Engine-Level OCR Fixes** - ✅ Refactored to %AppData% storage, applies to all packs globally
-4. **Multi-Word Pattern Support** - ✅ Two-pass Apply() handles "cast le" → "castle" patterns
-5. **Real-Time UI Updates** - ✅ INotifyPropertyChanged implementation for live comparison boxes
-6. **Visual Indicators** - ✅ 🔧 wrench icon shows OCR-corrected lines in both lists
-7. **Case-Insensitive Matching** - ✅ Preserved case in keys, case-insensitive lookups
+3. **Pack-Specific OCR Fixes** - ✅ Rules stored per-pack in `Configuration/ocr_fixes.json`
+4. **Engine-Level Correction Logic** - ✅ Shared Apply() algorithm with two-pass processing
+5. **Multi-Word Pattern Support** - ✅ Two-pass Apply() handles "cast le" → "castle" patterns
+6. **Real-Time UI Updates** - ✅ INotifyPropertyChanged implementation for live comparison boxes
+7. **Visual Indicators** - ✅ 🔧 wrench icon shows OCR-corrected lines in both lists
+8. **Case-Insensitive Matching** - ✅ Preserved case in keys, case-insensitive lookups
 
 ### 🔥 High Priority (Blocking User)
 1. **Accepted Dialogue Tab (2F)** - User can't see accepted lines

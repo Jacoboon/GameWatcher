@@ -9,7 +9,7 @@
 - **Dual-List Workflow:** Discovered lines → Review → Accept into catalog
 - **OCR Correction System:**
   - Multi-word pattern support (e.g., "cast le" → "castle")
-  - Engine-level rules apply to all packs globally
+  - Pack-specific rules with engine-level correction logic
   - Visual indicators (🔧 wrench icon) for corrected lines
   - Multi-fix detection with pagination controls
 - **Session Persistence:** Auto-saves Discovered and Accepted lines across app restarts

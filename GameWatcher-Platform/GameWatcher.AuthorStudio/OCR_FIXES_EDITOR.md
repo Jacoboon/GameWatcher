@@ -81,7 +81,7 @@ If you manually edit `ocr_fixes.json`:
 
 ## File Format
 
-**Location:** `%AppData%/GameWatcher/AuthorStudio/ocr_fixes.json` (Engine-level, applies to all packs)
+**Location:** `{PackFolder}/Configuration/ocr_fixes.json` (Pack-specific rules)
 
 ```json
 {
@@ -106,6 +106,7 @@ If you manually edit `ocr_fixes.json`:
 - `from` keys are **case-sensitive** and preserved exactly as entered
 - Matching is **case-insensitive** (e.g., "cin", "Cin", "CIN" all match "Cin" rule)
 - Rules support **multi-word patterns** (e.g., "cast le" → "castle")
+- Rules are **pack-specific** but correction logic is **engine-level**
 - Rules are **alphabetically sorted** when saved
 - Empty rules (blank From or To) are automatically removed on save
 
@@ -124,18 +125,20 @@ When you edit dialogue text in Discovery V2:
 ### Auto-Application (During Capture)
 
 When new dialogue is captured:
-1. `OcrFixesStore.Apply()` runs two-pass correction:
+1. `OcrFixesStore.Apply()` runs two-pass correction (engine-level logic):
    - **First pass:** Multi-word pattern replacements (e.g., "cast le" → "castle")
    - **Second pass:** Single-word token replacements (e.g., "Cin" → "On")
-2. Corrected text shows in Discovery lists with 🔧 wrench icon
-3. Original OCR text preserved for comparison and learning new rules
+2. Rules are loaded from current pack's `Configuration/ocr_fixes.json`
+3. Corrected text shows in Discovery lists with 🔧 wrench icon
+4. Original OCR text preserved for comparison and learning new rules
 
-### Auto-Loading (Startup)
+### Auto-Loading (Pack Open)
 
-When Author Studio starts:
-1. `OcrFixesStore` loads from `%AppData%/GameWatcher/AuthorStudio/ocr_fixes.json`
-2. Rules apply globally to all packs
-3. Status message: `✓ Loaded N OCR fixes`
+When opening a pack:
+1. `OcrFixesStore.LoadFromFolderAsync()` loads from `{pack}/Configuration/ocr_fixes.json`
+2. Rules are pack-specific but use shared engine-level correction logic
+3. `SettingsViewModel.LoadOcrFixes()` populates the Settings grid
+4. Status message: `✓ Loaded N OCR fixes`
 
 ### Auto-Saving (Edit Actions)
 
@@ -244,7 +247,8 @@ public bool RemoveFix(string from)
 2. **Test Corrections:** Verify rules work by running discovery after saving
 3. **Case Sensitivity:** Matching is case-insensitive, but "to" value preserves case for output
 4. **Multi-Word Support:** Use multi-word patterns for spaced errors (e.g., "cast le" → "castle")
-5. **Regular Backups:** Rules are in AppData - consider exporting periodically
+5. **Pack-Specific Rules:** Each game pack has its own OCR fixes tailored to that game's text
+6. **Share Rules:** Export/import rules between packs for similar games or text styles
 
 ### 💡 Common Patterns
 
@@ -293,7 +297,7 @@ public bool RemoveFix(string from)
 
 ### Recently Implemented ✅
 - ✅ Multi-word pattern support (e.g., "cast le" → "castle")
-- ✅ Engine-level storage (applies to all packs globally)
+- ✅ Engine-level correction logic with pack-specific rule storage
 - ✅ Case-insensitive matching with case-preserved output
 - ✅ Multi-fix detection and pagination in Discovery V2
 - ✅ Visual indicators (🔧 wrench icon) for OCR-corrected lines
