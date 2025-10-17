@@ -834,7 +834,7 @@
                                     </Grid.ColumnDefinitions>
                                     <TextBlock Text="Audio Format" VerticalAlignment="Center"/>
                                     <ComboBox Grid.Column="1" 
-                                              SelectedValue="{Binding SettingsViewModel.AudioFormat, Mode=TwoWay}"
+                                              SelectedValue="{Binding SettingsViewModel.AudioFormat, Mode=OneWay}"
                                               SelectedValuePath="Tag"
                                               SelectionChanged="AudioFormat_SelectionChanged">
                                         <ComboBoxItem Content="MP3 (smaller file size)" Tag="mp3"/>

@@ -53,6 +53,9 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
         DefaultTtsSpeed = _settingsService.Settings.DefaultTtsSpeed;
         IsTtsConfigured = _ttsService.IsConfigured;
         
+        _logger.LogInformation("Settings initialized - AudioFormat: {Format}, DefaultTtsSpeed: {Speed:F2}x", 
+            AudioFormat, DefaultTtsSpeed);
+        
         await Task.CompletedTask;
     }
 

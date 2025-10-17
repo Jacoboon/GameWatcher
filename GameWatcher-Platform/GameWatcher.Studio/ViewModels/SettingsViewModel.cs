@@ -11,6 +11,7 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
 {
     private readonly ILogger<SettingsViewModel> _logger;
     private readonly IConfiguration _configuration;
+    private readonly GameWatcher.Studio.Services.StudioSettingsService? _settingsService;
 
     [ObservableProperty]
     private ObservableCollection<SettingItemViewModel> _generalSettings = new();
@@ -33,10 +34,11 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
     [ObservableProperty]
     private string _statusMessage = string.Empty;
 
-    public SettingsViewModel(ILogger<SettingsViewModel> logger, IConfiguration configuration)
+    public SettingsViewModel(ILogger<SettingsViewModel> logger, IConfiguration configuration, GameWatcher.Studio.Services.StudioSettingsService? settingsService = null)
     {
         _logger = logger;
         _configuration = configuration;
+        _settingsService = settingsService;
     }
 
     public async Task InitializeAsync()
@@ -83,6 +85,9 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
     {
         System.Diagnostics.Debug.WriteLine("[LoadSettingsAsync] START");
         
+        // Use settings service if available, otherwise fall back to configuration
+        var settings = _settingsService?.Settings;
+        
         // General Settings
         GeneralSettings.Clear();
         System.Diagnostics.Debug.WriteLine("[LoadSettingsAsync] Cleared GeneralSettings");
@@ -91,7 +96,7 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
             Name = "Auto Start Monitoring",
             Description = "Automatically start monitoring when a supported game is detected",
             Type = SettingType.Boolean,
-            Value = _configuration.GetValue<bool>("GameWatcher:AutoStart", true)
+            Value = settings?.AutoStart ?? _configuration.GetValue<bool>("GameWatcher:AutoStart", true)
         });
 
         GeneralSettings.Add(new SettingItemViewModel
@@ -99,7 +104,7 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
             Name = "Game Detection Polling Rate",
             Description = "How often to check for game window (in seconds)",
             Type = SettingType.Double,
-            Value = _configuration.GetValue<double>("GameWatcher:DetectionIntervalSeconds", 2.0),
+            Value = settings?.DetectionIntervalSeconds ?? _configuration.GetValue<double>("GameWatcher:DetectionIntervalSeconds", 2.0),
             MinValue = 0.5,
             MaxValue = 10.0
         });
@@ -109,7 +114,7 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
             Name = "Pack Directories",
             Description = "Directories to search for game packs",
             Type = SettingType.StringList,
-            Value = _configuration.GetSection("GameWatcher:PackDirectories").Get<string[]>() ?? Array.Empty<string>()
+            Value = settings?.PackDirectories ?? _configuration.GetSection("GameWatcher:PackDirectories").Get<string[]>() ?? Array.Empty<string>()
         });
 
         // Capture Settings
@@ -119,7 +124,7 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
             Name = "Capture Rate",
             Description = "Frame capture rate in FPS (higher = more responsive, lower = better performance)",
             Type = SettingType.Integer,
-            Value = _configuration.GetValue<int>("Capture:TargetFps", 10),
+            Value = settings?.CaptureRate ?? _configuration.GetValue<int>("Capture:TargetFps", 10),
             MinValue = 1,
             MaxValue = 60
         });
@@ -129,7 +134,7 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
             Name = "Enable Optimization",
             Description = "Use search area optimization for better performance",
             Type = SettingType.Boolean,
-            Value = _configuration.GetValue<bool>("Capture:EnableOptimization", true)
+            Value = settings?.EnableOptimization ?? _configuration.GetValue<bool>("Capture:EnableOptimization", true)
         });
 
         CaptureSettings.Add(new SettingItemViewModel
@@ -137,7 +142,7 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
             Name = "Optimization Threshold",
             Description = "Similarity threshold for search area optimization (0.0-1.0)",
             Type = SettingType.Double,
-            Value = _configuration.GetValue<double>("Capture:OptimizationThreshold", 0.85),
+            Value = settings?.OptimizationThreshold ?? _configuration.GetValue<double>("Capture:OptimizationThreshold", 0.85),
             MinValue = 0.0,
             MaxValue = 1.0
         });
@@ -151,7 +156,7 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
             Name = "Confidence Threshold",
             Description = "Minimum confidence for OCR results (0.0-1.0)",
             Type = SettingType.Double,
-            Value = _configuration.GetValue<double>("OCR:ConfidenceThreshold", 0.7),
+            Value = settings?.ConfidenceThreshold ?? _configuration.GetValue<double>("OCR:ConfidenceThreshold", 0.7),
             MinValue = 0.0,
             MaxValue = 1.0
         });
@@ -161,7 +166,7 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
             Name = "Enable Preprocessing",
             Description = "Apply image preprocessing for better OCR accuracy",
             Type = SettingType.Boolean,
-            Value = _configuration.GetValue<bool>("OCR:EnablePreprocessing", true)
+            Value = settings?.EnablePreprocessing ?? _configuration.GetValue<bool>("OCR:EnablePreprocessing", true)
         });
 
         // Audio Settings
@@ -171,7 +176,7 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
             Name = "Master Volume",
             Description = "Master audio volume (0-100)",
             Type = SettingType.Integer,
-            Value = _configuration.GetValue<int>("Audio:MasterVolume", 80),
+            Value = settings?.MasterVolume ?? _configuration.GetValue<int>("Audio:MasterVolume", 80),
             MinValue = 0,
             MaxValue = 100
         });
@@ -181,7 +186,7 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
             Name = "Audio Device",
             Description = "Primary audio output device",
             Type = SettingType.String,
-            Value = _configuration.GetValue<string>("Audio:OutputDevice", "Default")
+            Value = settings?.OutputDevice ?? _configuration.GetValue<string>("Audio:OutputDevice", "Default")
         });
 
         AudioSettings.Add(new SettingItemViewModel
@@ -189,7 +194,7 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
             Name = "Enable Crossfade",
             Description = "Use crossfading between audio clips",
             Type = SettingType.Boolean,
-            Value = _configuration.GetValue<bool>("Audio:EnableCrossfade", true)
+            Value = settings?.EnableCrossfade ?? _configuration.GetValue<bool>("Audio:EnableCrossfade", true)
         });
 
         // Add V2 Platform specific settings
@@ -198,7 +203,7 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
             Name = "Enable Duplicate Detection",
             Description = "Skip duplicate frames for better performance",
             Type = SettingType.Boolean,
-            Value = _configuration.GetValue<bool>("Capture:EnableDuplicateDetection", true)
+            Value = settings?.EnableDuplicateDetection ?? _configuration.GetValue<bool>("Capture:EnableDuplicateDetection", true)
         });
 
         OcrSettings.Add(new SettingItemViewModel
@@ -206,7 +211,7 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
             Name = "Scale Factor",
             Description = "Image scaling for OCR preprocessing (1.0-4.0)",
             Type = SettingType.Double,
-            Value = _configuration.GetValue<double>("OCR:ScaleFactor", 2.0),
+            Value = settings?.ScaleFactor ?? _configuration.GetValue<double>("OCR:ScaleFactor", 2.0),
             MinValue = 1.0,
             MaxValue = 4.0
         });
@@ -216,7 +221,7 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
             Name = "Convert to Grayscale",
             Description = "Convert images to grayscale before OCR",
             Type = SettingType.Boolean,
-            Value = _configuration.GetValue<bool>("OCR:ConvertToGrayscale", true)
+            Value = settings?.ConvertToGrayscale ?? _configuration.GetValue<bool>("OCR:ConvertToGrayscale", true)
         });
 
         AudioSettings.Add(new SettingItemViewModel
@@ -224,7 +229,7 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
             Name = "Enable Audio Caching",
             Description = "Cache generated TTS audio for faster playback",
             Type = SettingType.Boolean,
-            Value = _configuration.GetValue<bool>("Audio:EnableAudioCaching", true)
+            Value = settings?.EnableAudioCaching ?? _configuration.GetValue<bool>("Audio:EnableAudioCaching", true)
         });
 
         // Subscribe to value changes
@@ -249,14 +254,44 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
         {
             StatusMessage = "Saving settings...";
             
-            // In a real implementation, you would save to appsettings.json or user settings
-            // For now, we'll just simulate the save
-            await Task.Delay(500);
+            // Map SettingItemViewModel values back to StudioSettings model
+            if (_settingsService != null)
+            {
+                var settings = _settingsService.Settings;
+                
+                // General Settings
+                settings.AutoStart = (bool)(GeneralSettings.FirstOrDefault(s => s.Name == "Auto Start Monitoring")?.Value ?? true);
+                settings.DetectionIntervalSeconds = (double)(GeneralSettings.FirstOrDefault(s => s.Name == "Game Detection Polling Rate")?.Value ?? 2.0);
+                settings.PackDirectories = (string[])(GeneralSettings.FirstOrDefault(s => s.Name == "Pack Directories")?.Value ?? Array.Empty<string>());
+                
+                // Capture Settings
+                settings.CaptureRate = (int)(CaptureSettings.FirstOrDefault(s => s.Name == "Capture Rate")?.Value ?? 10);
+                settings.EnableOptimization = (bool)(CaptureSettings.FirstOrDefault(s => s.Name == "Enable Optimization")?.Value ?? true);
+                settings.OptimizationThreshold = (double)(CaptureSettings.FirstOrDefault(s => s.Name == "Optimization Threshold")?.Value ?? 0.85);
+                settings.EnableDuplicateDetection = (bool)(CaptureSettings.FirstOrDefault(s => s.Name == "Enable Duplicate Detection")?.Value ?? true);
+                
+                // OCR Settings
+                settings.ConfidenceThreshold = (double)(OcrSettings.FirstOrDefault(s => s.Name == "Confidence Threshold")?.Value ?? 0.7);
+                settings.EnablePreprocessing = (bool)(OcrSettings.FirstOrDefault(s => s.Name == "Enable Preprocessing")?.Value ?? true);
+                settings.ScaleFactor = (double)(OcrSettings.FirstOrDefault(s => s.Name == "Scale Factor")?.Value ?? 2.0);
+                settings.ConvertToGrayscale = (bool)(OcrSettings.FirstOrDefault(s => s.Name == "Convert to Grayscale")?.Value ?? true);
+                
+                // Audio Settings
+                settings.MasterVolume = (int)(AudioSettings.FirstOrDefault(s => s.Name == "Master Volume")?.Value ?? 80);
+                settings.OutputDevice = (string)(AudioSettings.FirstOrDefault(s => s.Name == "Audio Device")?.Value ?? "Default");
+                settings.EnableCrossfade = (bool)(AudioSettings.FirstOrDefault(s => s.Name == "Enable Crossfade")?.Value ?? true);
+                settings.EnableAudioCaching = (bool)(AudioSettings.FirstOrDefault(s => s.Name == "Enable Audio Caching")?.Value ?? true);
+                
+                // Save to disk
+                _settingsService.Save();
+            }
 
             HasUnsavedChanges = false;
             StatusMessage = "Settings saved successfully";
             
             _logger.LogInformation("Settings saved successfully");
+            
+            await Task.CompletedTask;
         }
         catch (Exception ex)
         {
@@ -284,6 +319,19 @@ public partial class SettingsViewModel : ObservableObject, IDisposable
 
     public void Dispose()
     {
+        // Save settings on dispose (app shutdown)
+        if (HasUnsavedChanges && _settingsService != null)
+        {
+            try
+            {
+                SaveSettingsAsync().Wait();
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to save settings on dispose");
+            }
+        }
+        
         foreach (var setting in GeneralSettings.Concat(CaptureSettings).Concat(OcrSettings).Concat(AudioSettings))
         {
             setting.ValueChanged -= OnSettingValueChanged;

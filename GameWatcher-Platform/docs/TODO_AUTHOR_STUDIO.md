@@ -11,19 +11,38 @@
 
 ## 1. Settings Persistence & Engine Integration
 
-### 1A. Author Settings Not Persisting
-**Status**: ❌ Not implemented  
-**Description**: Author Studio Settings tab exists but settings are not saved/loaded between sessions.
+### 1A. Author Settings Persistence
+**Status**: ✅ COMPLETED (2025-10-16)  
+**Description**: ~~Author Studio Settings tab exists but settings are not saved/loaded between sessions.~~ **FIXED!**
 
-**Tasks**:
-- [ ] Implement save/load for Author Studio specific settings
-- [ ] Verify settings file path and format
-- [ ] Add auto-save on settings change
-- [ ] Test persistence across app restarts
+**The Bug**: Settings were being saved and loaded correctly from `%AppData%\GameWatcher\AuthorStudio\settings.json`, but during app initialization, the ComboBox `SelectionChanged` event would fire and overwrite the loaded settings with the default "mp3" value before the user could see them.
 
-**Files**:
-- `GameWatcher.AuthorStudio/ViewModels/SettingsViewModel.cs`
-- Settings file location: `C:\Users\{User}\AppData\Roaming\GameWatcher\AuthorStudio\author-settings.json` (?)
+**Root Cause**: 
+- ComboBox had both `SelectedValue` TwoWay binding AND `SelectionChanged` event handler
+- During initialization, setting `AudioFormat` property triggered ComboBox selection change
+- SelectionChanged fired before the correct item was selected, calling `UpdateAudioFormatCommand("mp3")`
+- This overwrote the freshly-loaded "wav" setting back to "mp3" and saved it
+
+**The Fix** (3 changes):
+1. **Guard flag**: Added `_isInitializing` flag in MainWindow.xaml.cs to ignore SelectionChanged during startup
+2. **Binding mode**: Changed ComboBox binding to `Mode=OneWay` to prevent circular updates
+3. **Logging**: Added diagnostic logging to track Load/Save operations for future debugging
+
+**What Works Now**:
+- ✅ Settings load from disk on startup (`AudioFormat`, `DefaultTtsSpeed`)
+- ✅ Settings persist across app restarts
+- ✅ No spurious overwrites during initialization
+- ✅ ComboBox correctly reflects loaded value
+- ✅ User changes save immediately
+- ✅ Logging tracks all Load/Save operations
+
+**Files Modified**:
+- `GameWatcher.AuthorStudio/Services/AuthorSettingsService.cs` - Added ILogger, improved error handling
+- `GameWatcher.AuthorStudio/ViewModels/SettingsViewModel.cs` - Added initialization logging
+- `GameWatcher.AuthorStudio/Views/MainWindow.xaml` - Changed binding to OneWay
+- `GameWatcher.AuthorStudio/Views/MainWindow.xaml.cs` - Added `_isInitializing` guard flag
+
+**Test Results**: Verified with wav + 1.5x speed across multiple restart cycles. Settings persist correctly!
 
 ---
 
@@ -53,26 +72,33 @@
 
 ## 2. Discovery Tab - Activity Log
 
-### 2A. Activity Log Should Mirror Session Logs
-**Status**: ❌ Not implemented  
-**Description**: The Activity Log in the Discovery tab should show the same information as the session log files for real-time feedback.
+### 2A. Activity Log Tab (Rename Old Discovery Tab)
+**Status**: ⚠️ In Progress - Renaming existing Discovery tab  
+**Description**: The old Discovery tab (DataGrid-based) is being repurposed as a dedicated Activity Log tab to show real-time session logs.
 
-**Current Behavior**: Activity log may be incomplete or not showing detection loop events
+**Strategy**: Keep the old Discovery tab but rename it to "Activity Log" - Discovery V2 is now the primary discovery interface.
+
+**Current Behavior**: Old Discovery tab shows dialogue in DataGrid format
 
 **Desired Behavior**: 
+- Rename tab from "Discovery" to "Activity Log"
 - Show textbox detection events
-- Show OCR processing
-- Show dialogue detected
+- Show OCR processing events
+- Show dialogue detected events
 - Show cache hits / frame statistics
 - Mirror everything that goes to log file
+- Auto-scroll to latest entry
 
 **Tasks**:
+- [ ] Rename "Discovery" tab to "Activity Log" in MainWindow.xaml
+- [ ] Update DiscoveryViewModel to focus on log display
 - [ ] Wire logger to duplicate to Activity Log ObservableCollection
 - [ ] Filter appropriate log levels (Info, Warning, Error)
 - [ ] Add auto-scroll to latest log entry
 - [ ] Consider max log buffer size (1000 lines?)
 
 **Files**:
+- `GameWatcher.AuthorStudio/Views/MainWindow.xaml` (rename tab)
 - `GameWatcher.AuthorStudio/ViewModels/DiscoveryViewModel.cs`
 - `GameWatcher.AuthorStudio/Services/DiscoveryService.cs`
 
@@ -389,47 +415,30 @@ When user clicks "Create OCR Fix Rule":
 ---
 
 ### 2F. Accepted Dialogue Tab
-**Status**: ❌ Not implemented - **USER BLOCKED** (2025-10-13)  
-**Description**: When user clicks "Accept" in Discovery V2, line moves to `AcceptedDialogue` collection but there's no UI to view it.
+**Status**: ✅ COMPLETED (2025-10-16)  
+**Description**: ~~When user clicks "Accept" in Discovery V2, line moves to `AcceptedDialogue` collection but there's no UI to view it.~~ **Implemented as split-pane design!**
 
-**Current Behavior**:
-- Accept button works, line disappears from Discovered list
-- Line saved to `session.json` in `accepted` array
-- No way to see/edit accepted lines in UI
+**Implementation**: Discovery V2 uses a split-pane layout with Discovered (top) and Accepted (bottom) sections, both sharing the same Details pane on the right.
 
-**Desired Behavior**:
-- Add "Accepted" tab in DiscoveryV2View
-- Show AcceptedDialogue collection in ListView
-- Allow editing speaker, text, instructions
-- Allow un-accepting (move back to Discovered)
-- Show metadata: timestamp, speaker, audio status
+**What Was Implemented**:
+- ✅ Split vertical layout with GridSplitter
+- ✅ Discovered Dialogue list (top pane)
+- ✅ Accepted Dialogue list (bottom pane)
+- ✅ Beautiful green header for accepted section
+- ✅ Visual indicators:
+  - ✓ Green checkmark for accepted lines
+  - 🔧 Wrench icon for OCR-corrected lines
+  - ⚠ Warning for lines needing review
+- ✅ Shows timestamp and speaker for accepted lines
+- ✅ Shared Details pane for both lists
+- ✅ Accept/Unaccept functionality working
+- ✅ Session persistence (saves to `session.json`)
 
-**Proposed UI** (new tab in Discovery V2):
-```
-[Discovered (3)] [Accepted (5)] ← Tabs
-┌─────────────────────────────────────────────────┐
-│ Accepted Dialogue List     │ Details Pane       │
-│ ─────────────────────────  │ ──────────────     │
-│ ✓ When the time is right.. │ Same details as    │
-│ ✓ I shall wait patiently.. │ Discovered tab but │
-│ ✓ Weapons and armor made.. │ with "Unaccept"    │
-│                            │ button instead     │
-└────────────────────────────────────────────────┘
-```
+**Files Modified**:
+- `GameWatcher.AuthorStudio/Views/DiscoveryV2View.xaml` - Split pane layout
+- `GameWatcher.AuthorStudio/ViewModels/DiscoveryV2ViewModel.cs` - AcceptedDialogue collection
 
-**Tasks**:
-- [ ] Add TabControl to DiscoveryV2View.xaml
-- [ ] Create Discovered tab with current content
-- [ ] Create Accepted tab with AcceptedDialogue ListView
-- [ ] Share same Details pane for both tabs
-- [ ] Add "Unaccept" button for accepted lines
-- [ ] Test tab switching and selection
-
-**Files**:
-- `GameWatcher.AuthorStudio/Views/DiscoveryV2View.xaml` - Add TabControl
-- `GameWatcher.AuthorStudio/ViewModels/DiscoveryV2ViewModel.cs` - Add UnacceptCommand
-
-**Priority**: HIGH - User is blocked from seeing accepted lines
+**Result**: Users can now see, select, and edit accepted dialogue lines. No longer blocked!
 
 ---
 
@@ -607,19 +616,21 @@ When user clicks "Create OCR Fix Rule":
 
 ## Priority Ranking
 
-### ✅ Recently Completed (2025-10-14)
+### ✅ Recently Completed (2025-10-14 to 2025-10-16)
 1. **Discovery UI Redesign (2B)** - ✅ Discovery V2 working!
 2. **Smart OCR Fix Creation (2D)** - ✅ Complete with multi-word support, pagination, visual indicators!
-3. **Pack-Specific OCR Fixes** - ✅ Rules stored per-pack in `Configuration/ocr_fixes.json`
-4. **Engine-Level Correction Logic** - ✅ Shared Apply() algorithm with two-pass processing
-5. **Multi-Word Pattern Support** - ✅ Two-pass Apply() handles "cast le" → "castle" patterns
-6. **Real-Time UI Updates** - ✅ INotifyPropertyChanged implementation for live comparison boxes
-7. **Visual Indicators** - ✅ 🔧 wrench icon shows OCR-corrected lines in both lists
-8. **Case-Insensitive Matching** - ✅ Preserved case in keys, case-insensitive lookups
+3. **Accepted Dialogue Tab (2F)** - ✅ Split-pane design with Discovered/Accepted sections!
+4. **Settings Persistence (1A)** - ✅ Fixed initialization bug, settings now persist correctly!
+5. **Pack-Specific OCR Fixes** - ✅ Rules stored per-pack in `Configuration/ocr_fixes.json`
+6. **Engine-Level Correction Logic** - ✅ Shared Apply() algorithm with two-pass processing
+7. **Multi-Word Pattern Support** - ✅ Two-pass Apply() handles "cast le" → "castle" patterns
+8. **Real-Time UI Updates** - ✅ INotifyPropertyChanged implementation for live comparison boxes
+9. **Visual Indicators** - ✅ 🔧 wrench icon shows OCR-corrected lines in both lists
+10. **Case-Insensitive Matching** - ✅ Preserved case in keys, case-insensitive lookups
 
-### 🔥 High Priority (Blocking User)
-1. **Accepted Dialogue Tab (2F)** - User can't see accepted lines
-2. **OCR Fix Logging (2E)** - Need visibility into what's being corrected
+### 🔥 High Priority (Next Up)
+1. **OCR Fix Logging (2E)** - Need visibility into what's being corrected
+2. **Voice Preview Cache Fix (3C)** - Wasting API calls
 
 ### High Priority (Core Functionality)
 3. **Settings Persistence (1A)** - Settings should save

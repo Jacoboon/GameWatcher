@@ -130,6 +130,9 @@ public partial class App : Application
                 // Core Engine Services for capture & detection
                 services.AddLogging();
                 
+                // Studio Services (must be registered first so capture services can access settings)
+                services.AddSingleton<GameWatcher.Studio.Services.StudioSettingsService>();
+                
                 // Capture services (Studio needs these to detect dialogue and play voiceovers)
                 services.AddSingleton<IOcrEngine, WindowsOCR>();
                 services.AddSingleton<ITextboxDetector>(sp =>
@@ -137,7 +140,16 @@ public partial class App : Application
                     var logger = sp.GetService<ILogger<DynamicTextboxDetector>>();
                     return new DynamicTextboxDetector(FF1DetectionConfig.GetConfig(), logger);
                 });
-                services.AddSingleton<GameCaptureService>();
+                services.AddSingleton<GameCaptureService>(sp =>
+                {
+                    var detector = sp.GetRequiredService<ITextboxDetector>();
+                    var ocr = sp.GetRequiredService<IOcrEngine>();
+                    var logger = sp.GetRequiredService<ILogger<GameCaptureService>>();
+                    var settingsService = sp.GetRequiredService<GameWatcher.Studio.Services.StudioSettingsService>();
+                    
+                    // Use CaptureRate from persisted settings
+                    return new GameCaptureService(detector, ocr, logger, settingsService.Settings.CaptureRate);
+                });
                 
                 // UI
                 services.AddSingleton<MainWindow>();

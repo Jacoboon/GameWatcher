@@ -24,6 +24,7 @@ public partial class MainWindow : Window
     private readonly OpenAiTtsService _ttsService;
     private readonly SpeakerStore _speakerStore;
     private readonly AuthorSettingsService _settingsService;
+    private bool _isInitializing = true;
 
     public MainWindow(
         ILogger<MainWindow> logger,
@@ -47,6 +48,9 @@ public partial class MainWindow : Window
         DataContext = _viewModel;
         
         _logger.LogInformation("MainWindow initialized");
+        
+        // Allow SelectionChanged events after a short delay
+        Dispatcher.BeginInvoke(() => _isInitializing = false, System.Windows.Threading.DispatcherPriority.Loaded);
     }
 
     // Event handlers for file dialogs (MVVM-friendly approach)
@@ -227,6 +231,9 @@ public partial class MainWindow : Window
 
     private void AudioFormat_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
+        // Ignore events during initialization to prevent overwriting loaded settings
+        if (_isInitializing) return;
+        
         if (sender is System.Windows.Controls.ComboBox comboBox && comboBox.SelectedValue is string format)
         {
             _viewModel?.SettingsViewModel?.UpdateAudioFormatCommand?.Execute(format);

@@ -26,6 +26,9 @@ namespace GameWatcher.Runtime.Services.Capture
         private readonly IOcrEngine _ocr;
         private readonly ILogger<GameCaptureService> _logger;
         
+        // Configuration
+        private readonly int _captureIntervalMs;
+        
         // Frame processing state
         private Bitmap? _lastFrame;
         private string _lastText = "";
@@ -47,11 +50,17 @@ namespace GameWatcher.Runtime.Services.Capture
         public event EventHandler<CaptureProgressEventArgs>? ProgressReported;
         public event EventHandler<DialogueDetectedEventArgs>? DialogueDetected;
         
-        public GameCaptureService(ITextboxDetector detector, IOcrEngine ocr, ILogger<GameCaptureService> logger)
+        public GameCaptureService(ITextboxDetector detector, IOcrEngine ocr, ILogger<GameCaptureService> logger, int captureFps = 15)
         {
             _detector = detector ?? throw new ArgumentNullException(nameof(detector));
             _ocr = ocr ?? throw new ArgumentNullException(nameof(ocr));
             _logger = logger ?? throw new ArgumentNullException(nameof(logger));
+            
+            // Calculate capture interval from FPS (e.g., 10 FPS = 100ms, 15 FPS = 67ms)
+            _captureIntervalMs = captureFps > 0 ? (int)(1000.0 / captureFps) : 67;
+            
+            _logger.LogInformation("GameCaptureService initialized with {Fps} FPS (interval: {Interval}ms)", 
+                captureFps, _captureIntervalMs);
             
             InitializeComponents();
         }
@@ -113,10 +122,12 @@ namespace GameWatcher.Runtime.Services.Capture
                 _totalProcessingTime = 0;
                 _isBusy = false;
                 
-                // Start capture timer - 15 FPS (67ms intervals)
-                _captureTimer = new System.Threading.Timer(CaptureAndProcess, null, 0, 67);
+                // Start capture timer with configured interval
+                _captureTimer = new System.Threading.Timer(CaptureAndProcess, null, 0, _captureIntervalMs);
                 
-                Console.WriteLine("[GameCaptureService] Started (15 FPS)");
+                var actualFps = 1000.0 / _captureIntervalMs;
+                _logger.LogInformation("GameCaptureService started - {Fps:F1} FPS ({Interval}ms intervals)", 
+                    actualFps, _captureIntervalMs);
                 return Task.FromResult(true);
             }
             catch (Exception ex)

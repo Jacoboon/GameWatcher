@@ -25,10 +25,11 @@ public partial class MainWindow : Window
             {
                 var configuration = services.GetService<Microsoft.Extensions.Configuration.IConfiguration>();
                 var logger = services.GetService<Microsoft.Extensions.Logging.ILogger<SettingsViewModel>>();
+                var settingsService = services.GetService<GameWatcher.Studio.Services.StudioSettingsService>();
                 
                 if (configuration != null && logger != null)
                 {
-                    _settingsViewModel = new SettingsViewModel(logger, configuration);
+                    _settingsViewModel = new SettingsViewModel(logger, configuration, settingsService);
                     _ = _settingsViewModel.InitializeAsync();
                     
                     // Set DataContext for Settings tab binding
