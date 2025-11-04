@@ -3,15 +3,12 @@ using Microsoft.Extensions.Logging;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Windows.Threading;
-using GameWatcher.Runtime.Services;
-using GameWatcher.Runtime.Services.Capture;
 
 namespace GameWatcher.Studio.ViewModels;
 
 public partial class ActivityMonitorViewModel : ObservableObject, IDisposable
 {
     private readonly ILogger<ActivityMonitorViewModel> _logger;
-    private GameCaptureService? _captureService;
     private readonly DispatcherTimer _metricsTimer;
     private readonly PerformanceCounter? _cpuCounter;
     private readonly PerformanceCounter? _memoryCounter;
@@ -96,40 +93,30 @@ public partial class ActivityMonitorViewModel : ObservableObject, IDisposable
         }
     }
 
-    public void AttachCaptureService(GameCaptureService captureService)
+    // DEPRECATED: These methods were for GameCaptureService which is now replaced by IDetectionLoop
+    // TODO: Remove or update for IDetectionLoop if Activity Monitor UI is needed
+    /*
+    public void AttachCaptureService(IDetectionLoop detectionLoop)
     {
         try
         {
-            // Unsubscribe from previous service
             DetachCaptureService();
-
-            _captureService = captureService;
-            
-            // Subscribe to capture service events
-            _captureService.ProgressReported += OnCaptureProgress;
-            _captureService.DialogueDetected += OnDialogueDetected;
-
+            // TODO: Wire up IDetectionLoop events
             MonitoringStatus = "Monitoring";
-            AddLogEntry("Connected to capture service", ActivityLogLevel.Info);
+            AddLogEntry("Connected to detection loop", ActivityLogLevel.Info);
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Failed to attach capture service");
+            _logger.LogError(ex, "Failed to attach detection loop");
         }
     }
 
     public void DetachCaptureService()
     {
-        if (_captureService != null)
-        {
-            _captureService.ProgressReported -= OnCaptureProgress;
-            _captureService.DialogueDetected -= OnDialogueDetected;
-            _captureService = null;
-
-            MonitoringStatus = "Stopped";
-            AddLogEntry("Disconnected from capture service", ActivityLogLevel.Info);
-        }
+        MonitoringStatus = "Stopped";
+        AddLogEntry("Disconnected from detection loop", ActivityLogLevel.Info);
     }
+    */
 
     public void RefreshMetrics()
     {
@@ -166,20 +153,19 @@ public partial class ActivityMonitorViewModel : ObservableObject, IDisposable
         RefreshMetrics();
     }
 
+    // DEPRECATED: Event handlers for GameCaptureService (removed)
+    /*
     private void OnCaptureProgress(object? sender, CaptureProgressEventArgs e)
     {
-        // Update metrics from capture statistics
         FramesProcessed = e.Statistics.FrameCount;
         TextboxesFound = e.Statistics.TextboxesFound;
         CurrentFps = e.Statistics.ActualFps;
         AverageProcessingTime = e.Statistics.AverageProcessingTimeMs;
-        
         LastActivityTime = DateTime.Now;
 
-        // Only log every 30 frames to avoid spam
         if (e.Statistics.FrameCount % 30 == 0)
         {
-            AddLogEntry($"Frame {e.Statistics.FrameCount}: {e.Statistics.ActualFps:F1} FPS, {e.Statistics.TextboxesFound} textboxes", ActivityLogLevel.Debug);
+            AddLogEntry($"Frame {e.Statistics.FrameCount}: {e.Statistics.ActualFps:F1} FPS, {e.Statistics.Textboxes Found} textboxes", ActivityLogLevel.Debug);
         }
     }
 
@@ -191,6 +177,7 @@ public partial class ActivityMonitorViewModel : ObservableObject, IDisposable
 
         AddLogEntry($"Dialogue: \"{e.DialogueEntry.Text}\" ({e.DialogueEntry.Speaker})", ActivityLogLevel.Info);
     }
+    */
 
     private void AddLogEntry(string message, ActivityLogLevel level)
     {
@@ -214,7 +201,7 @@ public partial class ActivityMonitorViewModel : ObservableObject, IDisposable
     public void Dispose()
     {
         _metricsTimer?.Stop();
-        DetachCaptureService();
+        // DetachCaptureService(); // DEPRECATED
         _cpuCounter?.Dispose();
         _memoryCounter?.Dispose();
     }

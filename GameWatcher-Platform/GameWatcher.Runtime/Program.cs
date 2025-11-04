@@ -50,8 +50,41 @@ public class Program
                 // Configuration
                 services.Configure<RuntimeConfig>(context.Configuration.GetSection("Runtime"));
                 
-                // Core Runtime Services (Working implementations)
-                services.AddSingleton<GameCaptureService>();
+                // Detection Loop (same as Studio and AuthorStudio)
+                services.AddSingleton<GameWatcher.Engine.Detection.IDetectionLoop>(sp =>
+                {
+                    var logger = sp.GetRequiredService<ILogger<GameWatcher.Engine.Detection.DetectionLoop>>();
+                    var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
+                    
+                    // Get FF1 configuration (TODO: Load from pack in future)
+                    var config = FF1.PixelRemaster.Detection.FF1DetectionLoop.GetConfig();
+                    
+                    // Runtime uses default settings for now
+                    // TODO: Load from RuntimeConfig
+                    
+                    logger?.LogInformation(
+                        "DetectionLoop configured - {Fps} FPS, stable: {Stable}, change: {Change}",
+                        config.TargetFps, config.StableSampleRate, config.ChangeSampleRate);
+                    
+                    // Create textbox detector
+                    var detectorLogger = loggerFactory.CreateLogger<GameWatcher.Engine.Detection.DynamicTextboxDetector>();
+                    var detector = new GameWatcher.Engine.Detection.DynamicTextboxDetector(config.TextboxConfig, detectorLogger);
+                    
+                    // Create OCR engine
+                    var ocr = new GameWatcher.Engine.Ocr.WindowsOcrEngine();
+                    
+                    // Create the detection loop with delegates
+                    return new GameWatcher.Engine.Detection.DetectionLoop(
+                        config,
+                        detector,
+                        ocr,
+                        text => text, // No OCR fixes yet
+                        () => GameWatcher.Runtime.Services.Capture.ScreenCapture.CaptureGameWindow(),
+                        (img1, img2, sampleRate) => GameWatcher.Runtime.Services.Capture.ScreenCapture.AreImagesSimilar(img1, img2, sampleRate),
+                        text => text.Trim().ToLowerInvariant(), // Simple normalization
+                        logger
+                    );
+                });
                 services.AddSingleton<IOcrEngine, WindowsOcrEngine>();
                 services.AddSingleton<ITextboxDetector>(sp =>
                 {

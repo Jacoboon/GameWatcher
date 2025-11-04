@@ -54,7 +54,8 @@ public partial class MainWindow : Window
     // TODO: _isMonitoring is assigned but not used; wire to UI state (e.g., Start/Stop buttons) or remove if obsolete.
     private bool _isMonitoring = false;
     private readonly List<string> _watchedExecutables = new();
-    private GameCaptureService? _captureService;
+    // Core service
+    private GameWatcher.Engine.Detection.IDetectionLoop? _detectionLoop;
     private bool _gameIsRunning = false;
     private ActivityMonitorViewModel? _activityMonitor;
     private SettingsViewModel? _settingsViewModel;
@@ -360,26 +361,25 @@ private void Stop_Click(object sender, RoutedEventArgs e)
     {
         try
         {
-            // Get GameCaptureService from DI (configured with FF1 detector)
+            // Get IDetectionLoop from DI (configured with FF1 detector)
             var services = App.Services;
             if (services != null)
             {
-                _captureService = services.GetRequiredService<GameCaptureService>();
+                _detectionLoop = services.GetRequiredService<GameWatcher.Engine.Detection.IDetectionLoop>();
                 
-                // Subscribe to capture events for Activity Monitor
-                _captureService.ProgressReported += CaptureService_ProgressReported;
-                _captureService.DialogueDetected += CaptureService_DialogueDetected;
+                // Subscribe to detection events for Activity Monitor
+                _detectionLoop.DialogueDetected += DetectionLoop_DialogueDetected;
                 
-                AddActivityLogEntry("[SYSTEM] Capture service initialized successfully with FF1 detection");
+                AddActivityLogEntry("[SYSTEM] Detection loop initialized successfully with FF1 detection");
             }
             else
             {
-                AddActivityLogEntry("[ERROR] DI Services not available for capture service");
+                AddActivityLogEntry("[ERROR] DI Services not available for detection loop");
             }
         }
         catch (Exception ex)
         {
-            AddActivityLogEntry($"[ERROR] Failed to initialize capture service: {ex.Message}");
+            AddActivityLogEntry($"[ERROR] Failed to initialize detection loop: {ex.Message}");
         }
     }
 
@@ -433,48 +433,22 @@ private void Stop_Click(object sender, RoutedEventArgs e)
         });
     }
 
-    private void CaptureService_ProgressReported(object? sender, CaptureProgressEventArgs e)
-    {
-        // Update Activity Monitor with capture statistics on UI thread
-        Dispatcher.Invoke(() =>
-        {
-            var message = $"[CAPTURE] Frame {e.Statistics.FrameCount}: {e.Statistics.ActualFps:F1} FPS, {e.Statistics.TextboxesFound} textboxes found";
-            AddActivityLogEntry(message);
-            
-            // Also log to Serilog for file output (only every 30 frames to avoid spam)
-            if (e.Statistics.FrameCount % 30 == 0)
-            {
-                try
-                {
-                    var logger = App.Services?.GetService<Microsoft.Extensions.Logging.ILogger<MainWindow>>();
-                    logger?.LogInformation("Capture Progress: Frame {FrameCount}, FPS: {Fps:F1}, Textboxes: {TextboxCount}", 
-                        e.Statistics.FrameCount, e.Statistics.ActualFps, e.Statistics.TextboxesFound);
-                }
-                catch
-                {
-                    // Fallback to console if logger not available
-                    Console.WriteLine($"[SERILOG] {message}");
-                }
-            }
-        });
-    }
-
-    private void CaptureService_DialogueDetected(object? sender, DialogueDetectedEventArgs e)
+    private void DetectionLoop_DialogueDetected(object? sender, GameWatcher.Engine.Detection.DialogueDetectedEventArgs e)
     {
         // Update Activity Monitor with dialogue detection on UI thread
         Dispatcher.Invoke(() =>
         {
-            var message = $"[DIALOGUE] \"{e.DialogueEntry.Text}\" ({e.DialogueEntry.Speaker})";
+            var message = $"[DIALOGUE] \"{e.Text}\" (Original OCR: \"{e.OriginalOcrText}\")";
             AddActivityLogEntry(message);
             // Also add a simple Now Playing line for visibility
-            AddActivityLogEntry($"▶ Now Playing: {e.DialogueEntry.Text}");
+            AddActivityLogEntry($"▶ Now Playing: {e.Text}");
             
             // Always log dialogue to Serilog file (important events)
             try
             {
                 var logger = App.Services?.GetService<Microsoft.Extensions.Logging.ILogger<MainWindow>>();
-                logger?.LogInformation("Dialogue Detected: {Text} (Speaker: {Speaker})", 
-                    e.DialogueEntry.Text, e.DialogueEntry.Speaker);
+                logger?.LogInformation("Dialogue Detected: {Text} (Original: {OriginalOcr})", 
+                    e.Text, e.OriginalOcrText);
             }
             catch
             {
@@ -614,22 +588,16 @@ private void Stop_Click(object sender, RoutedEventArgs e)
                         _ = Task.Run(async () => {
                             try
                             {
-                                var started = await _captureService?.StartCaptureAsync();
-                                if (started == true)
-                                {
-                                    Dispatcher.Invoke(() => {
-                                        AddActivityLogEntry($"[SYSTEM] Capture started for {gameTitle}");
-                                        Console.WriteLine($"[MAIN] Capture service started for {gameTitle}");
-                                        
-                                        // Connect Activity Monitor to capture service
-                                        _activityMonitor?.AttachCaptureService(_captureService);
-                                    });
-                                }
+                                await _detectionLoop?.StartAsync();
+                                Dispatcher.Invoke(() => {
+                                    AddActivityLogEntry($"[SYSTEM] Detection loop started for {gameTitle}");
+                                    Console.WriteLine($"[MAIN] Detection loop started for {gameTitle}");
+                                });
                             }
                             catch (Exception ex)
                             {
                                 Dispatcher.Invoke(() => {
-                                    AddActivityLogEntry($"[ERROR] Failed to start capture: {ex.Message}");
+                                    AddActivityLogEntry($"[ERROR] Failed to start detection loop: {ex.Message}");
                                 });
                             }
                         });
@@ -655,29 +623,23 @@ private void Stop_Click(object sender, RoutedEventArgs e)
             
             if (shouldStopCapture)
             {
-                // Stop capture service when game is no longer detected
+                // Stop detection loop when game is no longer detected
                 if (_gameIsRunning)
                 {
                     _gameIsRunning = false;
                     _ = Task.Run(async () => {
                         try
                         {
-                            var stopped = await _captureService?.StopCaptureAsync();
-                            if (stopped == true)
-                            {
-                                Dispatcher.Invoke(() => {
-                                    AddActivityLogEntry("[SYSTEM] Capture stopped - no game detected");
-                                    Console.WriteLine("[MAIN] Capture service stopped - no game detected");
-                                    
-                                    // Disconnect Activity Monitor from capture service
-                                    _activityMonitor?.DetachCaptureService();
-                                });
-                            }
+                            await _detectionLoop?.StopAsync();
+                            Dispatcher.Invoke(() => {
+                                AddActivityLogEntry("[SYSTEM] Detection loop stopped - no game detected");
+                                Console.WriteLine("[MAIN] Detection loop stopped - no game detected");
+                            });
                         }
                         catch (Exception ex)
                         {
                             Dispatcher.Invoke(() => {
-                                AddActivityLogEntry($"[ERROR] Failed to stop capture: {ex.Message}");
+                                AddActivityLogEntry($"[ERROR] Failed to stop detection loop: {ex.Message}");
                             });
                         }
                     });
@@ -707,12 +669,12 @@ private void Stop_Click(object sender, RoutedEventArgs e)
                 _smartGameDetectionWorker = null;
             }
             
-            // Cleanup capture service
-            if (_captureService != null)
+            // Cleanup detection loop
+            if (_detectionLoop != null)
             {
-                _captureService.StopCaptureAsync().Wait(TimeSpan.FromSeconds(2)); // Give it 2 seconds to stop gracefully
-                _captureService.Dispose();
-                _captureService = null;
+                _detectionLoop.StopAsync().Wait(TimeSpan.FromSeconds(2)); // Give it 2 seconds to stop gracefully
+                _detectionLoop.Dispose();
+                _detectionLoop = null;
             }
             
             // Cleanup Activity Monitor

@@ -134,29 +134,62 @@ public partial class App : Application
                 // Studio Services (must be registered first so capture services can access settings)
                 services.AddSingleton<GameWatcher.Studio.Services.StudioSettingsService>();
                 
-                // Capture services (Studio needs these to detect dialogue and play voiceovers)
-                services.AddSingleton<IOcrEngine, WindowsOCR>();
-                services.AddSingleton<ITextboxDetector>(sp =>
+                // Detection Loop (Studio uses the same optimized loop as AuthorStudio)
+                services.AddSingleton<GameWatcher.Engine.Detection.IDetectionLoop>(sp =>
                 {
-                    var logger = sp.GetService<ILogger<DynamicTextboxDetector>>();
-                    return new DynamicTextboxDetector(FF1DetectionConfig.GetConfig(), logger);
-                });
-                services.AddSingleton<GameCaptureService>(sp =>
-                {
-                    var detector = sp.GetRequiredService<ITextboxDetector>();
-                    var ocr = sp.GetRequiredService<IOcrEngine>();
-                    var logger = sp.GetRequiredService<ILogger<GameCaptureService>>();
+                    var logger = sp.GetRequiredService<ILogger<GameWatcher.Engine.Detection.DetectionLoop>>();
+                    var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
                     var settingsService = sp.GetRequiredService<GameWatcher.Studio.Services.StudioSettingsService>();
                     
-                    // Use all capture settings from persisted settings
-                    return new GameCaptureService(
-                        detector, 
-                        ocr, 
-                        logger, 
-                        settingsService.Settings.CaptureRate,
-                        settingsService.Settings.EnableOptimization,
+                    // Get FF1 configuration
+                    var config = FF1.PixelRemaster.Detection.FF1DetectionLoop.GetConfig();
+                    
+                    // Apply studio settings to detection config
+                    config.TargetFps = settingsService.Settings.CaptureRate;
+                    
+                    // Map OptimizationThreshold to sample rates (same formula as AuthorStudio)
+                    if (settingsService.Settings.EnableOptimization)
+                    {
+                        var threshold = settingsService.Settings.OptimizationThreshold;
+                        config.StableSampleRate = (int)(500 * (1.0 - threshold + 0.15));
+                        config.ChangeSampleRate = (int)(50 * (1.0 - threshold + 0.15));
+                    }
+                    else
+                    {
+                        // Optimization disabled = very low thresholds to always process
+                        config.StableSampleRate = 0;
+                        config.ChangeSampleRate = 0;
+                    }
+                    
+                    config.EnableHashCheck = settingsService.Settings.EnableDuplicateDetection;
+                    
+                    logger?.LogInformation(
+                        "DetectionLoop configured - {Fps} FPS, Optimization: {OptEnabled} (threshold: {OptValue:F2}, stable: {Stable}, change: {Change}), Hash Check: {HashEnabled}",
+                        config.TargetFps,
+                        settingsService.Settings.EnableOptimization ? "ON" : "OFF",
                         settingsService.Settings.OptimizationThreshold,
-                        settingsService.Settings.EnableDuplicateDetection);
+                        config.StableSampleRate,
+                        config.ChangeSampleRate,
+                        config.EnableHashCheck ? "ON" : "OFF");
+                    
+                    // Create textbox detector
+                    var detectorLogger = loggerFactory.CreateLogger<GameWatcher.Engine.Detection.DynamicTextboxDetector>();
+                    var detector = new GameWatcher.Engine.Detection.DynamicTextboxDetector(config.TextboxConfig, detectorLogger);
+                    
+                    // Create OCR engine (Windows OCR - proven to work better than Tesseract)
+                    var ocr = new GameWatcher.Engine.Ocr.WindowsOcrEngine();
+                    
+                    // Create the detection loop with delegates
+                    return new GameWatcher.Engine.Detection.DetectionLoop(
+                        config,
+                        detector,
+                        ocr,
+                        text => text, // No OCR fixes in Studio yet
+                        () => GameWatcher.Runtime.Services.Capture.ScreenCapture.CaptureGameWindow(),
+                        (img1, img2, sampleRate) => GameWatcher.Runtime.Services.Capture.ScreenCapture.AreImagesSimilar(img1, img2, sampleRate),
+                        text => text.Trim().ToLowerInvariant(), // Simple normalization for now
+                        logger
+                    );
                 });
                 
                 // UI
