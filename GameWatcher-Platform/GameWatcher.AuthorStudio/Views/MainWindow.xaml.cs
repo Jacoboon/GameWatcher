@@ -7,6 +7,7 @@ using Microsoft.Extensions.Logging;
 using Microsoft.Win32;
 using System.IO;
 using System.Diagnostics;
+using GameWatcher.Engine.Services;
 using MessageBox = System.Windows.MessageBox;
 
 namespace GameWatcher.AuthorStudio.Views;
@@ -25,6 +26,7 @@ public partial class MainWindow : Window
     private readonly SpeakerStore _speakerStore;
     private readonly AuthorSettingsService _settingsService;
     private bool _isInitializing = true;
+    private IDisposable? _logEventBusSubscription;
 
     public MainWindow(
         ILogger<MainWindow> logger,
@@ -44,6 +46,9 @@ public partial class MainWindow : Window
         _settingsService = settingsService;
 
         InitializeComponent();
+        
+        // Subscribe to centralized log event bus
+        _logEventBusSubscription = LogEventBus.Instance.Subscribe(OnLogEvent);
         
         DataContext = _viewModel;
         
@@ -222,9 +227,36 @@ public partial class MainWindow : Window
         }
     }
 
+    private void OnLogEvent(LogEntry entry)
+    {
+        // Forward log events to Discovery Activity Log on UI thread
+        Dispatcher.InvokeAsync(() =>
+        {
+            var levelPrefix = entry.Level switch
+            {
+                Engine.Services.LogLevel.Error => "[ERROR]",
+                Engine.Services.LogLevel.Warning => "[WARNING]",
+                Engine.Services.LogLevel.Information => "[INFO]",
+                Engine.Services.LogLevel.Debug => "[DEBUG]",
+                _ => "[TRACE]"
+            };
+
+            // Format: [CATEGORY] message
+            var category = entry.Category ?? "SYSTEM";
+            var message = $"{levelPrefix} [{category}] {entry.Message}";
+            
+            AddActivityLogNotification(message);
+        });
+    }
+
     protected override void OnClosed(EventArgs e)
     {
         _logger.LogInformation("MainWindow closing");
+        
+        // Cleanup LogEventBus subscription
+        _logEventBusSubscription?.Dispose();
+        _logEventBusSubscription = null;
+        
         _viewModel?.Dispose();
         base.OnClosed(e);
     }

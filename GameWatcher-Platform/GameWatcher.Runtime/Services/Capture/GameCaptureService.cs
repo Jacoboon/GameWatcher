@@ -28,6 +28,10 @@ namespace GameWatcher.Runtime.Services.Capture
         
         // Configuration
         private readonly int _captureIntervalMs;
+        private readonly bool _enableOptimization;
+        private readonly int _notBusyThreshold;    // Frame similarity threshold when not busy
+        private readonly int _busyThreshold;        // Frame similarity threshold when busy
+        private readonly bool _enableDuplicateDetection;
         
         // Frame processing state
         private Bitmap? _lastFrame;
@@ -50,7 +54,14 @@ namespace GameWatcher.Runtime.Services.Capture
         public event EventHandler<CaptureProgressEventArgs>? ProgressReported;
         public event EventHandler<DialogueDetectedEventArgs>? DialogueDetected;
         
-        public GameCaptureService(ITextboxDetector detector, IOcrEngine ocr, ILogger<GameCaptureService> logger, int captureFps = 15)
+        public GameCaptureService(
+            ITextboxDetector detector, 
+            IOcrEngine ocr, 
+            ILogger<GameCaptureService> logger, 
+            int captureFps = 15,
+            bool enableOptimization = true,
+            double optimizationThreshold = 0.85,
+            bool enableDuplicateDetection = true)
         {
             _detector = detector ?? throw new ArgumentNullException(nameof(detector));
             _ocr = ocr ?? throw new ArgumentNullException(nameof(ocr));
@@ -59,8 +70,28 @@ namespace GameWatcher.Runtime.Services.Capture
             // Calculate capture interval from FPS (e.g., 10 FPS = 100ms, 15 FPS = 67ms)
             _captureIntervalMs = captureFps > 0 ? (int)(1000.0 / captureFps) : 67;
             
-            _logger.LogInformation("GameCaptureService initialized with {Fps} FPS (interval: {Interval}ms)", 
-                captureFps, _captureIntervalMs);
+            // Store optimization settings
+            _enableOptimization = enableOptimization;
+            _enableDuplicateDetection = enableDuplicateDetection;
+            
+            // Convert optimization threshold (0.0 - 1.0) to pixel difference thresholds
+            // Higher threshold = more tolerant of differences (fewer pixels need to match)
+            // Lower threshold = stricter matching (more pixels must match)
+            // 
+            // Example: 0.85 threshold means 15% of pixels can differ
+            // For 1920x1080 image (2,073,600 pixels), 15% = ~310,000 pixel difference
+            // We scale this to a simpler threshold for the AreImagesSimilar function
+            //
+            // Not-busy threshold: More tolerant (500 default) to detect new textbox appearances
+            // Busy threshold: Very strict (50 default) to catch small text changes
+            _notBusyThreshold = (int)(500 * (1.0 - optimizationThreshold + 0.15)); // Scale: 0.85 → 500, 0.5 → 825
+            _busyThreshold = (int)(50 * (1.0 - optimizationThreshold + 0.15));     // Scale: 0.85 → 50, 0.5 → 82
+            
+            _logger.LogInformation(
+                "GameCaptureService initialized - {Fps} FPS ({Interval}ms), Optimization: {OptEnabled} (threshold: {OptValue:F2}, not-busy: {NotBusy}, busy: {Busy}), Duplicate Detection: {DupEnabled}", 
+                captureFps, _captureIntervalMs, 
+                enableOptimization ? "ON" : "OFF", optimizationThreshold, _notBusyThreshold, _busyThreshold,
+                enableDuplicateDetection ? "ON" : "OFF");
             
             InitializeComponents();
         }
@@ -105,7 +136,7 @@ namespace GameWatcher.Runtime.Services.Capture
         {
             if (_isRunning)
             {
-                Console.WriteLine("[GameCaptureService] Already running");
+                _logger.LogWarning("StartCaptureAsync called but service is already running");
                 return Task.FromResult(false);
             }
             
@@ -132,7 +163,7 @@ namespace GameWatcher.Runtime.Services.Capture
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[GameCaptureService] Error starting: {ex.Message}");
+                _logger.LogError(ex, "Error starting GameCaptureService");
                 _isRunning = false;
                 return Task.FromResult(false);
             }
@@ -142,13 +173,13 @@ namespace GameWatcher.Runtime.Services.Capture
         {
             if (!_isRunning)
             {
-                Console.WriteLine("[GameCaptureService] Not running");
+                _logger.LogWarning("StopCaptureAsync called but service is not running");
                 return Task.FromResult(false);
             }
 
             try
             {
-                Console.WriteLine("[GameCaptureService] Stopping...");
+                _logger.LogInformation("Stopping GameCaptureService...");
                 
                 // Set running flag first to stop new timer callbacks
                 _isRunning = false;
@@ -175,7 +206,7 @@ namespace GameWatcher.Runtime.Services.Capture
                     _lastFrame = null;
                 }
                 
-                Console.WriteLine("[GameCaptureService] Stopped successfully");
+                _logger.LogInformation("GameCaptureService stopped successfully");
                 
                 // Report final statistics
                 var stats = GetStatistics();
@@ -185,7 +216,7 @@ namespace GameWatcher.Runtime.Services.Capture
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[GameCaptureService] Error stopping: {ex.Message}");
+                _logger.LogError(ex, "Error stopping GameCaptureService");
                 return Task.FromResult(false);
             }
         }        private void CaptureAndProcess(object? state)
@@ -193,7 +224,7 @@ namespace GameWatcher.Runtime.Services.Capture
             // Check running state first
             if (!_isRunning) 
             {
-                Console.WriteLine("[GameCaptureService] Capture callback - already stopped");
+                _logger.LogDebug("Capture callback received but service already stopped");
                 return;
             }
             
@@ -210,22 +241,32 @@ namespace GameWatcher.Runtime.Services.Capture
                 {
                     bool frameMatches;
                     
-                    if (!_isBusy)
+                    // Skip optimization if disabled
+                    if (!_enableOptimization)
+                    {
+                        frameMatches = false; // Always process frames when optimization is off
+                        _logger.LogTrace("Frame optimization disabled - processing frame");
+                    }
+                    else if (!_isBusy)
                     {
                         // Not busy = use lower threshold (more tolerant) to find new textbox appearances 
-                        frameMatches = _lastFrame != null && ScreenCapture.AreImagesSimilar(_lastFrame, currentFrame, 500);
+                        frameMatches = _lastFrame != null && ScreenCapture.AreImagesSimilar(_lastFrame, currentFrame, _notBusyThreshold);
+                        if (frameMatches)
+                            _logger.LogTrace("Frame matches (not-busy threshold: {Threshold})", _notBusyThreshold);
                     }
                     else
                     {
                         // Busy = use very high threshold (99% similar) to catch text changes
-                        frameMatches = _lastFrame != null && ScreenCapture.AreImagesSimilar(_lastFrame, currentFrame, 50);
+                        frameMatches = _lastFrame != null && ScreenCapture.AreImagesSimilar(_lastFrame, currentFrame, _busyThreshold);
+                        if (frameMatches)
+                            _logger.LogTrace("Frame matches (busy threshold: {Threshold})", _busyThreshold);
                     }
                     
                     if (frameMatches && !_isBusy)
                     {
                         // Fuzzy match + not busy = new stable frame detected, process it
                         _isBusy = true;
-                        Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Stable frame detected - processing for textbox");
+                        _logger.LogDebug("Stable frame detected - processing for textbox");
                         // Continue to textbox detection below
                     }
                     else if (frameMatches && _isBusy)
@@ -266,7 +307,8 @@ namespace GameWatcher.Runtime.Services.Capture
                     
                     if (textboxPositionChanged)
                     {
-                        Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Textbox detected at {textboxRect.Value}");
+                        _logger.LogDebug("Textbox detected at X:{X}, Y:{Y}, W:{W}, H:{H}", 
+                            textboxRect.Value.X, textboxRect.Value.Y, textboxRect.Value.Width, textboxRect.Value.Height);
                         _lastTextboxRect = textboxRect.Value;
                     }
 
@@ -274,11 +316,20 @@ namespace GameWatcher.Runtime.Services.Capture
                     var textboxImage = CropImage(currentFrame, textboxRect.Value);
                     var textboxHash = GetImageHash(textboxImage);
                     
-                    // Only process OCR if textbox content has actually changed
-                    if (textboxHash != _lastTextboxHash)
+                    // Only process OCR if textbox content has actually changed (unless duplicate detection is disabled)
+                    bool shouldProcessOcr = !_enableDuplicateDetection || textboxHash != _lastTextboxHash;
+                    
+                    if (shouldProcessOcr)
                     {
-                        _lastTextboxHash = textboxHash;
-                        Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Unique textbox detected, processing OCR");
+                        if (_enableDuplicateDetection)
+                        {
+                            _lastTextboxHash = textboxHash;
+                            _logger.LogDebug("Unique textbox detected, processing OCR");
+                        }
+                        else
+                        {
+                            _logger.LogDebug("Duplicate detection disabled - processing OCR regardless");
+                        }
                         
                         // Create copies for async processing
                         var textboxCopy = new Bitmap(textboxImage);
@@ -287,13 +338,13 @@ namespace GameWatcher.Runtime.Services.Capture
                         Task.Run(async () => {
                             try 
                             {
-                                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Running OCR on textbox...");
+                                _logger.LogDebug("Running OCR on textbox...");
                                 
                                 var rawText = _ocr?.ExtractTextFast(textboxCopy) ?? "";
-                                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Raw OCR result: '{rawText}' (length: {rawText.Length})");
+                                _logger.LogDebug("Raw OCR result: '{Text}' (length: {Length})", rawText, rawText.Length);
                                 
                                 var cleanedText = CleanOCRText(rawText);
-                                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Cleaned text: '{cleanedText}' (length: {cleanedText.Length})");
+                                _logger.LogDebug("Cleaned text: '{Text}' (length: {Length})", cleanedText, cleanedText.Length);
                                 
                                 if (!string.IsNullOrWhiteSpace(cleanedText))
                                 {
@@ -301,12 +352,12 @@ namespace GameWatcher.Runtime.Services.Capture
                                 }
                                 else
                                 {
-                                    Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] No meaningful text extracted from textbox");
+                                    _logger.LogDebug("No meaningful text extracted from textbox");
                                 }
                             }
                             catch (Exception ex)
                             {
-                                Console.WriteLine($"[GameCaptureService] OCR processing failed: {ex.Message}");
+                                _logger.LogWarning(ex, "OCR processing failed");
                             }
                             finally
                             {
@@ -322,7 +373,7 @@ namespace GameWatcher.Runtime.Services.Capture
                     // No textbox detected - only save debug snapshot if this is a state change
                     if (_lastTextboxRect.HasValue)
                     {
-                        Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] Textbox disappeared from frame");
+                        _logger.LogDebug("Textbox disappeared from frame");
                         _lastTextboxRect = null;
                         _lastTextboxHash = "";
                     }
@@ -330,7 +381,8 @@ namespace GameWatcher.Runtime.Services.Capture
                     // Enhanced debugging for textbox detection failures
                     if (_frameCount % 50 == 0) // Log every 50 frames instead of 200
                     {
-                        Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] No textbox found in stable frame (frame {_frameCount}) - Frame size: {currentFrame.Width}x{currentFrame.Height}");
+                        _logger.LogDebug("No textbox found in stable frame (frame {Count}) - Frame size: {Width}x{Height}", 
+                            _frameCount, currentFrame.Width, currentFrame.Height);
                     }
                 }
 
@@ -338,7 +390,7 @@ namespace GameWatcher.Runtime.Services.Capture
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[GameCaptureService] Error in capture loop: {ex.Message}");
+                _logger.LogError(ex, "Error in capture loop");
             }
 
             stopwatch.Stop();
@@ -348,7 +400,7 @@ namespace GameWatcher.Runtime.Services.Capture
             var processingTime = stopwatch.ElapsedMilliseconds;
             if (processingTime > 100)
             {
-                Console.WriteLine($"[GameCaptureService] SLOW: Frame processing took {processingTime}ms");
+                _logger.LogWarning("SLOW: Frame processing took {Time}ms", processingTime);
             }
             
             // Report progress every 30 frames (~2 seconds at 15fps)
@@ -372,7 +424,7 @@ namespace GameWatcher.Runtime.Services.Capture
                 
             _lastText = text;
             
-            Console.WriteLine($"🎉 >>> NEW DIALOGUE DETECTED: \"{text}\"");
+            _logger.LogInformation("🎉 >>> NEW DIALOGUE DETECTED: \"{Text}\"", text);
             
             // Create a basic dialogue entry for V2 platform integration
             var entry = new DialogueEntry
@@ -414,7 +466,7 @@ namespace GameWatcher.Runtime.Services.Capture
             
             if (IsOCRGarbage(text))
             {
-                Console.WriteLine($"[{DateTime.Now:HH:mm:ss.fff}] OCR quality filter: Rejecting garbage text");
+                _logger.LogDebug("OCR quality filter: Rejecting garbage text");
                 return "[REJECTED: Low Quality OCR]";
             }
             
@@ -524,7 +576,7 @@ namespace GameWatcher.Runtime.Services.Capture
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[GameCaptureService] Error during disposal: {ex.Message}");
+                _logger.LogError(ex, "Error during GameCaptureService disposal");
             }
         }
     }

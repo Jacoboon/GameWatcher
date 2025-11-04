@@ -112,6 +112,7 @@ public partial class App : Application
                 
                 config.ReadFrom.Configuration(context.Configuration)
                       .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss.fff}] [{Level:u3}] {Message:lj}{NewLine}{Exception}")
+                      .WriteTo.LogEventBus() // Forward to UI Activity Log
                       .WriteTo.File(
                           Path.Combine(runtimeLogsDir, $"gamewatcher-studio_{sessionTimestamp}.log"),
                           rollingInterval: RollingInterval.Infinite, // No rolling, one file per session
@@ -147,8 +148,15 @@ public partial class App : Application
                     var logger = sp.GetRequiredService<ILogger<GameCaptureService>>();
                     var settingsService = sp.GetRequiredService<GameWatcher.Studio.Services.StudioSettingsService>();
                     
-                    // Use CaptureRate from persisted settings
-                    return new GameCaptureService(detector, ocr, logger, settingsService.Settings.CaptureRate);
+                    // Use all capture settings from persisted settings
+                    return new GameCaptureService(
+                        detector, 
+                        ocr, 
+                        logger, 
+                        settingsService.Settings.CaptureRate,
+                        settingsService.Settings.EnableOptimization,
+                        settingsService.Settings.OptimizationThreshold,
+                        settingsService.Settings.EnableDuplicateDetection);
                 });
                 
                 // UI

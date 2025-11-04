@@ -7,8 +7,15 @@ namespace GameWatcher.AuthorStudio.Services
 {
     public class AuthorSettings
     {
+        // Audio Settings (Author-specific)
         public string AudioFormat { get; set; } = "mp3"; // wav|mp3|flac (default mp3 for size)
         public double DefaultTtsSpeed { get; set; } = 1.0; // 0.25-4.0 per OpenAI API spec
+        
+        // Capture Settings (shared with Studio for discovery session)
+        public int CaptureRate { get; set; } = 15; // Default 15 FPS for authoring
+        public bool EnableOptimization { get; set; } = true;
+        public double OptimizationThreshold { get; set; } = 0.85; // 0.0-1.0, higher = more tolerant
+        public bool EnableDuplicateDetection { get; set; } = true;
     }
 
     public class AuthorSettingsService

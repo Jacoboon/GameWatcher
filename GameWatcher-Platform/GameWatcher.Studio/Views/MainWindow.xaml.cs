@@ -10,6 +10,7 @@ using System.Windows.Media;
 using System.Diagnostics;
 using GameWatcher.Studio.ViewModels;
 using GameWatcher.Runtime.Services.Capture;
+using GameWatcher.Engine.Services;
 
 namespace GameWatcher.Studio.Views;
 
@@ -58,12 +59,16 @@ public partial class MainWindow : Window
     private ActivityMonitorViewModel? _activityMonitor;
     private SettingsViewModel? _settingsViewModel;
     private bool _windowHasFocus = true;
+    private IDisposable? _logEventBusSubscription;
     
     public SettingsViewModel? SettingsViewModel => _settingsViewModel;
 
     public MainWindow()
     {
         InitializeComponent();
+        
+        // Subscribe to centralized log event bus
+        _logEventBusSubscription = LogEventBus.Instance.Subscribe(OnLogEvent);
         
         // Basic setup with functional pack discovery
         Title = "GameWatcher Studio V2 - Working!";
@@ -713,6 +718,10 @@ private void Stop_Click(object sender, RoutedEventArgs e)
             // Cleanup Activity Monitor
             _activityMonitor?.Dispose();
             _activityMonitor = null;
+            
+            // Cleanup LogEventBus subscription
+            _logEventBusSubscription?.Dispose();
+            _logEventBusSubscription = null;
         }
         catch (Exception ex)
         {
@@ -728,10 +737,33 @@ private void Stop_Click(object sender, RoutedEventArgs e)
         // Prepend to log (newest at top)
         ActivityLogText.Text = newEntry + ActivityLogText.Text;
         
-        // Keep log reasonable size (last 1000 characters)
-        if (ActivityLogText.Text.Length > 1000)
+        // Keep log reasonable size (last 100 lines instead of 1000 chars)
+        var lines = ActivityLogText.Text.Split('\n');
+        if (lines.Length > 100)
         {
-            ActivityLogText.Text = ActivityLogText.Text.Substring(0, 1000);
+            ActivityLogText.Text = string.Join("\n", lines.Take(100));
         }
+    }
+
+    private void OnLogEvent(LogEntry entry)
+    {
+        // Forward log events to Activity Log UI on UI thread
+        Dispatcher.InvokeAsync(() =>
+        {
+            var levelPrefix = entry.Level switch
+            {
+                Engine.Services.LogLevel.Error => "[ERROR]",
+                Engine.Services.LogLevel.Warning => "[WARNING]",
+                Engine.Services.LogLevel.Information => "[INFO]",
+                Engine.Services.LogLevel.Debug => "[DEBUG]",
+                _ => "[TRACE]"
+            };
+
+            // Format: [CATEGORY] message
+            var category = entry.Category ?? "SYSTEM";
+            var message = $"{levelPrefix} [{category}] {entry.Message}";
+            
+            AddActivityLogEntry(message);
+        });
     }
 }

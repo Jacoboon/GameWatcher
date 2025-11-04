@@ -98,6 +98,7 @@ public partial class App : Application
 
                 config.ReadFrom.Configuration(context.Configuration)
                       .WriteTo.Console(outputTemplate: "[{Timestamp:HH:mm:ss.fff}] [{Level:u3}] {Message:lj}{NewLine}{Exception}")
+                      .WriteTo.LogEventBus() // Forward to UI Activity Log
                       .WriteTo.File(
                           logPath,
                           rollingInterval: RollingInterval.Infinite, // No rolling, one file per session
@@ -115,9 +116,39 @@ public partial class App : Application
                 {
                     var logger = sp.GetRequiredService<ILogger<GameWatcher.Engine.Detection.DetectionLoop>>();
                     var loggerFactory = sp.GetRequiredService<ILoggerFactory>();
+                    var settingsService = sp.GetRequiredService<AuthorSettingsService>();
                     
                     // Get FF1 configuration
                     var config = FF1.PixelRemaster.Detection.FF1DetectionLoop.GetConfig();
+                    
+                    // Apply author settings to detection config
+                    config.TargetFps = settingsService.Settings.CaptureRate;
+                    
+                    // Map OptimizationThreshold to sample rates (inverse of GameCaptureService formula)
+                    // Higher threshold = more tolerant = higher sample rate
+                    if (settingsService.Settings.EnableOptimization)
+                    {
+                        var threshold = settingsService.Settings.OptimizationThreshold;
+                        config.StableSampleRate = (int)(500 * (1.0 - threshold + 0.15));
+                        config.ChangeSampleRate = (int)(50 * (1.0 - threshold + 0.15));
+                    }
+                    else
+                    {
+                        // Optimization disabled = very low thresholds to always process
+                        config.StableSampleRate = 0;
+                        config.ChangeSampleRate = 0;
+                    }
+                    
+                    config.EnableHashCheck = settingsService.Settings.EnableDuplicateDetection;
+                    
+                    logger?.LogInformation(
+                        "DetectionLoop configured - {Fps} FPS, Optimization: {OptEnabled} (threshold: {OptValue:F2}, stable: {Stable}, change: {Change}), Hash Check: {HashEnabled}",
+                        config.TargetFps,
+                        settingsService.Settings.EnableOptimization ? "ON" : "OFF",
+                        settingsService.Settings.OptimizationThreshold,
+                        config.StableSampleRate,
+                        config.ChangeSampleRate,
+                        config.EnableHashCheck ? "ON" : "OFF");
                     
                     // Create textbox detector
                     var detectorLogger = loggerFactory.CreateLogger<GameWatcher.Engine.Detection.DynamicTextboxDetector>();
