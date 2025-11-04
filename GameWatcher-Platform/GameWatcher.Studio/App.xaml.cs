@@ -134,6 +134,13 @@ public partial class App : Application
                 // Studio Services (must be registered first so capture services can access settings)
                 services.AddSingleton<GameWatcher.Studio.Services.StudioSettingsService>();
                 
+                // Audio Playback Service (for dialogue voiceover)
+                // TODO: Current AudioPlaybackService doesn't support MasterVolume, OutputDevice, 
+                // EnableCrossfade, or EnableAudioCaching settings. These require service refactoring.
+                // For now, just register basic service for future dialogue playback.
+                services.AddSingleton<GameWatcher.Runtime.Services.Audio.IAudioPlaybackService, 
+                                     GameWatcher.Runtime.Services.Audio.AudioPlaybackService>();
+                
                 // Detection Loop (Studio uses the same optimized loop as AuthorStudio)
                 services.AddSingleton<GameWatcher.Engine.Detection.IDetectionLoop>(sp =>
                 {

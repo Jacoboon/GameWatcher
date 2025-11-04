@@ -59,6 +59,7 @@ public partial class MainWindow : Window
     private bool _gameIsRunning = false;
     private ActivityMonitorViewModel? _activityMonitor;
     private SettingsViewModel? _settingsViewModel;
+    private GameWatcher.Studio.Services.StudioSettingsService? _studioSettingsService;
     private bool _windowHasFocus = true;
     private IDisposable? _logEventBusSubscription;
     
@@ -79,6 +80,13 @@ public partial class MainWindow : Window
         
         // Initialize watched executables from available packs
         InitializeWatchedExecutables();
+        
+        // Get StudioSettingsService from DI
+        var services = App.Services;
+        if (services != null)
+        {
+            _studioSettingsService = services.GetService<GameWatcher.Studio.Services.StudioSettingsService>();
+        }
         
         // Initialize capture service for real-time monitoring
         InitializeCaptureService();
@@ -117,13 +125,40 @@ public partial class MainWindow : Window
         }
     }
 
-    private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+    private async void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
         // Check for game after window is fully loaded and visible
         CheckForGame();
         
         // Setup smart focus-based game detection
         SetupSmartGameDetection();
+        
+        // Handle AutoStart setting
+        if (_studioSettingsService?.Settings.AutoStart == true)
+        {
+            AddActivityLogEntry("[INFO] AutoStart enabled - checking for game...");
+            
+            // Wait a brief moment for UI to stabilize
+            await Task.Delay(500);
+            
+            // Only auto-start if game is detected
+            if (GameStatusText.Text.Contains("detected") && GameStatusText.Text != "No game detected" && _detectionLoop != null)
+            {
+                AddActivityLogEntry("[INFO] Game detected - auto-starting detection loop");
+                _isMonitoring = true;
+                MonitoringStatusText.Text = "Active (Auto-Started)";
+                
+                await _detectionLoop.StartAsync();
+                
+                AddActivityLogEntry("[INFO] Detection loop auto-started successfully");
+                UpdateGameStatus("Monitoring active (auto-started)");
+                BottomStatusText.Text = "GameWatcher V2 Platform - Auto-started monitoring";
+            }
+            else
+            {
+                AddActivityLogEntry("[INFO] AutoStart enabled but no game detected - waiting for manual start");
+            }
+        }
     }
 
     private void MainWindow_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
@@ -243,13 +278,21 @@ public partial class MainWindow : Window
         }
     }
 
-private void Start_Click(object sender, RoutedEventArgs e)
+private async void Start_Click(object sender, RoutedEventArgs e)
     {
         if (_isMonitoring) // already running
         {
             AddActivityLogEntry("[INFO] Monitoring already active");
             return;
         }
+        
+        if (_detectionLoop == null)
+        {
+            AddActivityLogEntry("[ERROR] Detection loop not initialized");
+            MessageBox.Show("❌ Detection system not initialized!", "Error", MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+        
         // First check for game
         CheckForGame();
         
@@ -258,7 +301,12 @@ private void Start_Click(object sender, RoutedEventArgs e)
         {
             _isMonitoring = true;
             MonitoringStatusText.Text = "Active";
-            AddActivityLogEntry("[INFO] Real monitoring started - connecting to game");
+            AddActivityLogEntry("[INFO] Starting detection loop...");
+            
+            // Actually start the detection loop!
+            await _detectionLoop.StartAsync();
+            
+            AddActivityLogEntry("[INFO] Detection loop started successfully");
             
             MessageBox.Show("🚀 GameWatcher V2 monitoring started!\n\n⚡ Ready to connect to Final Fantasy game\n🎯 Real capture system active\n📊 No simulation - actual game monitoring", 
                            "Monitoring Started", MessageBoxButton.OK, MessageBoxImage.Information);
@@ -273,16 +321,30 @@ private void Start_Click(object sender, RoutedEventArgs e)
         }
     }
 
-private void Stop_Click(object sender, RoutedEventArgs e)
+private async void Stop_Click(object sender, RoutedEventArgs e)
     {
         if (!_isMonitoring)
         {
             AddActivityLogEntry("[INFO] Monitoring already stopped");
             return;
         }
+        
+        if (_detectionLoop == null)
+        {
+            AddActivityLogEntry("[WARNING] Detection loop not initialized, only updating UI state");
+            _isMonitoring = false;
+            MonitoringStatusText.Text = "Stopped";
+            return;
+        }
+        
+        AddActivityLogEntry("[INFO] Stopping detection loop...");
+        
+        // Actually stop the detection loop!
+        await _detectionLoop.StopAsync();
+        
         _isMonitoring = false;
         MonitoringStatusText.Text = "Stopped";
-        AddActivityLogEntry("[INFO] Monitoring stopped");
+        AddActivityLogEntry("[INFO] Detection loop stopped successfully");
         
         MessageBox.Show("⏹️ Monitoring stopped", "Monitoring Stopped", MessageBoxButton.OK, MessageBoxImage.Information);
         CheckForGame(); // Refresh to current state

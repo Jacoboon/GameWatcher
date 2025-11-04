@@ -10,27 +10,45 @@ Agents are classes or services that run concurrently (or asynchronously) and col
 
 ### Capture Agent
 
-* **Responsibility:** Grabs frames from the selected game window at a steady rate.
+* **Responsibility:** Orchestrates frame capture, textbox detection, OCR, and event emission in a unified pipeline.
 
-* **Implementation:** Uses Windows Graphics Capture on Windows 10+; falls back to PrintWindow on older builds.
+* **V2 Implementation (2025-11-03):** All apps (Studio, AuthorStudio, Runtime) use `IDetectionLoop` from GameWatcher.Engine with delegate injection pattern for platform-agnostic operation.
 
-* **Output:** Raw frame bitmaps to be consumed by downstream agents.
+* **Delegate Pattern:** Accepts function delegates for platform-specific operations:
+  - `captureFrame: () => Bitmap?` - Platform-specific screen capture (Windows Graphics Capture, PrintWindow, etc.)
+  - `compareImages: (Bitmap, Bitmap, int) => bool` - Frame similarity checking for optimization
+  - `applyOcrFixes: (string) => string` - Pack-specific OCR error corrections
+  - `normalizeText: (string) => string` - Text normalization for matching/lookup
+
+* **Configuration:** DetectionLoopConfig controls timing (TargetFps), optimization (StableSampleRate, ChangeSampleRate), and hash checking (EnableHashCheck).
+
+* **V1 Legacy (Archived):** SimpleLoop used direct frame capture with isBusy detection. V2 refines this with configurable thresholds and textbox caching.
+
+* **Output:** DialogueDetected events with normalized text, OCR confidence, textbox bounds, debug images, and performance statistics.
+
+* **Note:** GameCaptureService was deleted in Nov 2025 refactoring (622 lines) - redundant with IDetectionLoop. All apps unified on IDetectionLoop architecture.
 
 ### Textbox Detection Agent
 
 * **Responsibility:** Locates the in‑game dialogue box in each frame.
 
-* **Implementation:** Template matching against the blue FF1 textbox or other game‑specific templates.
+* **Implementation:** Template matching against the blue FF1 textbox or other game‑specific templates. DynamicTextboxDetector implements cache-based optimization (caches textbox location for stable frames).
 
-* **Output:** Bounding rectangle for the text area, or null if no textbox is found.
+* **V2 Optimization:** Pre-crop strategy detects textbox in small region first, then full detection only if cache miss or frame changed significantly.
+
+* **Output:** Bounding rectangle for the text area, or null if no textbox is found. Cache hit rate tracked in DetectionLoop statistics.
 
 ### OCR Agent
 
 * **Responsibility:** Extracts text from the detected dialogue box.
 
-* **Implementation:** Converts the crop to grayscale, applies thresholding and scaling, then runs Tesseract OCR.
+* **V2 Implementation:** WindowsOcrEngine uses Windows.Media.Ocr API (faster and more accurate than Tesseract for FF1 dialogue).
 
-* **Output:** Raw text string, potentially with line breaks and imperfect characters.
+* **V1 Legacy:** EnhancedOCR used Tesseract with 2x scaling and grayscale preprocessing. V2 simplified this - Windows OCR works best without preprocessing.
+
+* **OCR Fixes:** OcrFixesStore applies pack-specific corrections (e.g., "Ijhen" → "When"). Two-pass algorithm handles multi-word patterns first, then single-word tokens. Case-insensitive matching with case-preserved output.
+
+* **Output:** Raw text string, potentially with imperfect characters (corrected by OCR fixes).
 
 ### Normalization Agent
 

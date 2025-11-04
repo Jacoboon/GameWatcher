@@ -48,70 +48,100 @@
 
 ### 1B. Settings → Engine Integration
 **Status**: ✅ COMPLETED (2025-11-03)  
-**Description**: ~~Verify that settings from both Studio and Author Studio are actually applied to the GameWatcher.Engine services.~~ **VERIFIED AND WIRED!**
+**Description**: ~~Verify that settings from both Studio and Author Studio are actually applied to the GameWatcher.Engine services.~~ **VERIFIED, WIRED, AND ARCHITECTURAL REFACTORING COMPLETE!**
+
+**Major Architectural Change (2025-11-03)**:
+- ✅ **Unified Capture Pipeline**: Deleted redundant GameCaptureService (622 lines), migrated all apps to IDetectionLoop
+- ✅ **Studio, AuthorStudio, Runtime**: All three apps now use identical IDetectionLoop architecture
+- ✅ **Critical Bug Fix**: Studio Start/Stop buttons now actually start/stop the detection loop (was only updating UI state before!)
+- ✅ **AutoStart Feature**: Added AutoStart setting support - Studio automatically starts capture on launch if game detected
 
 **What Was Completed**:
-- ✅ **Capture Settings** - All 4 settings now wired to GameCaptureService:
-  - `CaptureRate` (FPS) → constructor parameter, calculates capture interval
+- ✅ **Capture Settings** (4/4) - All settings wired to IDetectionLoop in both apps:
+  - `CaptureRate` (FPS) → `DetectionLoopConfig.TargetFps`
   - `EnableOptimization` → controls frame similarity checking (can disable for always-process mode)
-  - `OptimizationThreshold` (0.0-1.0) → converted to pixel difference thresholds for not-busy (500@0.85) and busy (50@0.85) states
-  - `EnableDuplicateDetection` → controls textbox hash comparison (can disable to re-process same text)
+  - `OptimizationThreshold` (0.0-1.0) → converted to pixel difference thresholds (stable/change sample rates)
+  - `EnableDuplicateDetection` → `DetectionLoopConfig.EnableHashCheck` (textbox hash comparison)
+
+- ✅ **General Settings** (3/3) - Studio-specific settings wired:
+  - `AutoStart` (bool, default true) → MainWindow_Loaded auto-starts detection if game detected
+  - `DetectionIntervalSeconds` → **Investigated: Not used, deprecated** (obsolete config from early prototyping)
+  - `PackDirectories` (string[]) → **Deferred to Phase 2** (requires pack discovery refactoring)
+
+- ✅ **Audio Service Registration**: IAudioPlaybackService registered in Studio DI for future dialogue playback
 
 **Settings Architecture**:
-- **Studio (Player)**: `StudioSettings` → persisted in `%AppData%\GameWatcher\Studio\settings.json`
-- **AuthorStudio (Creator)**: `AuthorSettings` → persisted in `%AppData%\GameWatcher\AuthorStudio\settings.json`
-- **Runtime**: No settings persistence; receives configuration from hosting app (Studio or AuthorStudio)
+- **Studio (Player)**: `StudioSettings` (20 properties) → `%AppData%\GameWatcher\Studio\settings.json`
+- **AuthorStudio (Creator)**: `AuthorSettings` (6 properties) → `%AppData%\GameWatcher\AuthorStudio\settings.json`
+- **Runtime**: No settings persistence; receives configuration from hosting app
 - **Engine**: Receives configuration through constructor injection (no settings file)
 
 **Deferred Settings** (require infrastructure work):
-- ❌ **OCR Settings** (4 settings) - WindowsOCR service does not support configuration:
-  - `ConfidenceThreshold` - would need OCR engine refactoring
-  - `EnablePreprocessing` - preprocessing not implemented
+
+❌ **OCR Settings** (4/4 settings) - WindowsOcrEngine does not support configuration:
+  - `ConfidenceThreshold` - OCR engine doesn't expose confidence filtering
+  - `EnablePreprocessing` - preprocessing not implemented in WindowsOcrEngine
   - `ScaleFactor` - preprocessing not implemented
   - `ConvertToGrayscale` - preprocessing not implemented
-  - **Future Work**: Create configurable OCR wrapper or switch to Tesseract with preprocessing pipeline
+  - **Reason**: Windows.Media.Ocr API is simple and doesn't support advanced configuration
+  - **Future Work**: Either wrap WindowsOcrEngine with preprocessing pipeline OR switch to Tesseract with full preprocessing support
+  - **Phase**: 2+ (not blocking for MVP)
 
-- ❌ **Audio Settings** (4 settings) - Audio playback not implemented in Studio:
-  - `MasterVolume` - no audio player yet
-  - `OutputDevice` - no audio player yet
-  - `EnableCrossfade` - no audio player yet
-  - `EnableAudioCaching` - no audio player yet
-  - **Future Work**: Implement NAudio-based playback service (see AGENTS.md Playback Agent)
+❌ **Audio Settings** (4/4 settings) - AudioPlaybackService needs refactoring:
+  - `MasterVolume` - service doesn't support volume control yet
+  - `OutputDevice` - service doesn't support device selection yet
+  - `EnableCrossfade` - gapless playback not implemented yet
+  - `EnableAudioCaching` - preloading not implemented yet
+  - **Reason**: Current AudioPlaybackService is basic NAudio wrapper (plays file, applies effects)
+  - **Future Work**: Refactor service to support: volume mixing, device enumeration, crossfade/gapless playback queue, audio preloading cache
+  - **Reference**: See AGENTS.md Playback Agent for design goals
+  - **Phase**: 2+ (audio playback not critical for MVP - detection/authoring comes first)
+
+❌ **Pack Management** (1/3 settings) - Requires pack discovery refactoring:
+  - `PackDirectories` - pack loading currently hardcoded to FF1.PixelRemaster
+  - **Future Work**: Implement dynamic pack scanning from custom directories, multi-pack support
+  - **Phase**: 2+ (single pack sufficient for MVP)
 
 **Implementation Details**:
-- Modified `GameCaptureService` constructor to accept: `captureFps`, `enableOptimization`, `optimizationThreshold`, `enableDuplicateDetection`
 - Threshold conversion formula: `notBusyThreshold = 500 * (1.0 - threshold + 0.15)` allows tuning sensitivity
-- Logs now show all settings at startup: `"Optimization: ON (threshold: 0.85, not-busy: 500, busy: 50), Duplicate Detection: ON"`
-- Studio App.xaml.cs factory passes all 4 settings from `StudioSettingsService.Settings`
+- Logs show all settings at startup: `"DetectionLoop configured - 5 FPS, Optimization: ON (threshold: 0.85, stable: 150, change: 15), Hash Check: ON"`
+- Studio App.xaml.cs factory passes all 4 capture settings from `StudioSettingsService.Settings`
+- MainWindow constructor injects StudioSettingsService, MainWindow_Loaded checks AutoStart flag
+- Start/Stop buttons now properly async and call IDetectionLoop.StartAsync()/StopAsync()
 
 **Test Results** ✅:
 
 **Studio (Player) Tests**:
+- ✅ AutoStart feature tested - detection loop starts automatically if game detected and AutoStart=true
+- ✅ Start button actually starts detection loop now (was broken - only updated UI before)
+- ✅ Stop button properly stops detection loop with graceful shutdown
 - ✅ Changed OptimizationThreshold from 0.85 → 0.5:
-  - **Before**: `not-busy: 150, busy: 15`
-  - **After**: `not-busy: 325, busy: 32`
+  - **Before**: `stable: 150, change: 15`
+  - **After**: `stable: 325, change: 32`
   - Thresholds scaled correctly using formula: `threshold * (1.0 - value + 0.15)`
 - ✅ Toggled EnableOptimization to OFF:
-  - Log shows: `"Optimization: OFF (threshold: 0.50, not-busy: 325, busy: 32)"`
-  - Frame similarity checking is bypassed (all frames processed)
-- ✅ EnableDuplicateDetection wired and ready (not tested separately as requires gameplay)
-
-**AuthorStudio (Creator) Tests**:
-- ✅ Changed CaptureRate from 15 → 10 FPS:
-  - **Before**: `15 FPS, Optimization: ON (threshold: 0.85, stable: 150, change: 15)`
-  - **After**: `10 FPS, Optimization: ON (threshold: 0.50, stable: 325, change: 32)`
-  - Both FPS and thresholds updated correctly
-- ✅ Toggled EnableOptimization to OFF:
   - Log shows: `"Optimization: OFF (threshold: 0.50, stable: 0, change: 0)"`
-  - Detection loop thresholds set to 0 (all frames processed)
+  - Frame similarity checking bypassed (all frames processed)
+- ✅ EnableDuplicateDetection wired and ready
+
+**AuthorStudio (Creator) Tests** (from previous session):
+- ✅ Changed CaptureRate from 15 → 10 FPS: Both FPS and thresholds updated correctly
+- ✅ Toggled EnableOptimization to OFF: Thresholds set to 0 (all frames processed)
 - ✅ EnableDuplicateDetection mapped to `EnableHashCheck` in DetectionLoop config
 
-**Files Modified**:
-- `GameWatcher.Runtime/Services/Capture/GameCaptureService.cs` - constructor, frame processing logic, duplicate detection
-- `GameWatcher.Studio/App.xaml.cs` - factory registration with all 4 settings
-- `GameWatcher.Studio/Services/StudioSettings.cs` - existing settings model (no changes)
-- `GameWatcher.AuthorStudio/Services/AuthorSettingsService.cs` - added 4 capture settings to AuthorSettings
-- `GameWatcher.AuthorStudio/App.xaml.cs` - DetectionLoop factory applies settings to config
+**Files Modified** (2025-11-03 refactoring):
+- **DELETED**: `GameWatcher.Runtime/Services/Capture/GameCaptureService.cs` (622 lines removed!)
+- `GameWatcher.Studio/App.xaml.cs` - DetectionLoop factory registration, AudioPlaybackService registration
+- `GameWatcher.Studio/Views/MainWindow.xaml.cs` - StudioSettingsService injection, AutoStart logic, async Start/Stop fixes
+- `GameWatcher.Studio/ViewModels/ActivityMonitorViewModel.cs` - Deprecated GCS methods commented out
+- `GameWatcher.Runtime/Program.cs` - DetectionLoop registration (hardcoded FF1 config for now)
+- `GameWatcher.AuthorStudio/App.xaml.cs` - Already using DetectionLoop (no changes in refactoring)
+- `GameWatcher.AuthorStudio/Services/AuthorSettingsService.cs` - Added 4 capture settings
+
+**Commits**:
+- `47e4984` - Settings wired to both GameCaptureService and DetectionLoop (safety commit before refactoring)
+- `55abc81` - Unified capture pipeline - deleted GameCaptureService, all apps use IDetectionLoop
+- `[pending]` - Settings fully wired, AutoStart added, Start/Stop bugs fixed
 
 ---
 

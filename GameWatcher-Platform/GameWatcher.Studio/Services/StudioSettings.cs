@@ -12,7 +12,10 @@ public class StudioSettings
 {
     // General Settings
     public bool AutoStart { get; set; } = true;
+    
+    [Obsolete("DetectionIntervalSeconds is not used. Detection timing controlled by IDetectionLoop.TargetFps (mapped from CaptureRate).")]
     public double DetectionIntervalSeconds { get; set; } = 2.0;
+    
     public string[] PackDirectories { get; set; } = Array.Empty<string>();
 
     // Capture Settings
